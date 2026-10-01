@@ -80,3 +80,8 @@ node tools/isseval.js   sweep          # trọn chuyến ISS: đuổi pha, chuy�
 - `factory/` — **nhà máy chơi được**: `raptor.js` (mô hình động cơ + dây chuyền + bệ thử)
   + `factory.html` (mặt cắt tầng hầm + bảng điều khiển) + `test_raptor.js` (bộ kiểm tra)
 - `ue/StarbaseSim/` — project Unreal (chưa tạo, thuộc kế hoạch cũ)
+
+## Giấy phép
+
+[MIT](LICENSE) — dùng, sửa, phát hành lại thoải mái, chỉ cần giữ lại thông báo
+bản quyền. Phần mềm cung cấp nguyên trạng, không bảo hành.
