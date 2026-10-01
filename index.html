@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="vi">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Starship Sim</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Saira:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --void:#05070B; --panel:#0D1219; --edge:#1C242F;
+  --steel:#C8CDD4; --haze:#7C8797; --dim:#4B5563;
+  --flame:#FF6B1A; --flame-hot:#FFD199; --cryo:#6FD3E8; --nominal:#4ADE80;
+  --fd:"Saira Condensed",'Arial Narrow',system-ui,sans-serif;
+  --fb:"Saira",system-ui,-apple-system,sans-serif;
+  --fm:"IBM Plex Mono",ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; background:var(--void); color:var(--steel);
+  font-family:var(--fb); font-size:15px; line-height:1.65;
+  background-image:radial-gradient(ellipse 120% 80% at 50% -20%,rgba(111,211,232,.07),transparent 60%);
+}
+.wrap{max-width:860px; margin:0 auto; padding:64px 22px 80px}
+h1{
+  font-family:var(--fd); font-weight:700; font-size:clamp(34px,7vw,56px);
+  letter-spacing:.02em; text-transform:uppercase; margin:0 0 6px; line-height:1;
+}
+h1 span{color:var(--flame)}
+.sub{color:var(--haze); font-size:17px; margin:0 0 10px; max-width:62ch}
+.meta{
+  font-family:var(--fm); font-size:12px; color:var(--dim);
+  letter-spacing:.04em; margin:0 0 42px;
+}
+.cards{display:grid; gap:18px; grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+a.card{
+  display:block; text-decoration:none; color:inherit;
+  background:var(--panel); border:1px solid var(--edge); border-radius:3px;
+  padding:22px 22px 24px; transition:border-color .15s,transform .15s;
+}
+a.card:hover{border-color:var(--flame); transform:translateY(-2px)}
+a.card h2{
+  font-family:var(--fd); font-weight:700; font-size:21px; letter-spacing:.1em;
+  text-transform:uppercase; margin:0 0 4px; color:var(--flame-hot);
+}
+a.card .tag{
+  font-family:var(--fm); font-size:11px; color:var(--cryo);
+  letter-spacing:.08em; text-transform:uppercase; display:block; margin-bottom:12px;
+}
+a.card p{margin:0; color:var(--haze); font-size:14px}
+h3{
+  font-family:var(--fd); font-weight:600; font-size:13px; letter-spacing:.18em;
+  text-transform:uppercase; color:var(--haze); margin:46px 0 12px;
+  padding-bottom:7px; border-bottom:1px solid var(--edge);
+}
+dl{display:grid; grid-template-columns:auto 1fr; gap:7px 18px; margin:0; font-size:14px}
+dt{font-family:var(--fm); font-size:12px; color:var(--flame-hot); white-space:nowrap}
+dd{margin:0; color:var(--haze)}
+.note{
+  margin-top:40px; padding:14px 16px; border-left:2px solid var(--edge);
+  color:var(--dim); font-size:13px;
+}
+footer{margin-top:44px; font-size:13px; color:var(--dim)}
+footer a{color:var(--haze)}
+</style>
+
+<div class="wrap">
+  <h1>Starship <span>Sim</span></h1>
+  <p class="sub">
+    Mô phỏng phóng Starship / Super Heavy chạy thẳng trong trình duyệt. Không cài gì,
+    không đăng ký. Toàn bộ vật lý tự viết và đối chiếu bằng bộ chấm điểm chạy headless.
+  </p>
+  <p class="meta">Cần bàn phím &middot; xem tốt nhất trên máy tính</p>
+
+  <div class="cards">
+    <a class="card" href="game/hotstage.html">
+      <h2>Bay</h2>
+      <span class="tag">phóng &middot; bắt booster &middot; ghép nối ISS</span>
+      <p>
+        Phóng, tách tầng nóng, đưa booster về cho tháp bắt bằng hai cánh tay. Rồi chọn
+        thả Starlink, hoặc đưa người và hàng lên ISS: đuổi pha thật, chuyển quỹ đạo
+        Hohmann, tiếp cận R-bar và cập theo dung sai thật.
+      </p>
+    </a>
+    <a class="card" href="factory/factory.html">
+      <h2>Nhà máy</h2>
+      <span class="tag">dựng raptor &middot; bệ thử static fire</span>
+      <p>
+        Nhà máy dưới lòng đất Starbase: dây chuyền năm trạm dựng động cơ, bệ thử chạy
+        đúng trình tự ngoài đời, redline tự cắt, và sáu núm để cải tiến thiết kế.
+      </p>
+    </a>
+  </div>
+
+  <h3>Phím</h3>
+  <dl>
+    <dt>1 – 6</dt><dd>đổi góc máy (6 là camera đạo diễn)</dd>
+    <dt>W S A D</dt><dd>ga và chúc ngóc khi bay &mdash; tiến lùi và dạt ngang khi cập</dd>
+    <dt>Q E</dt><dd>xoay mũi khi đang cập tay</dd>
+    <dt>Z</dt><dd>trả lái cho máy</dd>
+    <dt>X</dt><dd>hủy bỏ khi phóng</dd>
+    <dt>N</dt><dd>bật hệ phun nước dập âm</dd>
+    <dt>&#9193;</dt><dd>tua tới sự kiện tiếp theo</dd>
+  </dl>
+
+  <div class="note">
+    Nhiệm vụ ISS có thể dài tới 28 giờ mô phỏng nếu phóng trượt cửa sổ &mdash; dùng nút
+    tua và núm tăng tốc trên thanh trên cùng. Màn hình đầu cho biết trước phải đuổi
+    bao nhiêu vòng, và cho dời giờ phóng để săn cửa sổ ngắn hơn.
+  </div>
+
+  <footer>
+    Mã nguồn: <a href="https://github.com/tuanvinhtl/starship-sim">github.com/tuanvinhtl/starship-sim</a>
+    &middot; giấy phép MIT
+  </footer>
+</div>
+</html>
