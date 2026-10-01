@@ -26,17 +26,6 @@ Phím **X** lúc đang leo là hủy bỏ: tàu tách ra, xả nhiên liệu (kh
 0,43 — không tự nhấc nổi mình) rồi tự hạ cánh. Hủy trong khoảng hai phút đầu là mất
 cả đoàn; đó là con số rơi ra từ mô hình, không phải luật chơi đặt ra.
 
-## Hậu kỳ
-
-Bloom và AO tự viết, không nạp thêm module — bản UMD r150 không có sẵn
-`EffectComposer`. Cảnh dựng vào bộ đệm nửa chấm động rồi qua chuỗi pass:
-lọc sáng có đầu gối mềm, năm mức thu/phóng kiểu Call of Duty, và SSAO nửa phân
-giải lấy độ sâu thẳng từ `logarithmicDepthBuffer` (`w = 2^(2d/fc) − 1`) nên
-không cần pass pháp tuyến riêng.
-
-Bấm **P** để bật tắt. Máy yếu thì bộ canh khung hình tự hạ ba nấc: bỏ khử răng
-cưa → tắt hậu kỳ → hạ độ phân giải.
-
 ## Chạy được ngay (không cần Unreal)
 
 ```bash
