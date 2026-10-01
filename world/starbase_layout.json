@@ -1,0 +1,50 @@
+{
+  "_comment": "Bố cục site phóng kiểu Starbase. Toạ độ MÉT, gốc = tâm bệ phóng, +Z lên, +X hướng ra biển.",
+  "units": "meters",
+  "site": { "name": "Starbase-like Launch Site", "origin_lat": 25.997, "origin_lon": -97.155 },
+
+  "olm": {
+    "_comment": "Orbital Launch Mount - bàn phóng",
+    "table_radius": 10.0, "table_thickness": 2.5, "table_height": 20.0,
+    "legs": { "count": 6, "radius": 8.5, "leg_radius": 1.1 },
+    "hold_down_clamps": { "count": 20, "radius": 4.6, "height": 3.0 },
+    "deluge_plate": { "radius": 18.0, "thickness": 1.2, "height": 0.6 }
+  },
+
+  "tower": {
+    "_comment": "Tháp phóng Mechazilla",
+    "position": [0.0, -22.0, 0.0],
+    "sections": 9, "section_height": 16.2, "width": 12.2,
+    "chopsticks": {
+      "arm_length": 40.0, "arm_width": 3.5, "pivot_height": 65.0,
+      "open_angle_deg": 42.0, "closed_angle_deg": 8.0,
+      "capture_tolerance": { "lateral_m": 1.0, "vertical_speed_ms": 2.0, "tilt_deg": 2.0 }
+    },
+    "quick_disconnect": { "height": 78.0, "reach": 14.0 }
+  },
+
+  "tank_farm": {
+    "_comment": "8 bồn GSE xếp cung tròn phía tây bệ",
+    "count": 8, "arc_center": [-95.0, 40.0, 0.0], "arc_radius": 55.0,
+    "arc_start_deg": 200.0, "arc_end_deg": 340.0,
+    "tank": { "radius": 4.6, "height": 27.0 }
+  },
+
+  "pad_deck": { "radius": 90.0, "thickness": 1.5, "height": -0.75 },
+
+  "lightning_towers": {
+    "count": 3, "radius": 120.0, "height": 90.0, "mast_radius": 0.8,
+    "start_deg": 30.0
+  },
+
+  "roads": [
+    { "name": "highway4", "from": [-400.0, 0.0, 0.2], "to": [400.0, 0.0, 0.2], "width": 14.0 }
+  ],
+
+  "camera_shots": {
+    "pad_wide":   { "location": [220.0, -180.0, 45.0],  "look_at": [0.0, 0.0, 60.0] },
+    "tower_close":{ "location": [55.0, -60.0, 80.0],    "look_at": [0.0, -22.0, 75.0] },
+    "up_the_skirt":{ "location": [14.0, 0.0, 3.0],      "look_at": [0.0, 0.0, 40.0] },
+    "tracking":   { "location": [1200.0, -900.0, 30.0], "look_at": [0.0, 0.0, 200.0] }
+  }
+}

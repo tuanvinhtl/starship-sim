@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "unreal": {
+      "command": "node",
+      "args": ["/Users/tuanvinh/engine-object/tools/unreal-mcp/dist/bin.js"],
+      "env": {
+        "UNREAL_MCP_PROJECT_PATH": "/Users/tuanvinh/engine-object/ue/StarbaseSim/StarbaseSim.uproject",
+        "UNREAL_MCP_PLATFORM": "Mac",
+        "UNREAL_MCP_CONFIGURATION": "Development",
+        "UNREAL_MCP_PYTHON_PORT": "6776",
+        "UNREAL_MCP_RC_PORT": "30010"
+      }
+    }
+  }
+}

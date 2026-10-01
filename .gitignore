@@ -1,0 +1,10 @@
+tools/unreal-mcp/
+ue/*/Binaries/
+ue/*/Build/
+ue/*/DerivedDataCache/
+ue/*/Intermediate/
+ue/*/Saved/
+ue/*/.vscode/
+ue/*/*.xcworkspace/
+sim/python/out/
+.DS_Store

@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hotstage",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8137",
+        "--directory",
+        "game"
+      ],
+      "port": 8137
+    },
+    {
+      "name": "factory",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8138",
+        "--directory",
+        "factory"
+      ],
+      "port": 8138
+    }
+  ]
+}

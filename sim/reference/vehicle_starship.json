@@ -1,0 +1,28 @@
+{
+  "_comment": "Số liệu công khai gần đúng cho Starship/Super Heavy Block 2. Dùng để tune, không phải spec chính thức của SpaceX.",
+  "vehicle": "Starship + Super Heavy",
+  "diameter_m": 9.0,
+  "stage1": {
+    "name": "Super Heavy Booster",
+    "dry_mass_t": 200.0,
+    "propellant_t": 3400.0,
+    "engines": { "count": 33, "type": "Raptor2-SL",
+      "thrust_vac_N": 2300000.0, "isp_vac_s": 347.0, "nozzle_exit_area_m2": 1.33,
+      "gimbal_count": 13, "gimbal_deg": 15.0, "throttle_min": 0.40 },
+    "grid_fins": 4
+  },
+  "stage2": {
+    "name": "Starship",
+    "dry_mass_t": 120.0,
+    "propellant_t": 1500.0,
+    "engines_sl": { "count": 3, "type": "Raptor2-SL",
+      "thrust_vac_N": 2300000.0, "isp_vac_s": 347.0, "nozzle_exit_area_m2": 1.33,
+      "gimbal_deg": 15.0, "throttle_min": 0.40 },
+    "engines_vac": { "count": 3, "type": "RaptorVac",
+      "thrust_vac_N": 2640000.0, "isp_vac_s": 380.0, "nozzle_exit_area_m2": 5.7,
+      "gimbal_deg": 0.0, "throttle_min": 0.40 },
+    "flaps": 4
+  },
+  "aero_cd_vs_mach": [[0.0,0.30],[0.6,0.32],[0.9,0.42],[1.05,0.58],[1.3,0.52],[2.0,0.38],[3.0,0.30],[5.0,0.25],[10.0,0.22]],
+  "limits": { "max_q_pa": 35000.0, "max_axial_g": 3.5 }
+}
