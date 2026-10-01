@@ -4221,11 +4221,32 @@ const Sfx = (() => {
     const s = ctx.createBufferSource();
     s.buffer = noiseBuf(3); s.loop = true; s.start(); return s;
   }
+  /* Duong cong bao hoa kieu tanh. Tieng gam cua mot ten lua lon khong phai
+     tieng U — no la tieng VO: song xung kich lam meo khong khi. Khong co khau
+     nay thi du co bao nhieu dao dong tram cung chi ra tieng may hut bui to. */
+  function satCurve(k) {
+    const n = 2048, c = new Float32Array(n), d = Math.tanh(k);
+    for (let i = 0; i < n; i++) c[i] = Math.tanh(k * (i * 2 / n - 1)) / d;
+    return c;
+  }
+  /* Xung dap ung SINH BANG NHIEU, khong nap file — vua khong can mang, vua
+     khong dinh CSP cua artifact (CSP chan media). Nhieu tat dan theo luy thua
+     cho ra mot khong gian ngoai troi rong, dung kieu be phong. */
+  function irBuf(dur, decay) {
+    const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
+    const b = ctx.createBuffer(2, n, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = b.getChannelData(ch);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay);
+    }
+    return b;
+  }
   function chain(type, freq, Q) {
     const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
     if (Q !== undefined) f.Q.value = Q; return f;
   }
 
+  let comp = null;
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -4233,7 +4254,12 @@ const Sfx = (() => {
     try { ctx = new AC(); } catch (e) { return; }
     master = ctx.createGain();
     master.gain.value = enabled ? 0.85 : 0;
-    master.connect(ctx.destination);
+    /* Bo nen o cuoi duong: khong co no thi cac lop chong len nhau luc phong se
+       vua vo tieng vua nghe rong. Nguong -18 dB, dau goi rong 24 dB cho muot. */
+    comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -18; comp.knee.value = 24; comp.ratio.value = 4;
+    comp.attack.value = 0.004; comp.release.value = 0.25;
+    master.connect(comp); comp.connect(ctx.destination);
 
     // --- dong co: nhieu qua loc thong thap + hai dao dong tram lech nhau ---
     eng.g = ctx.createGain(); eng.g.gain.value = 0;
@@ -4243,7 +4269,42 @@ const Sfx = (() => {
     eng.o2 = ctx.createOscillator(); eng.o2.type = 'sawtooth'; eng.o2.frequency.value = 41;
     eng.og = ctx.createGain(); eng.og.gain.value = 0.30;
     eng.o1.connect(eng.og); eng.o2.connect(eng.og); eng.og.connect(eng.g);
-    eng.o1.start(); eng.o2.start(); eng.g.connect(master);
+    eng.o1.start(); eng.o2.start();
+
+    /* --- LOP VO LACH TACH ---
+       Dau an cua mot ten lua lon la tieng vo bang tan rong, khong phai tieng u
+       tram. O day la nhieu qua loc thong cao, roi BIEN DO duoc dieu bien bang
+       chinh mot nguon nhieu khac — nho the no vo khong deu, dung nhu that.
+       Web Audio cho noi mot nut am tan thang vao AudioParam, nen lam duoc
+       khong can mot dong dieu khien nao trong vong lap. */
+    eng.cg = ctx.createGain(); eng.cg.gain.value = 0;
+    eng.chp = chain('highpass', 1600, 0.7);
+    eng.cn = loopNoise(); eng.cn.connect(eng.chp); eng.chp.connect(eng.cg);
+    eng.cg.connect(eng.g);
+    eng.cm = loopNoise();                       // nguon dieu bien bien do
+    eng.cmg = ctx.createGain(); eng.cmg.gain.value = 0;
+    eng.cm.connect(eng.cmg); eng.cmg.connect(eng.cg.gain);
+
+    // --- BAO HOA: dua ca cum dong co qua duong cong tanh ---
+    eng.sat = ctx.createWaveShaper();
+    eng.sat.curve = satCurve(2.6); eng.sat.oversample = '2x';
+    eng.g.connect(eng.sat);
+
+    /* --- BE RONG STEREO ---
+       Ca do am truoc day don kenh. Tach lam hai: mot ben thang, mot ben tre
+       13 ms roi danh sang phai (hieu ung Haas). Tai nghe thanh mot khoi rong
+       chu khong con la mot cham giua dau. */
+    eng.pL = ctx.createStereoPanner(); eng.pL.pan.value = -0.65;
+    eng.pR = ctx.createStereoPanner(); eng.pR.pan.value = 0.65;
+    eng.dl = ctx.createDelay(0.05); eng.dl.delayTime.value = 0.013;
+    eng.sat.connect(eng.pL); eng.pL.connect(master);
+    eng.sat.connect(eng.dl); eng.dl.connect(eng.pR); eng.pR.connect(master);
+
+    /* --- DOI AM --- gui mot phan qua convolver. Len cao thi tat dan: khong co
+       khong khi thi khong co gi doi lai. */
+    eng.conv = ctx.createConvolver(); eng.conv.buffer = irBuf(1.9, 2.4);
+    eng.rev = ctx.createGain(); eng.rev.gain.value = 0;
+    eng.sat.connect(eng.rev); eng.rev.connect(eng.conv); eng.conv.connect(master);
 
     // --- gio: dai thong, to nhat quanh max-Q ---
     wind.g = ctx.createGain(); wind.g.gain.value = 0;
@@ -4318,6 +4379,12 @@ const Sfx = (() => {
       eng.g.gain.setTargetAtTime(v * 0.6 * (0.4 + 0.6 * air), T(), 0.09);
       eng.lp.frequency.setTargetAtTime(150 + 1500 * v * air, T(), 0.12);
       eng.og.gain.setTargetAtTime(0.22 + 0.26 * (1 - air), T(), 0.2);  // chan khong: nghieng ve tram
+      /* Vo lach tach chi ton tai khi co khong khi de mang song xung kich, va
+         chi ro khi ga lon. Tren cao no tat han, con lai rung ket cau. */
+      eng.cg.gain.setTargetAtTime(v * 0.18 * air * air, T(), 0.12);
+      eng.cmg.gain.setTargetAtTime(v * 0.42 * air, T(), 0.12);
+      // Doi am: to nhat sat mat dat, het sach trong chan khong.
+      eng.rev.gain.setTargetAtTime(v * 0.34 * Math.pow(air, 1.6), T(), 0.25);
     },
     setWind(q) {
       if (!ok()) return;
@@ -4751,10 +4818,11 @@ const stars = new THREE.Points(starGeo, starMat); scene.add(stars);
 /* ===== BE PHONG (co dinh tai goc) ===== */
 const pad = new THREE.Group(); scene.add(pad);
 const MConc = new THREE.MeshStandardMaterial({ color: 0x6E6A63, roughness: .95 });
-const MSteelD = new THREE.MeshStandardMaterial({ color: 0x4A4E55, roughness: .62, metalness: .75 });
-// metalness cao ma khong co envMap thi kim loai chi phan xa hu vo -> den si.
-// Ha xuong .5 de thep bat anh sang khuech tan, doc ra dung mau inox.
-const MSteel = new THREE.MeshStandardMaterial({ color: 0xCED4DB, roughness: .42, metalness: .5 });
+const MSteelD = new THREE.MeshStandardMaterial({ color: 0x4A4E55, roughness: .55, metalness: .85 });
+/* Gio DA CO envMap (xem khoi ENV), nen tra metalness ve muc that cua inox.
+   Truoc day phai ha xuong 0,5 vi khong co gi de phan xa — metalness cao ma
+   phan xa hu vo thi ra den si. */
+const MSteel = new THREE.MeshStandardMaterial({ color: 0xCED4DB, roughness: .34, metalness: .88 });
 const MDark = new THREE.MeshStandardMaterial({ color: 0x22262B, roughness: .7, metalness: .5 });
 function box(w, h, d, x, y, z, m, ry, par) {
   const e = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -8193,6 +8261,66 @@ function recDiagnose(o, a) {
 /* ===================== LOOP ===================== */
 const SKY_LOW = new THREE.Color(0x8CB3D0), SKY_MID = new THREE.Color(0x18324C), SKY_TOP = new THREE.Color(0x05070B);
 const _sky = new THREE.Color(), _off = new THREE.Vector3(), _ZA = new THREE.Vector3(0, 0, 1);
+
+/* ===================== BAN DO MOI TRUONG =====================
+   Chinh file nay da ghi o dong vat lieu: "metalness cao ma khong co envMap thi
+   kim loai chi phan xa hu vo -> den si", va cach ne luc do la ha metalness
+   xuong 0,5. Nhung Starship la THEP KHONG GI DANH BONG — khong co gi de phan
+   xa thi no khong bao gio ra thep, chi ra nhua xam. Day la mon an tien nhat
+   cho phan nhin, va khong can them mot thu vien nao.
+
+   Moi truong phai DOI THEO DO CAO: tren be la troi sang voi mat be-tong ben
+   duoi; o 100 km la den voi Trai Dat sang ben duoi. Mot envMap tinh se sai o
+   mot trong hai dau. Nen dung mot canh nho rieng (mot qua cau lat trong, to
+   bang shader) roi dung lai PMREM khi do cao hoac mau troi doi du nhieu. */
+const ENV = (() => {
+  const pm = new THREE.PMREMGenerator(renderer);
+  const u = {
+    troi:    { value: new THREE.Color() },
+    dat:     { value: new THREE.Color() },
+    nang:    { value: new THREE.Vector3(-0.55, 0.32, 0.76).normalize() },
+    mauNang: { value: new THREE.Color(0xFFF0DC) },
+    doNang:  { value: 1 },
+  };
+  const m = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, uniforms: u,
+    vertexShader: 'varying vec3 vW; void main(){ vW = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+    fragmentShader: `
+      uniform vec3 troi, dat, nang, mauNang; uniform float doNang; varying vec3 vW;
+      void main(){
+        vec3 d = normalize(vW);
+        vec3 c = mix(dat, troi, smoothstep(-0.22, 0.30, d.y));
+        /* Dia mat troi: mu 400 cho ra mot cham nho va gat. Day moi la thu tao
+           ra VET SANG TRUOT doc than thep khi tau xoay — khong co no thi phan
+           xa chi la mot mang xam deu, van chan nhu cu. */
+        c += mauNang * pow(max(0.0, dot(d, nang)), 400.0) * 26.0 * doNang;
+        c += mauNang * pow(max(0.0, dot(d, nang)), 7.0) * 0.30 * doNang;   // quang quanh mat troi
+        gl_FragColor = vec4(c, 1.0);
+      }`
+  });
+  const sc = new THREE.Scene();
+  sc.add(new THREE.Mesh(new THREE.SphereGeometry(10, 24, 16), m));
+  const DAT_BE = new THREE.Color(0x6E6A63);      // be-tong + cat
+  const DAT_QD = new THREE.Color(0x24415E);      // Trai Dat nhin tu tren
+  let rt = null, altCu = -1e9, tCu = -1e9;
+
+  function capNhat(alt, now) {
+    /* Dung lai PMREM TON TIEN, nen chi lam khi canh that su doi: do cao nhich
+       qua 2 km hoac 4%, va khong qua mot lan moi 0,4 giay. */
+    if (now - tCu < 400 && Math.abs(alt - altCu) < Math.max(2000, altCu * 0.04)) return;
+    tCu = now; altCu = alt;
+    u.troi.value.copy(_sky);
+    const k = Math.min(1, Math.max(0, (alt - 3000) / 70000));
+    u.dat.value.copy(DAT_BE).lerp(DAT_QD, k);
+    u.doNang.value = 0.55 + 0.45 * Math.min(1, alt / 40000);   // tren cao mat troi gat hon
+    const moi = pm.fromScene(sc, 0, 0.1, 60);
+    if (rt) rt.dispose();
+    rt = moi;
+    scene.environment = rt.texture;
+    renderer.setRenderTarget(null);
+  }
+  return { capNhat };
+})();
 /* GOC TROI: khi tau tai nhap cach thap 6552 km, toa do the gioi len toi 4.76
    TRIEU met. float32 o do lon do chi con phan giai ~0.5 m — tren con tau 52 m
    thi dinh hinh rung va kich thuoc nhay. Nen moi khung hinh ta DOI GOC ve dung
@@ -9556,6 +9684,7 @@ function frame(now) {
   else if (a < 62000) _sky.copy(SKY_MID).lerp(SKY_TOP, (a - 12000) / 50000);
   else _sky.copy(SKY_TOP);
   renderer.setClearColor(_sky, 1);
+  ENV.capNhat(a, now);
   // Khi quyen tan dan: 14 km con nguyen, 84 km chi con vet mo o duong chan troi
   airMat.uniforms.dim.value = Math.max(0.07, Math.min(1, 1 - (a - 14000) / 70000));
   /* DA THU DOI vo khi quyen sang FrontSide khi len tren 200 km, vi tuong mot
