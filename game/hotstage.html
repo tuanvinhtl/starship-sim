@@ -4861,6 +4861,95 @@ const MSteelD = new THREE.MeshStandardMaterial({ color: 0x4A4E55, roughness: .55
    phan xa hu vo thi ra den si. */
 const MSteel = new THREE.MeshStandardMaterial({ color: 0xCED4DB, roughness: .34, metalness: .88 });
 const MDark = new THREE.MeshStandardMaterial({ color: 0x22262B, roughness: .7, metalness: .5 });
+
+/* ===================== VAN THEP CHO THAN TEN LUA =====================
+   Than tau va than booster truoc day la MOT MAU PHANG, khong mot ban do nao —
+   trong khi do la thu nguoi choi nhin 90% thoi gian. Thep khong gi ma khong co
+   bien thien do nham thi doc ra NHUA, khong phai kim loai.
+
+   SINH BANG MA, khong dung file anh: ca tro choi la mot file HTML tu chua
+   khong co buoc build, va ban artifact bi CSP chan nap anh tu ngoai.
+
+   Dac diem nhan dang cua Starship la cac VANH HAN NGANG — than duoc ghep tu
+   nhung vong thep cao 1,83 m. Vay nen tile cao dung 4 vong (co bien thien nhe
+   giua cac vong de khong lap lai y het), roi moi than dat repeat.y theo so
+   vong that cua no. */
+const VAN_THEP = (() => {
+  const W = 512, H = 512, VONG = 4, HV = H / VONG;
+  const cao = new Float32Array(W * H);
+  const rnd = (() => { let x = 0x2F6E2B1; return () => (x = (x * 1664525 + 1013904223) >>> 0) / 4294967296; })();
+
+  /* Van can nguoi chay NGANG quanh than (thep can tam), tuc bien thien theo
+     CHIEU DOC va muot theo chieu ngang. */
+  const soc = new Float32Array(H);
+  for (let y = 0; y < H; y++) soc[y] = rnd() - 0.5;
+  const mem = new Float32Array(H);
+  for (let y = 0; y < H; y++) {
+    let t = 0, n = 0;
+    for (let k = -2; k <= 2; k++) { t += soc[(y + k + H) % H]; n++; }
+    mem[y] = t / n;
+  }
+  const bienVong = new Float32Array(VONG);
+  for (let i = 0; i < VONG; i++) bienVong[i] = (rnd() - 0.5) * 0.06;   // moi vong mot sac do hoi khac
+
+  for (let y = 0; y < H; y++) {
+    const trongVong = y % HV, chiSo = (y / HV) | 0;
+    /* Moi han: mot ranh lom hep o ranh gioi hai vong, va mot go nho ngay canh —
+       dung hinh mot duong han that. */
+    const d = Math.min(trongVong, HV - trongVong);
+    const ranh = Math.exp(-(d * d) / 6.0) * 0.55;
+    const go = Math.exp(-((d - 4) * (d - 4)) / 5.0) * 0.18;
+    for (let x = 0; x < W; x++) {
+      cao[y * W + x] = 1 - ranh + go + mem[y] * 0.10 + bienVong[chiSo];
+    }
+  }
+
+  const lam = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; return c; };
+  // --- do nham: cho lom thi nham hon (han bi oxy hoa), mat phang thi bong ---
+  const cR = lam(), gR = cR.getContext('2d'), iR = gR.createImageData(W, H);
+  for (let i = 0; i < W * H; i++) {
+    const v = Math.max(0, Math.min(1, 0.72 - (cao[i] - 1) * 1.6));
+    const b = (v * 255) | 0;
+    iR.data[i * 4] = b; iR.data[i * 4 + 1] = b; iR.data[i * 4 + 2] = b; iR.data[i * 4 + 3] = 255;
+  }
+  gR.putImageData(iR, 0, 0);
+
+  // --- phap tuyen: Sobel tren truong cao do ---
+  const cN = lam(), gN = cN.getContext('2d'), iN = gN.createImageData(W, H);
+  const at = (x, y) => cao[((y + H) % H) * W + ((x + W) % W)];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const dx = (at(x + 1, y) - at(x - 1, y)) * 7.0;
+    const dy = (at(x, y + 1) - at(x, y - 1)) * 7.0;
+    const l = Math.hypot(-dx, -dy, 1);
+    const i = (y * W + x) * 4;
+    iN.data[i]     = ((-dx / l) * 0.5 + 0.5) * 255;
+    iN.data[i + 1] = ((-dy / l) * 0.5 + 0.5) * 255;
+    iN.data[i + 2] = (1 / l) * 0.5 * 255 + 127;
+    iN.data[i + 3] = 255;
+  }
+  gN.putImageData(iN, 0, 0);
+
+  const tex = c => { const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t; };
+  return { rough: tex(cR), normal: tex(cN), VONG, CAO_VONG: 1.83 };
+})();
+
+/* Mot vat lieu rieng cho MOI than, vi repeat.y phai theo chieu cao that cua no.
+   Khong dung chung MSteel duoc: MSteel con dung cho thap, bon chua, san — vanh
+   han ngang xuat hien tren nhung thu do thi sai. */
+function thepThan(caoM) {
+  const m = new THREE.MeshStandardMaterial({
+    color: 0xCED4DB, roughness: .34, metalness: .88,
+    roughnessMap: VAN_THEP.rough.clone(), normalMap: VAN_THEP.normal.clone(),
+  });
+  const n = caoM / VAN_THEP.CAO_VONG / VAN_THEP.VONG;    // so lan lap tile
+  for (const t of [m.roughnessMap, m.normalMap]) {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, n); t.needsUpdate = true;
+  }
+  m.normalScale = new THREE.Vector2(0.6, 0.6);
+  return m;
+}
+const MThanB = thepThan(69), MThanS = thepThan(40), MMui = thepThan(12.1);
 function box(w, h, d, x, y, z, m, ry, par) {
   const e = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
   e.position.set(x, y, z); if (ry) e.rotation.y = ry; (par || pad).add(e); return e;
@@ -5807,7 +5896,7 @@ function latticeTexture() {
   return new THREE.CanvasTexture(c);
 }
 {
-  const b = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 69, 40), MSteel);
+  const b = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 69, 40), MThanB);
   b.position.y = 34.5; boosterObj.add(b);
 
   /* --- 4 GRID FIN: tam luoi phang CHIA NGANG ra ngoai, xoay quanh truc ban le
@@ -6019,7 +6108,7 @@ function tileTexture() {
   const R = 4.5, BODY = 40, NOSE = 12.1;        // tong 52.1 m — dung Block 2
   const S_PIN = SHIP_PIN_Y, S_PIN_R = SHIP_PIN_R;
   const PIN_AZ = SHIP_PIN_AZ;                  // cung phuong vi voi flap truoc
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, BODY, 44), MSteel);
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, BODY, 44), MThanS);
   body.position.y = BODY / 2; shipObj.add(body);
 
   // --- MUI OGIVE: bien cong, khong phai non nhon ---
@@ -6028,7 +6117,7 @@ function tileTexture() {
     const u = i / 18;
     prof.push(new THREE.Vector2(Math.max(.10, R * Math.sqrt(Math.max(0, 1 - u * u * .985))), u * NOSE));
   }
-  const nose = new THREE.Mesh(new THREE.LatheGeometry(prof, 44), MSteel);
+  const nose = new THREE.Mesh(new THREE.LatheGeometry(prof, 44), MMui);
   nose.position.y = BODY; shipObj.add(nose);
 
   // --- Chan nhiet: cung ~112 do quanh bung, phu ca than lan mui ---
@@ -8961,6 +9050,9 @@ const TUNE = (() => {
     ['Ngưỡng loé',     .3, 2.5, .05, () => FX.nguong.value, v => FX.nguong.value = v],
     ['Mạnh loé',        0, 2,   .05, () => FX.manh.value,   v => FX.manh.value = v],
     ['Mạnh AO',         0, 2,   .05, () => FX.manhAO.value, v => FX.manhAO.value = v],
+    ['Vân thép',        0, 2,   .05, () => MThanS.normalScale.x,
+                                     v => [MThanB, MThanS, MMui].forEach(m => {
+                                       m.normalScale.set(v, v); m.needsUpdate = true; })],
     ['Mặt trời',        0, 5,   .1,  () => sun.intensity,   v => sun.intensity = v],
     ['Bán cầu',         0, 1,   .02, () => hemi.intensity,  v => hemi.intensity = v],
     ['Môi trường',      0, 1,   .02, () => amb.intensity,   v => amb.intensity = v],
