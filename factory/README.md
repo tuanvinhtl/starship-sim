@@ -120,5 +120,5 @@ thì tự cầm sang.
 
 Bảng thông số hiện luôn **TWR cất cánh** của chồng 5.220 t với 33 máy đó:
 Raptor 1 → 1.14, Raptor 2 → 1.40, Raptor 3 → 1.65. Con số 1.40 của Raptor 2
-khớp đúng `PLAN.md`. Động cơ mạnh hơn không tự động là tên lửa tốt hơn: bộ lái
+khớp đúng `VEH` trong [`../game/flight.js`](../game/flight.js). Động cơ mạnh hơn không tự động là tên lửa tốt hơn: bộ lái
 lên quỹ đạo được chỉnh theo TWR nào thì phải chỉnh lại theo đó.

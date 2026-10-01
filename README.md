@@ -2,10 +2,7 @@
 
 Game giả lập phóng tên lửa Starship / Super Heavy.
 
-> **Trạng thái:** đã chuyển hướng khỏi Unreal. Bản chơi được là game 3D chạy trong
-> trình duyệt: [`game/hotstage.html`](game/hotstage.html) — không cần cài gì.
-> [PLAN.md](PLAN.md) và [docs/00-setup.md](docs/00-setup.md) vẫn giữ nguyên kế hoạch
-> Unreal đầy đủ, dùng lại được nếu sau này quay lại hướng đó.
+> **Chơi ngay:** <https://tuanvinhtl.github.io/starship-sim/> — không cần cài gì.
 
 ## Chơi
 
@@ -65,21 +62,19 @@ phạm vi biến.
 node tools/boosteval.js sweep <nhãn>   # 28 chuyến booster vào tháp
 node tools/shipeval.js  run   <nhãn>   # tàu tái nhập, nhiều thời tiết và seed
 node tools/isseval.js   sweep          # trọn chuyến ISS: đuổi pha, chuyển quỹ đạo, cập
-./tools/doctor.sh                      # kiểm môi trường
 ```
 
 ## Cấu trúc
 
 - `sim/` — mô hình bay tham chiếu (Python), số liệu vehicle
-- `world/` — bố cục site dạng data + script dựng qua MCP
-- `tools/unreal-mcp/` — MCP server (đã build, 127 tool)
+- `world/` — bố cục site Starbase dạng data (toạ độ bệ phóng, tháp, trại bồn)
 - `game/` — **game chơi được**: `hotstage.html` (3D + HUD) là nguồn gốc duy nhất;
   ba mô-đun vật lý được trích thẳng từ nó và chạy được bằng node — `flight.js`
   (bay 3-DOF + booster về), `ship3d.js` (6-DOF cho tàu tái nhập, có roll và bốn
   cánh gió độc lập), `dock.js` (hẹn gặp và ghép nối quỹ đạo)
 - `factory/` — **nhà máy chơi được**: `raptor.js` (mô hình động cơ + dây chuyền + bệ thử)
   + `factory.html` (mặt cắt tầng hầm + bảng điều khiển) + `test_raptor.js` (bộ kiểm tra)
-- `ue/StarbaseSim/` — project Unreal (chưa tạo, thuộc kế hoạch cũ)
+- `tools/` — bộ chấm điểm chạy headless + script trích mô-đun
 
 ## Giấy phép
 
