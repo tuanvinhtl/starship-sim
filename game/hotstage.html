@@ -5982,6 +5982,77 @@ const boostFrost = (() => {
 })();
 const clBoost = makeCluster(CL_BOOST, false); boosterObj.add(clBoost);
 
+/* ===================== TACH TANG NONG: LUA QUA VANH THONG HOI =====================
+   Hot-staging that: ba Raptor mat bien cua TAU danh lua trong khi hai tang VAN
+   CON DINH NHAU. Luong khi xa thang xuong vanh thong hoi tren dinh booster roi
+   toe ra hai phia qua cac khe cua vanh; mot phan dong luong do la cai day booster
+   tut lai. Lo vat ly da mo hinh day du chuyen nay tu lau — xem HOT_DUR, HOT_NENG
+   va PLUME_F trong flight.js — nhung lop ve thi khong cho thay gi: nguoi choi chi
+   thay hai cum lua chay 3,2 giay roi tau bien mat. Khoi nay la phan NHIN THAY.
+
+   Dung HINH NON that chu khong phai bang quang cao: tam khi nay doi xung truc,
+   nhin tu goc nao cung phai thay no toe deu quanh than, dieu ma mot tam quang cao
+   luon quay mat vao ong kinh khong lam duoc. Hai non cap mieng tai vanh — mot toe
+   xuong-ra ngoai (luong chinh dap vao dinh booster roi van ra), mot leo nguoc len
+   om lay vay dong co tau. */
+const HOTFX = (() => {
+  /* Vet khi: trang o chan vanh, chuyen cam roi loang het o ria. Xe them soc doc
+     vi khi di qua KHE cua vanh nen ra thanh tung tia, khong phai mot mang lien. */
+  const c = document.createElement('canvas'); c.width = 128; c.height = 64;
+  const x = c.getContext('2d');
+  const gr = x.createLinearGradient(0, 0, 0, 64);
+  gr.addColorStop(0, '#FFF6E6'); gr.addColorStop(.16, '#FFC878');
+  gr.addColorStop(.52, '#D4652A'); gr.addColorStop(1, 'rgba(60,10,0,0)');
+  x.fillStyle = gr; x.fillRect(0, 0, 128, 64);
+  x.globalCompositeOperation = 'destination-out';
+  for (let i = 0; i < 128; i++) {
+    const a = Math.pow(Math.abs(Math.sin(i * 1.73)) * .5 + Math.abs(Math.sin(i * .41)) * .5, 2) * .6;
+    x.fillStyle = 'rgba(0,0,0,' + a.toFixed(3) + ')'; x.fillRect(i, 0, 1, 64);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  const mat = () => new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0,
+    blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+
+  const g = new THREE.Group();
+  g.position.y = 70.1;                       // ngay vanh hot-stage (ring2)
+  g.visible = false; boosterObj.add(g);
+
+  /* Ca hai non deu dung cung mot hinh: dau NHO o chan vanh (noi vet khi sang
+     nhat, v = 1) va loe ra o dau xa. Non tren chi la non duoi quay 180 do quanh
+     truc X — quay ca UV theo, nen dau sang van nam dung o vanh. */
+  const duoi = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 15.5, 11, 40, 1, true), mat());
+  duoi.position.y = -5.5; g.add(duoi);
+  const tren = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 13, 7.5, 40, 1, true), mat());
+  tren.rotation.x = Math.PI; tren.position.y = 3.75; g.add(tren);
+
+  // chinh vanh bi nung: sang ngay tai khe, khong co vet
+  const vanh = new THREE.Mesh(new THREE.CylinderGeometry(4.66, 4.66, 2.4, 40, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xFFB267, transparent: true, opacity: 0,
+      blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  g.add(vanh);
+  return { g, duoi, tren, vanh, tex };
+})();
+
+/* k = 0 tat han; k = 1 la dang giua cua so hot-stage; k > 1 la nhip loe luc nha kep. */
+function hotFxStep(k, now) {
+  if (!(k > 0.004)) { HOTFX.g.visible = false; return; }
+  HOTFX.g.visible = true;
+  const kk = Math.min(1.7, k);
+  const fl = .84 + .16 * Math.sin(now * .061) + .07 * Math.sin(now * .0172);
+  const a = kk * fl;
+  HOTFX.duoi.material.opacity = Math.min(.92, .60 * a);
+  HOTFX.tren.material.opacity = Math.min(.70, .33 * a);
+  HOTFX.vanh.material.opacity = Math.min(.95, .80 * a);
+  const r = .80 + .36 * kk + .05 * Math.sin(now * .043);   // ban kinh toe
+  const h = .88 + .30 * kk;                                // chieu dai luong
+  HOTFX.duoi.scale.set(r, h, r); HOTFX.duoi.position.y = -5.5 * h;
+  HOTFX.tren.scale.set(r * .9, h * .9, r * .9); HOTFX.tren.position.y = 3.75 * h * .9;
+  HOTFX.tex.offset.x = (now * .0013) % 1;                  // khi chay quanh vanh
+  HOTFX.g.rotation.y = now * .0009;
+}
+
+
 /* Vi tri chot nang — thap bat cua tau doc CHINH hai hang so nay de dat canh
    tay, nen chung khong the lech nhau nua. */
 const SHIP_PIN_Y = 34, SHIP_PIN_R = 6.0, SHIP_PIN_AZ = 110 * DEG;
@@ -6996,6 +7067,11 @@ const sPrevBase = new THREE.Vector3(), _hitB = new THREE.Vector3(), _padP = new 
 let shipResult = null, boostResult = null, shipTelFinal = null, shipLand = null;
 let rudInfo = null, mecoInfo = null, secoInfo = null, peakQA = 0, peakHeat = 0;
 let hotInfo = null, hingeBurn = null;
+/* Ba so chi phuc vu KHAU TACH TANG NONG, deu la bien cua lop ve:
+     sepPad  — doan bu 71 m giua day tau va day booster, nhoa dan sau MECO
+     sepFlash— nhip loe luc nha kep, giam ve 0 trong ~1,15 giay
+     hotCam  — dem lui giu goc may sat khe noi */
+let sepPad = 0, sepFlash = 0, hotCam = 0;
 /* Co CA MUC 1 MAY: luat ha moi dung 1 may o duoi 250 m (3 may o ga toi thieu da la
    T/W 1.25, khong giu duoc toc do ha). Thieu muc nay thi luc nguoi choi gianh lai
    lai tay o doan cuoi, nhanh mac dinh se nhay thang len 33 MAY. */
@@ -7071,6 +7147,7 @@ function reset() {
   burnT = 0; burnN = 0; burnThr = 0;
   rudInfo = null; mecoInfo = null; secoInfo = null; peakQA = 0; peakHeat = 0; rec = null;
   hotInfo = null; hingeBurn = null;
+  sepPad = 0; sepFlash = 0; hotCam = 0; hotFxStep(0, 0);
   peakTb = 0; peakTl = 0; peakTh = 0; peakYaw = 0;
   $('skip').hidden = true; $('skip').classList.remove('busy');
   boosterObj.visible = true; shipObj.visible = true;
@@ -7193,7 +7270,7 @@ addEventListener('keydown', e => {
     if (shipCam() && (k === '1' || k === '2')) {
       const tn = performance.now();
       if (tn - noCamT > 4000) { noCamT = tn; logLine('Góc 1/2 gắn ở mặt đất — tàu đang ở quỹ đạo, dùng 3/4 hoặc 5', 'hi'); }
-    } else { camMode = +k; if (shr) CIN.user = true; }
+    } else { camMode = +k; hotCam = 0; if (shr) CIN.user = true; }
   }
   if (k === '6') { camMode = 6; CIN.user = false; CIN.shot = ''; logLine('Camera đạo diễn — tự cắt cảnh theo sự kiện hạ cánh', 'hi'); }
   if (k === ' ' && CIN.overAt) { CIN.overAt = 0; $('over').hidden = false; }
@@ -7337,6 +7414,7 @@ function onShipEvent(e) {
     hotInfo = { t: e.t, alt: e.alt, v: e.v };
     logLine('Hot-stage — hạ còn 3 máy giữa, tàu đánh lửa khi vẫn dính', 'hi');
     setPhase('Hot-stage', 'hot'); Sfx.thud(110); shakeT = .35;
+    hotCam = 4.9; sepFlash = 0;        // cat vao khe noi suot cua so 3,2 giay
   }
   if (e.type === 'MECO') {
     mecoInfo = { t: e.t, alt: e.alt, v: e.v };
@@ -7348,6 +7426,8 @@ function onShipEvent(e) {
     buildGrid('booster'); setCellLabels('ret');
     $('catchbar').hidden = false;
     camMode = 3; shakeT = .8;
+    sepPad = SHIP_OFFSET; sepFlash = 1;
+    hotCam = Math.max(hotCam, 1.8);    // giu them 1,8 giay de THAY hai tang roi nhau
     logLine('Phím 5 — hai khung: xem tàu bay lên quỹ đạo', 'hi');
     logLine('Bám theo booster — tàu bay tiếp tự động', 'hi');
     logLine(bTargetDr === 0 ? 'Đích: tháp Starbase'
@@ -9504,6 +9584,19 @@ function frame(now) {
     shipObj.rotation.z = -(worldAngle(tel.downrange) + pit);
     worldPos(Math.max(0, bt.alt), bt.lateral, _bAbs);
     boosterObj.rotation.z = -(worldAngle(bt.lateral) + bt.pitch);
+    /* KHE NOI 71 M. Lo bay la 3-DOF: ca chong chi co MOT diem trang thai, nen khi
+       con dinh lop ve phai dat day tau cao hon day booster dung SHIP_OFFSET met
+       (nhanh `!bo` ben tren). Ngay sau MECO, makeBooster cho booster KHOI HANH TU
+       CHINH DIEM DO — bo offset di thi dung khoanh khac tach, tau tut thang 71 m
+       vao long booster roi moi bo ra: cu day cua luong khi nong bien thanh mot cu
+       giat nguoc. Giu nguyen offset cho toi khi khe that da vuot qua no, roi moi
+       nhoa dan tren quang 71 -> 600 m. Dao ham cua khoang cach VE ra van duong
+       (1 - 71/529 = 0,87) nen khong bao gio thay hai tang ap lai gan nhau. */
+    if (sepPad > 0) {
+      sepPad = SHIP_OFFSET * Math.max(0, Math.min(1,
+        (600 - _sAbs.distanceTo(_bAbs)) / (600 - SHIP_OFFSET)));
+      if (sepPad > 0) _sAbs.add(_off.set(0, sepPad, 0).applyAxisAngle(_ZA, shipObj.rotation.z));
+    }
     boosterObj.visible = bo.alive || boostResult && boostResult.outcome !== 'crash';
   }
   // 2) doi goc troi ve vat the dang bam, dich ca the gioi nguoc lai
@@ -9782,6 +9875,13 @@ function frame(now) {
   const boostThr = bo ? bt.throttle : (phase === 'COUNT' && pre <= 3 ? (3 - Math.max(0, pre)) / 3 : tel.throttle);
   const atmB = bo ? F.atmosphere(bt.alt) : atmS;
   updateCluster(clBoost, boostLit, boostThr, atmB.p, now);
+
+  /* Lua qua vanh thong hoi: len dan trong 0,4 giay dau (chuyen danh lua), chay
+     suot cua so, roi NHAY LOE mot nhip khi nha kep va tat trong ~1,15 giay.
+     Binh phuong sepFlash de nhip loe dut khoat chu khong nhoa deu. */
+  if (sepFlash > 0) sepFlash = Math.max(0, sepFlash - raw / 1.15);
+  if (hotCam > 0) hotCam = Math.max(0, hotCam - raw);
+  hotFxStep((!bo && st.hot ? Math.min(1, st.hotT / .4) : 0) + sepFlash * sepFlash * .95, now);
 
   /* ---- HIEU UNG KHI DONG: plasma tai nhap, khe ban le canh, xoay grid fin.
      Do sang lay tu NHIET LUONG DIEM DUNG (Sutton-Graves) chu khong bat theo
@@ -10082,6 +10182,18 @@ function frame(now) {
         camera.position.z += 20; camera.fov = 40;
       }
     }
+  }
+  /* ---- GOC MAY TACH TANG NONG ----
+     3,2 giay duy nhat ca chuyen co ca hai tang cung chay. Goc bam thuong (che do
+     3) dung cach 190 m: o do khe noi chi la mot cham sang lan trong hai cot lua.
+     Doan nay cat vao sat vanh thong hoi, va giu them 1,8 giay sau khi nha kep de
+     nguoi choi THAY hai tang roi nhau — do moi la nhip ho doi. Bam phim doi goc
+     la huy ngay, giong moi canh tu cat khac. */
+  if (hotCam > 0 && !srt) {
+    _tp.copy(bo ? _bp : _sp).add(_off.set(0, SHIP_OFFSET, 0).applyAxisAngle(_ZA, actRot));
+    camera.position.copy(_tp).add(_wp.set(52, -5, 0).applyAxisAngle(_ZA, actRot));
+    camera.position.z += 38;
+    camera.fov = 44; camera.up.set(0, 1, 0);
   }
   camera.lookAt(_tp);
 
