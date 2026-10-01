@@ -5568,7 +5568,13 @@ function plumeMat() {
       'varying vec2 vUv;',
       'void main(){',
       '  if (uInt <= 0.004) discard;',
-      '  float s = 1.0 - vUv.y;',                 // 0 tai mieng loa -> 1 tai duoi
+      /* KEP ve [0,1]. vUv.y co the nhich qua 1 do noi suy, khi do s am va
+         pow(s, 1.6) / pow(s, 0.55) / pow(s, 0.78) deu ra NaN. O ong cu NaN bi
+         kep ve 0 trong bo dem 8 bit nen khong ai thay; sang bo dem nua cham
+         dong thi no song, roi moi lan lam mo lai lan sang hang xom — ba chuc
+         diem NaN no thanh 87 nghin sau nam muc, va hien ra la mot O DEN VUONG
+         dung cho ngon lua. */
+      '  float s = clamp(1.0 - vUv.y, 0.0, 1.0);',   // 0 tai mieng loa -> 1 tai duoi
       '  float rn = abs(vUv.x - 0.5) * 2.0;',
       // bao hinh: mat bien gan nhu song song, chan khong thi no bung
       '  float envSea = 0.26 + 0.16 * pow(s, 1.6);',
@@ -8514,10 +8520,18 @@ const FX = (() => {
      sat 1,0 — khong con khoang trong giua "sang" va "tu phat sang". Chi nhung
      gi VUOT qua trang man hinh moi dang duoc loe. */
   const uBright = { tDiffuse: { value: null }, nguong: { value: 1.10 }, goi: { value: 0.25 } };
-  const mBright = mat(`
+  /* Loc NaN va vo cuc NGAY CUA VAO. NaN khong thoa BAT KY phep so sanh nao,
+     ke ca voi chinh no, nen `x < 1e20` tra false cho ca NaN lan +vo cuc.
+     Khong the tin rang da tim het moi nguon NaN trong mot file 9000 dong — nen
+     chan o day la chan mot lop benh, khong phai mot ca benh. */
+  const LOC = `
+    vec3 locNaN(vec3 c){
+      return vec3(c.x < 1e20 ? c.x : 0.0, c.y < 1e20 ? c.y : 0.0, c.z < 1e20 ? c.z : 0.0);
+    }`;
+  const mBright = mat(LOC + `
     uniform sampler2D tDiffuse; uniform float nguong, goi; varying vec2 vUv;
     void main(){
-      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      vec3 c = locNaN(texture2D(tDiffuse, vUv).rgb);
       float l = max(c.r, max(c.g, c.b));
       float k = clamp(l - nguong + goi, 0.0, 2.0 * goi);
       float w = max(k * k / (4.0 * goi + 1e-4), l - nguong) / max(l, 1e-4);
@@ -8622,12 +8636,12 @@ const FX = (() => {
 
   const uGhep = { tDiffuse: { value: null }, tBloom: { value: null }, tAO: { value: null },
                   manh: { value: 0.85 }, coAO: { value: 1 } };
-  const mGhep = mat(`
+  const mGhep = mat(LOC + `
     uniform sampler2D tDiffuse, tBloom, tAO; uniform float manh, coAO; varying vec2 vUv;
     void main(){
-      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      vec3 c = locNaN(texture2D(tDiffuse, vUv).rgb);
       if (coAO > 0.5) c *= mix(1.0, texture2D(tAO, vUv).r, 0.85);   // AO NHAN vao anh, truoc khi cong quang
-      c += texture2D(tBloom, vUv).rgb * manh;
+      c += locNaN(texture2D(tBloom, vUv).rgb) * manh;
       gl_FragColor = vec4(c, 1.0);
     }`, uGhep);
 
