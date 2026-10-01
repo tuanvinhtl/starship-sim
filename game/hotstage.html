@@ -491,8 +491,32 @@ body{
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.150.1/three.min.js"></script>
+<!-- crossorigin: thieu no thi moi loi nem tu three.js chi hien ra "Script error."
+     khong ten ham, khong so dong — tuc bo bao loi thanh vo dung. -->
+<script crossorigin="anonymous" src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.150.1/three.min.js"></script>
 <script>
+/* ===== BAO LOI LEN MAN HINH =====
+   Dat o DONG DAU TIEN cua khoi, truoc moi thu khac, de bat duoc ca loi nem ra
+   o muc mo-dun. Mot loi nhu the lam moi thu phia sau KHONG BAO GIO duoc dinh
+   nghia — nut bam chet, pha xep chong khong chay — ma man hinh thi khong noi
+   gi ca. Nguoi choi khong the duoc yeu cau mo DevTools de biet dieu do. */
+(function () {
+  let da = false;
+  function hien(msg) {
+    if (da) return; da = true;
+    const d = document.createElement('div');
+    d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#7F1D2E;'
+      + 'color:#FFE8EC;font:12px/1.5 ui-monospace,Menlo,monospace;padding:10px 14px;'
+      + 'white-space:pre-wrap;box-shadow:0 2px 14px rgba(0,0,0,.6)';
+    d.textContent = 'LỖI — trang không chạy được:\n' + msg;
+    (document.body || document.documentElement).appendChild(d);
+  }
+  addEventListener('error', e => hien(
+    e.message
+    + (e.filename ? '\n' + e.filename.replace(/^.*\//, '') + ':' + e.lineno + ':' + e.colno : '')
+    + (e.error && e.error.stack ? '\n\n' + String(e.error.stack).split('\n').slice(0, 4).join('\n') : '')));
+  addEventListener('unhandledrejection', e => hien('Promise bị từ chối: ' + (e.reason && e.reason.message || e.reason)));
+})();
 /* Flight model 3-DOF — port tu sim/python/ascent.py (da verify).
    Dung chung cho ca game va bo test node.  Khong phu thuoc DOM. */
 (function (root, factory) {
@@ -4271,6 +4295,7 @@ const Sfx = (() => {
     eng.o1.connect(eng.og); eng.o2.connect(eng.og); eng.og.connect(eng.g);
     eng.o1.start(); eng.o2.start();
 
+    try {
     /* --- LOP VO LACH TACH ---
        Dau an cua mot ten lua lon la tieng vo bang tan rong, khong phai tieng u
        tram. O day la nhieu qua loc thong cao, roi BIEN DO duoc dieu bien bang
@@ -4305,6 +4330,13 @@ const Sfx = (() => {
     eng.conv = ctx.createConvolver(); eng.conv.buffer = irBuf(1.9, 2.4);
     eng.rev = ctx.createGain(); eng.rev.gain.value = 0;
     eng.sat.connect(eng.rev); eng.rev.connect(eng.conv); eng.conv.connect(master);
+    } catch (e) {
+      /* Trinh duyet cu thieu StereoPanner hoac Convolver thi bo cac lop moi va
+         noi thang nhu cu, chu khong de mat sach am thanh. */
+      console.warn('lop am thanh moi hong, lui ve ban co ban:', e);
+      try { eng.g.disconnect(); } catch (_) {}
+      eng.g.connect(master); eng.sat = null;
+    }
 
     // --- gio: dai thong, to nhat quanh max-Q ---
     wind.g = ctx.createGain(); wind.g.gain.value = 0;
@@ -4381,10 +4413,10 @@ const Sfx = (() => {
       eng.og.gain.setTargetAtTime(0.22 + 0.26 * (1 - air), T(), 0.2);  // chan khong: nghieng ve tram
       /* Vo lach tach chi ton tai khi co khong khi de mang song xung kich, va
          chi ro khi ga lon. Tren cao no tat han, con lai rung ket cau. */
-      eng.cg.gain.setTargetAtTime(v * 0.18 * air * air, T(), 0.12);
-      eng.cmg.gain.setTargetAtTime(v * 0.42 * air, T(), 0.12);
+      if (eng.cg) eng.cg.gain.setTargetAtTime(v * 0.18 * air * air, T(), 0.12);
+      if (eng.cmg) eng.cmg.gain.setTargetAtTime(v * 0.42 * air, T(), 0.12);
       // Doi am: to nhat sat mat dat, het sach trong chan khong.
-      eng.rev.gain.setTargetAtTime(v * 0.34 * Math.pow(air, 1.6), T(), 0.25);
+      if (eng.rev) eng.rev.gain.setTargetAtTime(v * 0.34 * Math.pow(air, 1.6), T(), 0.25);
     },
     setWind(q) {
       if (!ok()) return;
@@ -8274,6 +8306,8 @@ const _sky = new THREE.Color(), _off = new THREE.Vector3(), _ZA = new THREE.Vect
    mot trong hai dau. Nen dung mot canh nho rieng (mot qua cau lat trong, to
    bang shader) roi dung lai PMREM khi do cao hoac mau troi doi du nhieu. */
 const ENV = (() => {
+ let daBao = 0;
+ try {
   const pm = new THREE.PMREMGenerator(renderer);
   const u = {
     troi:    { value: new THREE.Color() },
@@ -8319,7 +8353,25 @@ const ENV = (() => {
     scene.environment = rt.texture;
     renderer.setRenderTarget(null);
   }
-  return { capNhat };
+  return { capNhat: (alt, now) => { try { capNhat(alt, now); } catch (e) { hong(e); } } };
+ } catch (e) { hong(e); return { capNhat() {} }; }
+
+ /* Mot hieu ung TRANG TRI khong duoc phep lam chet ca tro choi. Neu PMREM hong
+    thi bo envMap va tra metalness ve 0,5 — muc da chay tot truoc day — roi ghi
+    mot dong vao nhat ky, chu khong de nguoi choi ngoi truoc mot trang khong
+    bam duoc ma khong hieu vi sao. */
+ /* daBao la bien CUC BO, khong phai thuoc tinh cua ENV: neu hong ngay trong
+    luc IIFE con dang chay thi `ENV` van nam trong vung chet cua `const`, va bo
+    xu ly loi se tu nem loi. */
+ function hong(e) {
+   try { scene.environment = null; } catch (_) {}
+   try {
+     MSteel.metalness = 0.5; MSteel.roughness = 0.42; MSteel.needsUpdate = true;
+     MSteelD.metalness = 0.75; MSteelD.roughness = 0.62; MSteelD.needsUpdate = true;
+   } catch (_) {}
+   if (!daBao) { daBao = 1; try { logLine('Không dựng được bản đồ môi trường — thép về chế độ cũ', 'bad'); } catch (_) {} }
+   console.warn('ENV hong:', e);
+ }
 })();
 /* GOC TROI: khi tau tai nhap cach thap 6552 km, toa do the gioi len toi 4.76
    TRIEU met. float32 o do lon do chi con phan giai ~0.5 m — tren con tau 52 m
