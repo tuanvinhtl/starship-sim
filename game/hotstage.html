@@ -6569,7 +6569,6 @@ for (let i = 0; i < 4; i++) {
 }
 
 /* ===== CAP NHAT MOI KHUNG HINH ===== */
-let lowFX = false;      // may yeu: bo bot lop phu ton fill
 const _UPY = new THREE.Vector3(0, 1, 0);
 const _fW = new THREE.Vector3(), _fL = new THREE.Vector3(), _dn = new THREE.Vector3();
 const _qi = new THREE.Quaternion();
@@ -7003,6 +7002,7 @@ addEventListener('keydown', e => {
     else logMode5();
   }
   if (['w','s','a','d','q','e','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) toManual();
+  if (k === 'p') { FX.bat = !FX.bat; logLine(FX.bat ? 'Hậu kỳ: bật' : 'Hậu kỳ: tắt', 'hi'); }
   if (k === 'x' && phase === 'ASCENT' && !abortInfo) startAbort('người chỉ huy bấm nút');
   if (k === 'z' && dockManual) {
     dockManual = false;
@@ -8449,16 +8449,23 @@ function cinUpdate(srt, raw) {
 /* CANH NHIP KHUNG HINH. Neu may khong tai noi thi tu ha chat luong mot lan,
    thay vi de nguoi choi ngoi nhin man hinh giat roi phai thoat app. */
 let fpsAcc = 0, fpsN = 0, fpsCut = 0;
+/* Ha dan theo ba nac thay vi tat phut mot. Do duoc: hau ky la thu dat nhat
+   trong khung hinh nay (gan gap doi thoi gian dung), va trong do khu rang cua
+   la phan dat nhat — nen bo no truoc, giu lai quang sang; chi khi van khong
+   tai noi moi bo han hau ky; cuoi cung moi ha do phan giai. */
 function watchFps(raw) {
-  if (fpsCut >= 2) return;
+  if (fpsCut >= 3) return;
   fpsAcc += raw; fpsN++;
   if (fpsN < 90) return;
   const avg = fpsAcc / fpsN; fpsAcc = 0; fpsN = 0;
   if (avg <= 1 / 26) return;                 // tren ~26 fps thi khong dong gi
   fpsCut++;
   if (fpsCut === 1) {
-    lowFX = true;
-    logLine('Máy không tải nổi — tắt bớt hiệu ứng', 'bad');
+    lowFX = true; resize();                  // bo khu rang cua, van con bloom
+    logLine('Máy không tải nổi — bỏ khử răng cưa', 'bad');
+  } else if (fpsCut === 2) {
+    FX.bat = false;
+    logLine('Vẫn nặng — tắt hậu kỳ', 'bad');
   } else {
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1)); resize();
     logLine('Vẫn nặng — hạ độ phân giải', 'bad');
@@ -8469,9 +8476,245 @@ const _pinA = new THREE.Vector3(), _pinB = new THREE.Vector3();
 let peakTb = 0, peakTl = 0, peakTh = 0, peakYaw = 0;   // dinh nhiet + lech phuong, cho ban ghi
 let fxHeat = 0, fxSlot = 0, shipTb = 0;   // nhiet do tam chan, dung cho do ruc cua vo       // nhiet luong va do "rit" hien tai, dung chung cho hinh va tieng
 
+/* May yeu: bo bot lop phu ton fill. Phai khai bao TRUOC khoi hau ky vi
+   resize() chay ngay luc nap va doc no — de duoi thi roi vao vung chet tam
+   thoi cua `let`, loi ngay khi nap ma node --check khong bat duoc. */
+let lowFX = false;
+
+/* ===================== HAU KY (bloom + AO) =====================
+   TU VIET, khong nap them module. Ly do: game nap three.min.js ban UMD r150,
+   ma EffectComposer / UnrealBloomPass / SSAOPass nam trong examples/jsm duoi
+   dang ES module — ban UMD cua chung da bi bo tu r148. Keo module tu CDN vao
+   se doi han mo hinh nap cua mot file HTML tu chua.
+
+   HAI DIEU KIEN CUA CANH NAY da do truoc khi viet:
+   · Renderer KHONG dat outputEncoding lan toneMapping, tuc ong mau la tuyen
+     tinh thang ra canvas. Nen chen pass vao giua ma khong dung toi ma hoa mau
+     thi anh khong doi tong mot ly nao.
+   · Moi thu trong suot (sao, vo khi quyen, khoi, hoi nuoc, luong phut) deu
+     depthWrite: false, nen bo dem do sau chi chua HINH DAC. AO doc duoc do sau
+     sach ma khong can pass phap tuyen rieng. */
+const FX = (() => {
+  const G = new THREE.BufferGeometry();                 // mot tam giac phu man, re hon quad
+  G.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1,-1,0, 3,-1,0, -1,3,0]), 3));
+  G.setAttribute('uv',       new THREE.BufferAttribute(new Float32Array([0,0, 2,0, 0,2]), 2));
+  const qCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  const qMesh = new THREE.Mesh(G, null), qScene = new THREE.Scene(); qScene.add(qMesh);
+  const VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }';
+  const mat = (fs, u) => new THREE.ShaderMaterial({ uniforms: u, vertexShader: VS, fragmentShader: fs, depthTest: false, depthWrite: false });
+  function blit(m, rt) { qMesh.material = m; renderer.setRenderTarget(rt || null); renderer.clear(); renderer.render(qScene, qCam); }
+
+  /* Nguong sang co DAU GOI MEM: cat cung o mot muc thi vien sang nhay bac rat ro
+     khi do sang dao quanh nguong (ngon lua, plasma deu nhap nhay). */
+  /* Nguong 1,10 chu khong phai 0,72. Do phan bo do sang that cua canh nay:
+     o nguong 0,8 thi luc bay cao 43% KHUNG HINH lot qua — tuc ca bau troi — va
+     bloom bien thanh mot lop sua phu kin man. O 1,10 chi con 0,9% (gan be) va
+     3,3% (tren 13 km) lot, dung bang phan ngon lua, plasma va mat troi.
+     Can nguyen nhan: renderer khong dat tone mapping, nen be mat thuong da nam
+     sat 1,0 — khong con khoang trong giua "sang" va "tu phat sang". Chi nhung
+     gi VUOT qua trang man hinh moi dang duoc loe. */
+  const uBright = { tDiffuse: { value: null }, nguong: { value: 1.10 }, goi: { value: 0.25 } };
+  const mBright = mat(`
+    uniform sampler2D tDiffuse; uniform float nguong, goi; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      float l = max(c.r, max(c.g, c.b));
+      float k = clamp(l - nguong + goi, 0.0, 2.0 * goi);
+      float w = max(k * k / (4.0 * goi + 1e-4), l - nguong) / max(l, 1e-4);
+      gl_FragColor = vec4(c * w, 1.0);
+    }`, uBright);
+
+  /* Lay mau 13 diem khi thu nho va 9 diem hinh leu khi phong to — cach cua
+     Call of Duty / Jimenez. Nho hai bo loc nay ma quang sang rong ra muot chu
+     khong vo thanh vong tron hay nhay o cac muc thu nho. */
+  const uDown = { tDiffuse: { value: null }, buoc: { value: new THREE.Vector2() } };
+  const mDown = mat(`
+    uniform sampler2D tDiffuse; uniform vec2 buoc; varying vec2 vUv;
+    vec3 T(vec2 o){ return texture2D(tDiffuse, vUv + o * buoc).rgb; }
+    void main(){
+      vec3 a = T(vec2(-2,2)), b = T(vec2(0,2)), c = T(vec2(2,2));
+      vec3 d = T(vec2(-2,0)), e = T(vec2(0,0)), f = T(vec2(2,0));
+      vec3 g = T(vec2(-2,-2)), h = T(vec2(0,-2)), i = T(vec2(2,-2));
+      vec3 j = T(vec2(-1,1)), k = T(vec2(1,1)), l = T(vec2(-1,-1)), m = T(vec2(1,-1));
+      gl_FragColor = vec4(e*0.125 + (a+c+g+i)*0.03125 + (b+d+f+h)*0.0625 + (j+k+l+m)*0.125, 1.0);
+    }`, uDown);
+
+  const uUp = { tDiffuse: { value: null }, buoc: { value: new THREE.Vector2() } };
+  const mUp = mat(`
+    uniform sampler2D tDiffuse; uniform vec2 buoc; varying vec2 vUv;
+    vec3 T(vec2 o){ return texture2D(tDiffuse, vUv + o * buoc).rgb; }
+    void main(){
+      vec3 s = T(vec2(-1,1)) + T(vec2(0,1))*2.0 + T(vec2(1,1))
+             + T(vec2(-1,0))*2.0 + T(vec2(0,0))*4.0 + T(vec2(1,0))*2.0
+             + T(vec2(-1,-1)) + T(vec2(0,-1))*2.0 + T(vec2(1,-1));
+      gl_FragColor = vec4(s / 16.0, 1.0);
+    }`, uUp);
+  /* Dat CO DINH mot lan. Ban dau tao bat/tat blending va transparent moi khung
+     hinh — ca hai deu nam trong khoa dem chuong trinh cua three.js, nen lam vay
+     la moi khung lai co nguy co bien dich lai shader. */
+  mUp.blending = THREE.AdditiveBlending; mUp.transparent = true;
+
+  /* ---- AO trong khong gian man hinh ----
+     Khong can pass phap tuyen rieng, va cung khong can giai ma do sau phi tuyen
+     mot cach vong vo: voi logarithmicDepthBuffer, three.js ghi
+        z_ndc = log2(w+1) * fc - 1,  fc = 2/log2(far+1)
+     nen dao nguoc ra THANG do sau tuyen tinh trong khong gian nhin:
+        w = exp2(2*d/fc) - 1
+     Phap tuyen suy tu dao ham man hinh cua vi tri dung lai. Ban kinh lay mau la
+     1,2 MET trong khong gian the gioi: vua cho khe ket cau thap, canh gio, vanh
+     dong co — con qua cau Trai Dat cach hang nghin km thi ban kinh chieu len man
+     hinh nho hon mot diem anh nen khong sinh AO, dung nhu phai the. */
+  const uAO = { tDepth: { value: null }, fc: { value: 1 }, tanHalf: { value: 1 }, aspect: { value: 1 },
+                buoc: { value: new THREE.Vector2() }, banKinh: { value: 1.2 }, manh: { value: 1.0 } };
+  const mAO = mat(`
+    uniform sampler2D tDepth; uniform float fc, tanHalf, aspect, banKinh, manh;
+    uniform vec2 buoc; varying vec2 vUv;
+    float sauTuyenTinh(vec2 uv){
+      float d = texture2D(tDepth, uv).r;
+      return exp2(2.0 * d / fc) - 1.0;             // = -z trong khong gian nhin
+    }
+    vec3 viTri(vec2 uv, float w){
+      vec2 n = uv * 2.0 - 1.0;
+      return vec3(n.x * tanHalf * aspect * w, n.y * tanHalf * w, -w);
+    }
+    void main(){
+      float w = sauTuyenTinh(vUv);
+      if (w > 2.0e5 || w <= 0.0) { gl_FragColor = vec4(1.0); return; }   // troi va hanh tinh: bo qua
+      vec3 p = viTri(vUv, w);
+      vec3 nx = dFdx(p), ny = dFdy(p);
+      vec3 n = normalize(cross(nx, ny));
+      if (dot(n, -normalize(p)) < 0.0) n = -n;
+      float goc = fract(sin(dot(vUv * buoc, vec2(12.9898, 78.233))) * 43758.5453) * 6.2831853;
+      float che = 0.0;
+      const int N = 12;
+      for (int i = 0; i < N; i++){
+        float fi = float(i) + 0.5;
+        float r = banKinh * sqrt(fi / float(N));
+        float a = goc + fi * 2.3999632;            // goc vang: mau trai deu, khong thanh vanh
+        vec3 t = normalize(abs(n.z) < 0.9 ? cross(n, vec3(0.0,0.0,1.0)) : cross(n, vec3(1.0,0.0,0.0)));
+        vec3 b = cross(n, t);
+        vec3 mau = p + (t * cos(a) + b * sin(a)) * r + n * r * 0.45;
+        vec2 uv = vec2(mau.x / (tanHalf * aspect * -mau.z), mau.y / (tanHalf * -mau.z)) * 0.5 + 0.5;
+        if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) continue;
+        float wm = sauTuyenTinh(uv);
+        float dz = (-mau.z) - wm;                  // > 0: co vat chan truoc diem mau
+        if (dz > 0.02) che += clamp(banKinh / max(dz, 1e-4), 0.0, 1.0);
+      }
+      float ao = 1.0 - manh * che / float(N);
+      gl_FragColor = vec4(clamp(ao, 0.0, 1.0));
+    }`, uAO);
+
+  /* Mo AO co BIET DO SAU: mo tron thi vien vat the bi ri bong ra nen troi. */
+  const uMo = { tAO: { value: null }, tDepth: { value: null }, fc: { value: 1 },
+                buoc: { value: new THREE.Vector2() } };
+  const mMo = mat(`
+    uniform sampler2D tAO, tDepth; uniform float fc; uniform vec2 buoc; varying vec2 vUv;
+    float sau(vec2 uv){ return exp2(2.0 * texture2D(tDepth, uv).r / fc) - 1.0; }
+    void main(){
+      float w0 = sau(vUv), tong = 0.0, trong = 0.0;
+      for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++){
+        vec2 uv = vUv + vec2(float(x), float(y)) * buoc;
+        float t = exp(-abs(sau(uv) - w0) / max(w0 * 0.02, 0.05));
+        tong += texture2D(tAO, uv).r * t; trong += t;
+      }
+      gl_FragColor = vec4(tong / max(trong, 1e-4));
+    }`, uMo);
+
+  const uGhep = { tDiffuse: { value: null }, tBloom: { value: null }, tAO: { value: null },
+                  manh: { value: 0.85 }, coAO: { value: 1 } };
+  const mGhep = mat(`
+    uniform sampler2D tDiffuse, tBloom, tAO; uniform float manh, coAO; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tDiffuse, vUv).rgb;
+      if (coAO > 0.5) c *= mix(1.0, texture2D(tAO, vUv).r, 0.85);   // AO NHAN vao anh, truoc khi cong quang
+      c += texture2D(tBloom, vUv).rgb * manh;
+      gl_FragColor = vec4(c, 1.0);
+    }`, uGhep);
+
+  const HF = { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+               format: THREE.RGBAFormat, depthBuffer: false };
+  let rtScene = null, mip = [], rtAO = null, rtAOb = null, W = 1, H = 1;
+  const MUC = 5;                                        // so muc thu nho cua chuoi bloom
+  const AO8 = { type: THREE.UnsignedByteType, minFilter: THREE.LinearFilter,
+                magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, depthBuffer: false };
+
+  function size(w, h, msaa) {        // msaa = SO MAU (0 / 2 / 4), khong phai co bat tat
+    W = Math.max(2, w); H = Math.max(2, h);
+    if (rtScene) rtScene.dispose();
+    /* depthTexture dung chung target voi khu rang cua — da thu truoc khi dua vao:
+       r150 giai ra do sau y het nhau o 0 mau va 2 mau (min 0,28222, 1850/3072
+       diem co hinh, khong loi GL). Nho the AO khong can them mot luot duyet canh. */
+    const dt = new THREE.DepthTexture(W, H);
+    dt.type = THREE.UnsignedIntType;
+    rtScene = new THREE.WebGLRenderTarget(W, H, {
+      type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, depthBuffer: true, stencilBuffer: false,
+      samples: msaa | 0, depthTexture: dt });
+    for (const m of mip) m.dispose();
+    mip = [];
+    let mw = W, mh = H;
+    for (let i = 0; i < MUC; i++) {
+      mw = Math.max(2, mw >> 1); mh = Math.max(2, mh >> 1);
+      mip.push(new THREE.WebGLRenderTarget(mw, mh, HF));
+    }
+    if (rtAO) rtAO.dispose(); if (rtAOb) rtAOb.dispose();
+    const aw = Math.max(2, W >> 1), ah = Math.max(2, H >> 1);   // AO chay o nua phan giai
+    rtAO = new THREE.WebGLRenderTarget(aw, ah, AO8);
+    rtAOb = new THREE.WebGLRenderTarget(aw, ah, AO8);
+  }
+
+  function render(ve) {
+    renderer.setRenderTarget(rtScene); renderer.clear(); ve();      // dung canh vao bo dem
+
+    if (api.ao) {                                                   // --- AO ---
+      const fc = 2.0 / Math.log2(camera.far + 1.0);
+      uAO.tDepth.value = rtScene.depthTexture; uAO.fc.value = fc;
+      uAO.tanHalf.value = Math.tan(camera.fov * Math.PI / 360);
+      uAO.aspect.value = camera.aspect;
+      uAO.buoc.value.set(rtAO.width, rtAO.height);
+      blit(mAO, rtAO);
+      uMo.tAO.value = rtAO.texture; uMo.tDepth.value = rtScene.depthTexture; uMo.fc.value = fc;
+      uMo.buoc.value.set(1 / rtAO.width, 1 / rtAO.height);
+      blit(mMo, rtAOb);
+    }
+    uGhep.coAO.value = api.ao ? 1 : 0;
+    uGhep.tAO.value = rtAOb ? rtAOb.texture : null;
+
+    uBright.tDiffuse.value = rtScene.texture; blit(mBright, mip[0]);
+    for (let i = 1; i < MUC; i++) {                                  // thu nho dan
+      uDown.tDiffuse.value = mip[i-1].texture;
+      uDown.buoc.value.set(1 / mip[i-1].width, 1 / mip[i-1].height);
+      blit(mDown, mip[i]);
+    }
+    const truoc = renderer.autoClear; renderer.autoClear = false;
+    for (let i = MUC - 1; i > 0; i--) {                               // phong to, cong don
+      uUp.tDiffuse.value = mip[i].texture;
+      uUp.buoc.value.set(1 / mip[i].width, 1 / mip[i].height);
+      qMesh.material = mUp; renderer.setRenderTarget(mip[i-1]); renderer.render(qScene, qCam);
+    }
+    renderer.autoClear = truoc;
+    uGhep.tDiffuse.value = rtScene.texture; uGhep.tBloom.value = mip[0].texture;
+    blit(mGhep, null);
+    renderer.setRenderTarget(null);
+  }
+
+  /* msaa 2 chu khong phai 4. Do tren 2048x1536: khong hau ky 9,19 ms; co hau ky
+     voi 0 mau 19,93; voi 2 mau 22,13; voi 4 mau 31,15. Tuc nang 0 -> 2 chi ton
+     2,2 ms, con 2 -> 4 ton them 9 ms — mot vach doc, vi khu rang cua 4x tren bo
+     dem nua cham dong vuot nguong bang thong. 2x da du muot cho nhung vat the
+     manh nhu canh tay thap va canh gio. */
+  const api = { size, render, bat: true, ao: true, msaa: 2,
+                nguong: uBright.nguong, goi: uBright.goi, manh: uGhep.manh,
+                banKinh: uAO.banKinh, manhAO: uAO.manh,
+                rt: () => rtScene, mips: () => mip, rtAO: () => rtAOb };
+  return api;
+})();
+
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  const d = renderer.getDrawingBufferSize(new THREE.Vector2());
+  FX.size(d.x, d.y, lowFX ? 0 : FX.msaa);
 }
 addEventListener('resize', resize); resize();
 
@@ -9461,7 +9704,9 @@ function frame(now) {
   if (camMode === 5 && !dual) camMode = 3;
   $('dual').hidden = !dual;
   $('hud').classList.toggle('dual', dual);
+  /* Hai khung KHONG qua hau ky: bloom se loe qua duong chia giua hai o. */
   if (dual) renderDual(tel, bt);
+  else if (FX.bat) FX.render(() => renderer.render(scene, camera));
   else renderer.render(scene, camera);
 
   /* ---- am thanh: bam theo ga, so may va mat do khi quyen ---- */
