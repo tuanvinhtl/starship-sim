@@ -4556,8 +4556,13 @@ const camera = new THREE.PerspectiveCamera(42, 1, 0.05, 6e7);
 
 const sun = new THREE.DirectionalLight(0xFFF0DC, 2.7);
 sun.position.set(-0.55, 0.32, 0.76).multiplyScalar(1e6); scene.add(sun);
-scene.add(new THREE.HemisphereLight(0x8FB4CC, 0x2A2419, 0.55));
-scene.add(new THREE.AmbientLight(0x2A3340, 0.6));
+/* Den ban cau va den moi truong o day von SINH RA DE THAY CHO envMap — hoi
+   chua co ban do moi truong thi phai co thu gi do rot anh sang khuech tan vao.
+   Nay da co envMap that, de nguyen hai den nay la TINH HAI LAN, va do chinh la
+   thu lam chay trang ca khung hinh. Ha xuong con mot phan ba, giu lai mot it
+   lam san de canh khong bao gio den kit o phia khuat. */
+const hemi = new THREE.HemisphereLight(0x8FB4CC, 0x2A2419, 0.18); scene.add(hemi);
+const amb = new THREE.AmbientLight(0x2A3340, 0.14); scene.add(amb);
 
 const LOGV_PARS = '#include <common>\n#include <logdepthbuf_pars_vertex>';
 const LOGV = '#include <logdepthbuf_vertex>';
@@ -7109,6 +7114,9 @@ addEventListener('keydown', e => {
   }
   if (['w','s','a','d','q','e','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) toManual();
   if (k === 'p') { FX.bat = !FX.bat; logLine(FX.bat ? 'Hậu kỳ: bật' : 'Hậu kỳ: tắt', 'hi'); }
+  /* Nhan ca chu O lan so 0: hai ky tu nay nhin gan nhu giong nhau trong van
+     ban, va so 1-6 da la phim camera nen 0 dang de trong. */
+  if (k === 'o' || k === '0') TUNE.bat();
   if (k === 'x' && phase === 'ASCENT' && !abortInfo) startAbort('người chỉ huy bấm nút');
   if (k === 'z' && dockManual) {
     dockManual = false;
@@ -8327,8 +8335,11 @@ const ENV = (() => {
         /* Dia mat troi: mu 400 cho ra mot cham nho va gat. Day moi la thu tao
            ra VET SANG TRUOT doc than thep khi tau xoay — khong co no thi phan
            xa chi la mot mang xam deu, van chan nhu cu. */
-        c += mauNang * pow(max(0.0, dot(d, nang)), 400.0) * 26.0 * doNang;
-        c += mauNang * pow(max(0.0, dot(d, nang)), 7.0) * 0.30 * doNang;   // quang quanh mat troi
+        /* 26x la qua tay: PMREM tich phan ca dia nay vao do roi khuech tan, nen
+           no khong chi tao vet sang tren thep ma con DOI SANG ca canh. Ha xuong
+           5 cho vet sang con ro ma khong lam chay khung hinh. */
+        c += mauNang * pow(max(0.0, dot(d, nang)), 400.0) * 5.0 * doNang;
+        c += mauNang * pow(max(0.0, dot(d, nang)), 7.0) * 0.10 * doNang;   // quang quanh mat troi
         gl_FragColor = vec4(c, 1.0);
       }`
   });
@@ -8815,13 +8826,24 @@ const FX = (() => {
     }`, uMo);
 
   const uGhep = { tDiffuse: { value: null }, tBloom: { value: null }, tAO: { value: null },
-                  manh: { value: 0.85 }, coAO: { value: 1 } };
+                  manh: { value: 0.85 }, coAO: { value: 1 }, phoi: { value: 1.0 }, tone: { value: 1 } };
   const mGhep = mat(LOC + `
-    uniform sampler2D tDiffuse, tBloom, tAO; uniform float manh, coAO; varying vec2 vUv;
+    uniform sampler2D tDiffuse, tBloom, tAO; uniform float manh, coAO, phoi, tone; varying vec2 vUv;
     void main(){
       vec3 c = locNaN(texture2D(tDiffuse, vUv).rgb);
       if (coAO > 0.5) c *= mix(1.0, texture2D(tAO, vUv).r, 0.85);   // AO NHAN vao anh, truoc khi cong quang
       c += locNaN(texture2D(tBloom, vUv).rgb) * manh;
+      /* TONE MAPPING o day, sau bloom — dung thu tu chuan.
+         Anh chup cho thay moi vung sang deu CAT PHANG thanh trang bet, mat sach
+         chi tiet: troi, mat dat, thap deu mot mau. Do la hau qua truc tiep cua
+         viec khong co tone mapping — moi gia tri tren 1,0 deu thanh dung mot
+         mau trang. ACES cuon vung sang lai thay vi cat, nen giu duoc chi tiet
+         trong may va trong ngon lua. */
+      c *= phoi;
+      if (tone > 0.5) {
+        vec3 x = c * 0.6;
+        c = clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+      }
       gl_FragColor = vec4(c, 1.0);
     }`, uGhep);
 
@@ -8899,6 +8921,7 @@ const FX = (() => {
      manh nhu canh tay thap va canh gio. */
   const api = { size, render, bat: true, ao: true, msaa: 2,
                 nguong: uBright.nguong, goi: uBright.goi, manh: uGhep.manh,
+                phoi: uGhep.phoi, tone: uGhep.tone,
                 banKinh: uAO.banKinh, manhAO: uAO.manh,
                 rt: () => rtScene, mips: () => mip, rtAO: () => rtAOb };
   return api;
@@ -8911,6 +8934,92 @@ function resize() {
   FX.size(d.x, d.y, lowFX ? 0 : FX.msaa);
 }
 addEventListener('resize', resize); resize();
+
+/* ===================== BANG CHINH (phim O) =====================
+   Tao khong nhin duoc man hinh cua nguoi choi, nen doan mo tung con so la moi
+   vong lai tieu mot luot qua lai. Bang nay de NGUOI CHOI tu van, roi doc lai
+   mot dong so cho tao bake vao. Khong hien mac dinh, khong anh huong gi khi tat. */
+const TUNE = (() => {
+  let el = null;
+  const sos = [];
+  /* envMapIntensity phai dat len TUNG vat lieu — duyet ca canh mot lan roi nho. */
+  let vls = null;
+  function vatLieu() {
+    if (vls) return vls;
+    vls = []; const da = new Set();
+    scene.traverse(o => {
+      const m = o.material; if (!m) return;
+      for (const x of Array.isArray(m) ? m : [m])
+        if (x && 'envMapIntensity' in x && !da.has(x)) { da.add(x); vls.push(x); }
+    });
+    return vls;
+  }
+  const NUM = [
+    ['Phơi sáng',      .2, 3,   .05, () => FX.phoi.value,   v => FX.phoi.value = v],
+    ['envMap',          0, 2.5, .05, () => vatLieu()[0] ? vatLieu()[0].envMapIntensity : 1,
+                                     v => vatLieu().forEach(m => { m.envMapIntensity = v; m.needsUpdate = true; })],
+    ['Ngưỡng loé',     .3, 2.5, .05, () => FX.nguong.value, v => FX.nguong.value = v],
+    ['Mạnh loé',        0, 2,   .05, () => FX.manh.value,   v => FX.manh.value = v],
+    ['Mạnh AO',         0, 2,   .05, () => FX.manhAO.value, v => FX.manhAO.value = v],
+    ['Mặt trời',        0, 5,   .1,  () => sun.intensity,   v => sun.intensity = v],
+    ['Bán cầu',         0, 1,   .02, () => hemi.intensity,  v => hemi.intensity = v],
+    ['Môi trường',      0, 1,   .02, () => amb.intensity,   v => amb.intensity = v],
+  ];
+  function dong() {
+    const t = NUM.map(([ten, , , , get]) => ten + '=' + (+get()).toFixed(2)).join(' · ');
+    return t + ' · tone=' + (FX.tone.value > .5 ? 'bật' : 'tắt');
+  }
+  function dung() {
+    el = document.createElement('div');
+    el.style.cssText = 'position:fixed;right:14px;top:70px;z-index:9998;width:232px;background:rgba(13,18,25,.94);'
+      + 'border:1px solid #1C242F;border-radius:3px;padding:12px 13px;color:#C8CDD4;'
+      + 'font:11px/1.5 "Saira",system-ui,sans-serif;box-shadow:0 6px 22px rgba(0,0,0,.5)';
+    el.innerHTML = '<div style="font:600 11px/1.4 \'Saira Condensed\',sans-serif;letter-spacing:.16em;'
+      + 'text-transform:uppercase;color:#7C8797;margin-bottom:9px">Chỉnh hình &mdash; phím O</div>';
+    for (const [ten, min, max, step, get, set] of NUM) {
+      const r = document.createElement('div'); r.style.cssText = 'margin-bottom:7px';
+      const lb = document.createElement('div');
+      lb.style.cssText = 'display:flex;justify-content:space-between;color:#7C8797';
+      const b = document.createElement('b');
+      b.style.cssText = 'color:#FFD199;font-family:ui-monospace,Menlo,monospace;font-weight:500';
+      lb.innerHTML = '<span>' + ten + '</span>'; lb.appendChild(b);
+      const sl = document.createElement('input');
+      sl.type = 'range'; sl.min = min; sl.max = max; sl.step = step; sl.value = get();
+      sl.style.cssText = 'width:100%;accent-color:#FF6B1A;margin:1px 0 0';
+      b.textContent = (+get()).toFixed(2);
+      sl.oninput = () => { set(+sl.value); b.textContent = (+sl.value).toFixed(2); capNhatDong(); };
+      r.appendChild(lb); r.appendChild(sl); el.appendChild(r);
+      sos.push(() => { sl.value = get(); b.textContent = (+get()).toFixed(2); });
+    }
+    const nut = document.createElement('button');
+    nut.textContent = 'Tone mapping: bật';
+    nut.style.cssText = 'width:100%;margin:4px 0 8px;padding:5px;background:#1C242F;color:#C8CDD4;'
+      + 'border:1px solid #2A3340;border-radius:2px;font:11px "Saira",sans-serif;cursor:pointer';
+    nut.onclick = () => { FX.tone.value = FX.tone.value > .5 ? 0 : 1;
+      nut.textContent = 'Tone mapping: ' + (FX.tone.value > .5 ? 'bật' : 'tắt'); capNhatDong(); };
+    el.appendChild(nut);
+    const o = document.createElement('textarea');
+    o.readOnly = true; o.rows = 3;
+    o.style.cssText = 'width:100%;background:#05070B;color:#6FD3E8;border:1px solid #1C242F;'
+      + 'border-radius:2px;font:10px/1.4 ui-monospace,Menlo,monospace;padding:5px;resize:none';
+    el.appendChild(o);
+    const ghi = document.createElement('div');
+    ghi.style.cssText = 'color:#4B5563;margin-top:6px;font-size:10px';
+    ghi.textContent = 'Vặn xong, chép dòng trên gửi lại để bake vào.';
+    el.appendChild(ghi);
+    el._out = o;
+    document.body.appendChild(el);
+    capNhatDong();
+  }
+  function capNhatDong() { if (el && el._out) el._out.value = dong(); }
+  return {
+    bat() {
+      if (!el) dung(); else { el.hidden = !el.hidden; }
+      if (el && !el.hidden) { sos.forEach(f => f()); capNhatDong(); }
+      try { logLine(el && !el.hidden ? 'Bảng chỉnh hình — vặn rồi gửi tao dòng số' : 'Đóng bảng chỉnh', 'hi'); } catch (_) {}
+    }
+  };
+})();
 
 /* Goc nghieng cua vector day so voi phuong thang dung tai cho. */
 function pitchOf(s, pAbs) {
