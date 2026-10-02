@@ -4832,7 +4832,10 @@ function coastMaps() {
 const EM = earthMaps();
 const earthGeo = new THREE.SphereGeometry(RE, 160, 80); earthGeo.rotateX(Math.PI / 2);
 const earth = new THREE.Mesh(earthGeo, new THREE.MeshStandardMaterial({
-  map: EM.map, roughnessMap: EM.rough, bumpMap: EM.bump, bumpScale: 24,
+  /* earthMaps() chi tra ve { map, rough } — khong co `bump`. Nen `bumpMap: EM.bump`
+     xua nay la undefined va bumpScale 24 khong he chay. Bo di cho khoi ai doc ma
+     tuong qua cau co do noi. */
+  map: EM.map, roughnessMap: EM.rough,
   roughness: 1, metalness: 0
 }));
 earth.position.set(0, -RE - PIT, 0); scene.add(earth);
@@ -4847,11 +4850,57 @@ earth.position.set(0, -RE - PIT, 0); scene.add(earth);
     Math.PI * 1.5 - D, D * 2, Math.PI / 2 - D, D * 2);
   g.rotateX(Math.PI / 2);
   const CM = coastMaps();
+  /* VAN CHI TIET. Anh nen cua chom nay la 896 texel trai tren 662 km, tuc 739 MET
+     mot texel: dung o be phong thi ca khung hinh nam gon trong HAI texel, nen mat
+     dat la mot mang mau phang tuyet doi. Do moi la ly do dia hinh nhin nhoe —
+     khong phai bo loc, nhu da do o lan sua loc di huong.
+     Nang do phan giai anh nen len thi vua ton bo nho vua ton thoi gian tai, ma
+     van chi doi duoc mot bac. Cach cac bo dung dia hinh that lam la them MOT LOP
+     LAP doc lap voi do phan giai anh nen: chi mang PHAP TUYEN, khong mang mau,
+     nen no them do go ghe be mat ma khong lam ban mau da ve. Lap voi chu ky 83 m
+     — du nho de thay o be, du lon de khong thanh nhieu khi nhin tu tren cao, va
+     tu mip ra phang o xa nen khong ken soc. */
+  const VAN_DAT = (() => {
+    const N = 256, c = document.createElement('canvas'); c.width = c.height = N;
+    const x = c.getContext('2d'), im = x.createImageData(N, N), D = im.data;
+    /* LAT = so o mang trai het be rong anh. Phai la SO NGUYEN va moi tang sau
+       phai gap doi, neu khong thi mep anh khong khop va lop lap hien ra duong
+       noi ke o. mkNoise3 lay modulo n nen X = LAT quay dung ve X = 0.
+       Ba tang: 32 / 64 / 128 o tren 256 texel, tang cuoi con 2 texel mot o —
+       sat nguong Nyquist, them tang nua la thanh nhieu hat. */
+    const LAT = 32, nz = mkNoise3(31337, LAT);
+    const cao = new Float32Array(N * N);
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      let v = 0, a = 1, f = 1;
+      for (let o = 0; o < 3; o++) {
+        v += nz(i / N * LAT * f, j / N * LAT * f, 0.5) * a;
+        a *= 0.5; f *= 2;
+      }
+      cao[j * N + i] = v;
+    }
+    // Sobel -> phap tuyen, lap vong nen khong co duong noi
+    const t = (i, j) => cao[((j + N) % N) * N + ((i + N) % N)];
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+      const gx = t(i+1,j) - t(i-1,j), gy = t(i,j+1) - t(i,j-1);
+      const nx = -gx * 6, ny = -gy * 6, nl = Math.hypot(nx, ny, 1);
+      const k = (j * N + i) * 4;
+      D[k] = (nx/nl * .5 + .5) * 255; D[k+1] = (ny/nl * .5 + .5) * 255;
+      D[k+2] = (1/nl * .5 + .5) * 255; D[k+3] = 255;
+    }
+    x.putImageData(im, 0, 0);
+    const tx = new THREE.CanvasTexture(c);
+    tx.wrapS = tx.wrapT = THREE.RepeatWrapping;
+    const LAP = Math.round(PATCH_KM * 2000 / 83);     // chu ky ~83 m
+    tx.repeat.set(LAP, LAP);
+    return tx;
+  })();
   const patch = new THREE.Mesh(g, new THREE.MeshStandardMaterial({
     map: CM.map, roughnessMap: CM.rough, roughness: 1, metalness: 0,
+    normalMap: VAN_DAT, normalScale: new THREE.Vector2(0.55, 0.55),
     transparent: true, depthWrite: false
   }));
   earth.add(patch);
+  window.__vanDat = VAN_DAT;          // de bang chinh van duoc do noi
 }
 
 const airMat = new THREE.ShaderMaterial({
