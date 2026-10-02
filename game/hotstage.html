@@ -10650,7 +10650,42 @@ buildGrid('booster');
    2303 ms; con doi thoi tiet thi may/mua sinh lai va dot 1341 ms roi dung luc
    tau ha. Goi ham nay o warmup VA o luc bam phong — trong dem nguoc thi mot
    nhip khung hinh khong lam hong gi. */
+/* LOC DI HUONG cho MOI texture trong canh. Truoc day chi dung van thep dat
+   anisotropy, 16 texture con lai deu o mac dinh 1.
+
+   DUNG TIN RANG DAY LA CAI LAM HET NHOE. Tao da do, va no gan nhu khong doi gi:
+   nang luong bien cua khung hinh chi tang 0,8% khi bay o 7 km va 0,7% o dai mat
+   dat truoc be. Ly do: gioi han that cua dia hinh la MAT DO TEXEL chu khong phai
+   bo loc — texture mat dat qua thua so voi dien tich no phu, nen khong con chi
+   tiet nao de loc di huong cuu. Muon dia hinh net that thi phai them texture chi
+   tiet tron vao o tam gan, khong phai chinh bo loc.
+   Giu lai vi no DUNG va gan nhu khong ton gi, va se co tac dung ngay khi nao
+   texture that su mang chi tiet. Kep o 8: len 16 ton gap doi bang thong. */
+let anisoXong = false;
+function datAniso() {
+  if (anisoXong) return;
+  const max = renderer.capabilities ? renderer.capabilities.getMaxAnisotropy() : 1;
+  const muc = Math.min(8, max);
+  if (muc <= 1) { anisoXong = true; return; }
+  const da = new Set();
+  let n = 0;
+  scene.traverse(o => {
+    const m = o.material; if (!m) return;
+    for (const mm of (Array.isArray(m) ? m : [m])) {
+      for (const k of ['map', 'roughnessMap', 'bumpMap', 'alphaMap', 'normalMap', 'emissiveMap']) {
+        const t = mm[k];
+        if (t && !da.has(t) && t.anisotropy !== undefined && t.anisotropy < muc) {
+          da.add(t); t.anisotropy = muc; t.needsUpdate = true; n++;
+        }
+      }
+    }
+  });
+  anisoXong = true;
+  return n;
+}
+
 function primeTextures() {
+  datAniso();
   if (!renderer.initTexture) return;
   scene.traverse(o => {
     const m = o.material; if (!m) return;
