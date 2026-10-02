@@ -4564,6 +4564,62 @@ sun.position.set(-0.55, 0.32, 0.76).multiplyScalar(1e6); scene.add(sun);
 const hemi = new THREE.HemisphereLight(0x8FB4CC, 0x2A2419, 0.18); scene.add(hemi);
 const amb = new THREE.AmbientLight(0x2A3340, 0.14); scene.add(amb);
 
+/* ===================== BONG DO =====================
+   Truoc day ca tro khong co MOT cai bong nao: thap, be, trai bon, con ten lua —
+   khong thu gi do bong len thu gi. Do la thu lam canh be phong trong "dung hinh"
+   hon moi yeu to khac.
+
+   HAI RANG BUOC quyet dinh cach lam nay:
+
+   1. KHONG duoc bat tat `castShadow` giua chuyen. No nam trong khoa bo nho chuong
+      trinh cua three.js, nen doi no la bien dich lai TOAN BO vat lieu — treo hinh
+      vai giay. Nen den bong bat lien tuc, con viec khong cho no ton kem thi giai
+      bang khung bong HEP, ghim quanh vat the dang theo doi: chi vai chuc mesh lot
+      vao, phan con lai bi cat ngoai khung.
+
+   2. Den huong KHONG the dung o 1e6 met nhu cu. Huong sang chi phu thuoc hieu
+      (vi tri - diem ngam), nhung camera bong thi dat THAT o vi tri den: de no xa
+      mot trieu met thi khung ortho phai trum ca quang do va do chinh xac do sau
+      khong con gi. Nay dat den cach diem ngam SUN_XA met theo dung huong cu —
+      anh sang khong doi mot ly, camera bong thi khit. */
+const SUN_DIR = new THREE.Vector3(-0.55, 0.32, 0.76).normalize();
+const SUN_XA = 1400;                       // den cach diem ngam bao nhieu met
+const BONG_GAN = 340, BONG_XA = 150;       // nua be rong khung bong: gan mat dat / tren cao
+const sunNgam = new THREE.Object3D(); scene.add(sunNgam); sun.target = sunNgam;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.near = 1;
+sun.shadow.camera.far = SUN_XA * 2;
+/* normalBias tinh bang MET trong khung bong. Mat cau Trai Dat o day chia 160x80
+   cho ca qua cau, tuc moi o rong hang tram km: quanh be no thuc te la mot mat
+   phang khong lo, va do la kieu be mat de noi hat ban nhat. 0,6 m du de het ma
+   chua lam bong tut khoi chan vat. */
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.6;
+
+/* Danh dau vat nao do bong, vat nao nhan bong. Chay mot lan sau khi canh dung
+   xong. Vat lieu TRONG SUOT hoac cong them (luong phut, mua, tuyet, plasma)
+   khong do bong: bong cua mot tam quang cao la mot hinh chu nhat den. */
+let bongXong = false;
+function datBong() {
+  if (bongXong) return 0;
+  let n = 0;
+  for (const goc of [pad, boosterObj, shipObj, dronePad, shipPad]) {
+    if (!goc) continue;
+    goc.traverse(o => {
+      if (!o.isMesh) return;
+      const ms = Array.isArray(o.material) ? o.material : [o.material];
+      const mem = ms.some(m => m && (m.transparent || m.blending === THREE.AdditiveBlending));
+      o.castShadow = !mem; o.receiveShadow = true; n++;
+    });
+  }
+  if (earth) earth.receiveShadow = true;
+  bongXong = true;
+  return n;
+}
+
 const LOGV_PARS = '#include <common>\n#include <logdepthbuf_pars_vertex>';
 const LOGV = '#include <logdepthbuf_vertex>';
 const LOGF_PARS = '#include <common>\n#include <logdepthbuf_pars_fragment>';
@@ -8869,7 +8925,13 @@ function watchFps(raw) {
   fpsCut++;
   if (fpsCut === 1) {
     lowFX = true; resize();                  // bo khu rang cua, van con bloom
-    logLine('Máy không tải nổi — bỏ khử răng cưa', 'bad');
+    /* Ha ban do bong 2048 -> 1024 cung o nac nay. HA KICH THUOC thi duoc, con
+       TAT han `castShadow` thi khong: co do nam trong khoa bo nho chuong trinh
+       cua three.js, tat no la bien dich lai toan bo vat lieu — dung mot cu treo
+       hinh vai giay len dau mot may von da khong tai noi. */
+    try { if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+          sun.shadow.mapSize.set(1024, 1024); } catch (_) {}
+    logLine('Máy không tải nổi — bỏ khử răng cưa, hạ bóng đổ', 'bad');
   } else if (fpsCut === 2) {
     FX.bat = false;
     logLine('Vẫn nặng — tắt quầng sáng và bóng khe', 'bad');
@@ -10174,7 +10236,20 @@ function frame(now) {
      ong kinh nam cach tau dung bang khoang cach tau-booster, hang tram km. */
   const actPos = srt || shipCam() ? _sp : bo ? _bp : _sp;
   const actRot = srt || shipCam() ? shipObj.rotation.z : boosterObj.rotation.z;
-  sun.position.set(-0.55, 0.32, 0.76).multiplyScalar(1e6).add(actPos);
+  /* Ghim khung bong quanh CHU THE camera dang bam. Gan mat dat thi khung rong
+     340 m de om ca thap lan bong do xuong dat; len cao thi khong con mat dat de
+     hung bong nua, chi con tau tu do bong len chinh no (canh gio len than, flap
+     len bung) — thu khung lai 150 m cho net gap hon bon lan. */
+  const altBong = srt ? srt.alt : (bo && bt && !shipCam() ? bt.alt : tel.alt);
+  const bR = altBong > 3000 ? BONG_XA : BONG_GAN;
+  if (sun.shadow.camera.right !== bR) {
+    sun.shadow.camera.left = -bR; sun.shadow.camera.right = bR;
+    sun.shadow.camera.top = bR;  sun.shadow.camera.bottom = -bR;
+    sun.shadow.camera.updateProjectionMatrix();
+  }
+  sunNgam.position.copy(actPos);
+  sunNgam.updateMatrixWorld();
+  sun.position.copy(actPos).addScaledVector(SUN_DIR, SUN_XA);
 
   // tu chuyen ve camera be phong khi booster ha thap — canh dep nhat
   // Camera be phong chi hop khi dich LA thap. Voi nhiem vu xa lan, dich cach
@@ -10686,6 +10761,7 @@ function datAniso() {
 
 function primeTextures() {
   datAniso();
+  datBong();
   if (!renderer.initTexture) return;
   scene.traverse(o => {
     const m = o.material; if (!m) return;
