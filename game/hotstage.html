@@ -7128,6 +7128,7 @@ let hotInfo = null, hingeBurn = null;
      sepFlash— nhip loe luc nha kep, giam ve 0 trong ~1,15 giay
      hotCam  — dem lui giu goc may sat khe noi */
 let sepPad = 0, sepFlash = 0, hotCam = 0, boJust = false;
+let suongNum = 1;        // nui nhan cho tan xa khi quyen, bang chinh van duoc
 /* Co CA MUC 1 MAY: luat ha moi dung 1 may o duoi 250 m (3 may o ga toi thieu da la
    T/W 1.25, khong giu duoc toc do ha). Thieu muc nay thi luc nguoi choi gianh lai
    lai tay o doan cuoi, nhanh mac dinh se nhay thang len 33 MAY. */
@@ -9115,13 +9116,45 @@ const FX = (() => {
     }`, uMo);
 
   const uGhep = { tDiffuse: { value: null }, tBloom: { value: null }, tAO: { value: null },
-                  manh: { value: 0.85 }, coAO: { value: 1 }, phoi: { value: 1.0 }, tone: { value: 1 } };
+                  manh: { value: 0.85 }, coAO: { value: 1 }, phoi: { value: 1.0 }, tone: { value: 1 },
+                  /* --- tan xa khi quyen (xem khoi GLSL duoi) --- */
+                  tSau: { value: null }, fc: { value: 1 }, tanHalf: { value: 1 }, aspect: { value: 1 },
+                  suong: { value: 0 }, nang: { value: new THREE.Vector3(0, 0, -1) },
+                  mauSuong: { value: new THREE.Color(0x8CA7C4) },
+                  mauNang: { value: new THREE.Color(0xFFD9A8) } };
   const mGhep = mat(LOC + `
-    uniform sampler2D tDiffuse, tBloom, tAO; uniform float manh, coAO, phoi, tone; varying vec2 vUv;
+    uniform sampler2D tDiffuse, tBloom, tAO, tSau;
+    uniform float manh, coAO, phoi, tone, fc, tanHalf, aspect, suong;
+    uniform vec3 nang, mauSuong, mauNang; varying vec2 vUv;
     void main(){
       vec3 c = locNaN(texture2D(tDiffuse, vUv).rgb);
       if (coAO > 0.5) c *= mix(1.0, texture2D(tAO, vUv).r, 0.85);   // AO NHAN vao anh, truoc khi cong quang
       c += locNaN(texture2D(tBloom, vUv).rgb) * manh;
+
+      /* TAN XA KHI QUYEN (aerial perspective).
+         Truoc day khoang cach chi duoc bieu dat bang DO NHOE cua texture — mat
+         dat xa thi mo di, the thoi. Mat nguoi khong doc do la xa; no doc do la
+         mat net. Cai lam video phong that trong ra that la khong khi NAM GIUA:
+         cang xa thi anh cang bi thay bang anh sang tan xa cua chinh bau khi.
+         Lam o day chu khong bang scene.fog cua three: fog la thuoc tinh cua TUNG
+         vat lieu, bat no len la bien dich lai tat ca — con o day chi can bo dem
+         do sau san co, va con cho ca hieu ung NGUOC NANG.
+         Dung lai do sau tuyen tinh tu bo dem log, y het pass AO. */
+      if (suong > 0.0) {
+        float d = texture2D(tSau, vUv).r;
+        float w = exp2(2.0 * d / fc) - 1.0;                  // met, trong khong gian nhin
+        if (w > 0.0) {
+          vec2 n2 = vUv * 2.0 - 1.0;
+          vec3 rd = normalize(vec3(n2.x * tanHalf * aspect, n2.y * tanHalf, -1.0));
+          /* Nguoc nang thi khi quyen sang ruc len: lop bui va hoi nuoc tan xa
+             manh ve phia truoc, nen nhin doc theo tia nang thay nhieu anh hon
+             han nhin vuong goc. Day la thu lam mot khung hinh co "khong khi". */
+          float g = max(dot(rd, nang), 0.0);
+          vec3 tx = mix(mauSuong, mauNang, pow(g, 6.0));
+          float f = 1.0 - exp(-w * suong);
+          c = mix(c, tx, clamp(f, 0.0, 0.92));
+        }
+      }
       /* TONE MAPPING o day, sau bloom — dung thu tu chuan.
          Anh chup cho thay moi vung sang deu CAT PHANG thanh trang bet, mat sach
          chi tiet: troi, mat dat, thap deu mot mau. Do la hau qua truc tiep cua
@@ -9230,13 +9263,24 @@ const FX = (() => {
       renderer.autoClear = truoc;
     }
     uGhep.tDiffuse.value = rt.texture; uGhep.tBloom.value = mip[0].texture;
+    /* LUON tro vao do sau cua rtScene — bo dem phang khong co depthTexture, va
+       du co thi che do HAI KHUNG cung khong dung tan xa duoc: hai o la hai camera
+       khac nhau, ma tanHalf/aspect/huong nang chi co MOT bo. Nen o duong phang
+       tat han tan xa; nhanh `suong > 0.0` trong shader se bo qua ca doan, khong
+       ai doc tSau nua. Duong tat loe mot khung thi van ve vao rtScene nen do sau
+       dung, tan xa chay binh thuong. */
+    uGhep.tSau.value = rtScene.depthTexture;
+    uGhep.fc.value = 2.0 / Math.log2(camera.far + 1.0);
+    uGhep.tanHalf.value = Math.tan(camera.fov * Math.PI / 360);
+    uGhep.aspect.value = camera.aspect;
     /* Tat loe bang cach NHAN 0 chu khong doi shader: locNaN chay TRUOC phep nhan
        trong mGhep nen bo dem loe cu/chua dung cung khong lot gi qua. Tra lai ngay
        gia tri cu — day la nui nguoi choi van duoc o bang chinh. */
-    const manhCu = uGhep.manh.value;
+    const manhCu = uGhep.manh.value, suongCu = uGhep.suong.value;
     if (chiTone) uGhep.manh.value = 0;
+    if (phang) uGhep.suong.value = 0;
     blit(mGhep, null);
-    uGhep.manh.value = manhCu;
+    uGhep.manh.value = manhCu; uGhep.suong.value = suongCu;
     renderer.setRenderTarget(null);
   }
 
@@ -9248,6 +9292,8 @@ const FX = (() => {
   const api = { size, render, bat: true, ao: true, msaa: 2,
                 nguong: uBright.nguong, goi: uBright.goi, manh: uGhep.manh,
                 phoi: uGhep.phoi, tone: uGhep.tone,
+                suong: uGhep.suong, nang: uGhep.nang,
+                mauSuong: uGhep.mauSuong, mauNang: uGhep.mauNang,
                 banKinh: uAO.banKinh, manhAO: uAO.manh,
                 rt: () => rtScene, mips: () => mip, rtAO: () => rtAOb };
   return api;
@@ -9290,6 +9336,7 @@ const TUNE = (() => {
     ['Vân thép',        0, 2,   .05, () => MThanS.normalScale.x,
                                      v => [MThanB, MThanS, MMui].forEach(m => {
                                        m.normalScale.set(v, v); m.needsUpdate = true; })],
+    ['Tán xạ khí quyển', 0, 3,  .05, () => suongNum,        v => suongNum = v],
     ['Mặt trời',        0, 5,   .1,  () => sun.intensity,   v => sun.intensity = v],
     ['Bán cầu',         0, 1,   .02, () => hemi.intensity,  v => hemi.intensity = v],
     ['Môi trường',      0, 1,   .02, () => amb.intensity,   v => amb.intensity = v],
@@ -10401,6 +10448,24 @@ function frame(now) {
   if (camMode === 5 && !dual) camMode = 3;
   $('dual').hidden = !dual;
   $('hud').classList.toggle('dual', dual);
+  /* ---- TAN XA KHI QUYEN: mat do va huong nang ----
+     Mat do lay thang tu MO HINH KHI QUYEN cua lo bay chu khong boi theo do cao:
+     cung mot ham atmosphere() ma luc day va luc can dang dung, nen suong tu nhat
+     di dung theo nhip khong khi thua di, va tren 80 km thi ve 0 — khong con pass
+     nao chay. HE_SUONG la tam nhin o mat bien: 1/2,4e-5 = 42 km.
+     Huong nang phai quy ve KHONG GIAN NHIN vi shader so no voi tia nhin, ma tia
+     nhin thi dung trong khong gian do. Phai cap nhat ma tran camera truoc, vi o
+     cho nay camera vua moi duoc dat lai xong. */
+  {
+    const HE_SUONG = 2.4e-5;
+    const altKK = srt ? srt.alt : (bo && bt && !shipCam() ? bt.alt : tel.alt);
+    const rho = F.atmosphere(Math.max(0, altKK)).rho;
+    FX.suong.value = HE_SUONG * Math.min(1, rho / 1.225) * suongNum;
+    camera.updateMatrixWorld();
+    FX.nang.value.copy(SUN_DIR).transformDirection(camera.matrixWorldInverse);
+    FX.mauSuong.value.copy(skyAt(altKK)).lerp(_sky, 0.35);
+  }
+
   /* CA BA duong deu qua pass ghep, de phoi sang va ACES giong nhau o moi che do.
      Hai khung va luc tat hau ky thi di o nac "chi tone": khong AO, khong loe. */
   if (dual) FX.render(() => renderDual(tel, bt), 1, 1);
