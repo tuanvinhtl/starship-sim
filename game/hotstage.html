@@ -7071,7 +7071,7 @@ let hotInfo = null, hingeBurn = null;
      sepPad  — doan bu 71 m giua day tau va day booster, nhoa dan sau MECO
      sepFlash— nhip loe luc nha kep, giam ve 0 trong ~1,15 giay
      hotCam  — dem lui giu goc may sat khe noi */
-let sepPad = 0, sepFlash = 0, hotCam = 0;
+let sepPad = 0, sepFlash = 0, hotCam = 0, boJust = false;
 /* Co CA MUC 1 MAY: luat ha moi dung 1 may o duoi 250 m (3 may o ga toi thieu da la
    T/W 1.25, khong giu duoc toc do ha). Thieu muc nay thi luc nguoi choi gianh lai
    lai tay o doan cuoi, nhanh mac dinh se nhay thang len 33 MAY. */
@@ -7147,7 +7147,7 @@ function reset() {
   burnT = 0; burnN = 0; burnThr = 0;
   rudInfo = null; mecoInfo = null; secoInfo = null; peakQA = 0; peakHeat = 0; rec = null;
   hotInfo = null; hingeBurn = null;
-  sepPad = 0; sepFlash = 0; hotCam = 0; hotFxStep(0, 0);
+  sepPad = 0; sepFlash = 0; hotCam = 0; boJust = false; hotFxStep(0, 0);
   peakTb = 0; peakTl = 0; peakTh = 0; peakYaw = 0;
   $('skip').hidden = true; $('skip').classList.remove('busy');
   boosterObj.visible = true; shipObj.visible = true;
@@ -7249,6 +7249,22 @@ function toggleAuto() {
 }
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
+  /* O NHAP DUOC QUYEN GIU PHIM CUA NO. Bo bat phim nay gan o window va truoc day
+     khong he xet e.target — hop ly khi ca trang khong co mot o nhap nao. Bang
+     chinh (phim O) la thu dau tien dua <input type="range"> va <textarea> len
+     trang, va the la: bam mui ten de van con truot thi preventDefault o duoi
+     chan dung viec doi gia tri (doi gia tri CHINH LA hanh vi mac dinh cua
+     keydown tren input range), con toManual() ben duoi lai chay — con truot
+     khong nhuc nhich ma che do tu lai bi tat giua luc dang leo, roi held[] con
+     van that pitchCmd 13 do/giay. Nut trong bang dang focus ma bam Space thi
+     goi launch() hoac stackDone(). Va khong boi den duoc o van ban de chep,
+     dung cai viec ma chu thich cua bang bao nguoi choi lam.
+     Chi chua mot loi ra: O / 0 / Esc van dong duoc bang, vi bang khong co nut dong. */
+  const tg = e.target, tn = tg && tg.tagName;
+  if (tn === 'INPUT' || tn === 'TEXTAREA' || (tg && tg.isContentEditable)) {
+    if (k === 'o' || k === '0' || k === 'escape') { try { tg.blur(); } catch (_) {} TUNE.bat(); }
+    return;
+  }
   if (['w','s','a','d',' ','e','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) e.preventDefault();
   held[k] = true;
   if (k === ' ' && phase === 'PRE') launch();
@@ -7415,12 +7431,21 @@ function onShipEvent(e) {
     logLine('Hot-stage — hạ còn 3 máy giữa, tàu đánh lửa khi vẫn dính', 'hi');
     setPhase('Hot-stage', 'hot'); Sfx.thud(110); shakeT = .35;
     hotCam = 4.9; sepFlash = 0;        // cat vao khe noi suot cua so 3,2 giay
+    /* VE TOC DO THAT. Cua so hot-stage dai 3,2 giay MO PHONG: o nut 20x no troi
+       qua trong 0,16 giay that, tuc ca khau tach tang — dung cai nguoi choi doi
+       xem — bi tua mat. Dung dung khuon ma cap tay da dung o tren. */
+    if (warp !== 1) {
+      warp = 1;
+      document.querySelectorAll('#warp button').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === '1'));
+      logLine('Về tốc độ thật — tách tầng nóng chỉ kéo 3,2 giây', 'hi');
+    }
   }
   if (e.type === 'MECO') {
     mecoInfo = { t: e.t, alt: e.alt, v: e.v };
     if (hotInfo) { hotInfo.dur = e.hotT || (e.t - hotInfo.t); hotInfo.relAlt = e.alt; hotInfo.relV = e.v; }
     logLine('MECO — tách tầng nóng', 'hi');
     bo = F.makeBooster(st);
+    boJust = true;                     // dung buoc no lan nua trong chinh lan lap nay
     phase = 'RETURN'; auto = true; $('tT').classList.remove('act');
     setPhase('Booster tách', 'hot');
     buildGrid('booster'); setCellLabels('ret');
@@ -7733,6 +7758,11 @@ function startAbort(lyDo) {
   abortInfo = { pha: 'SEP', t: 0, lyDo, altHuy: F.telemetry(st).alt };
   abortDaBay = true;
   phase = 'ABORT'; auto = true; camMode = 3; camAuto = false; cinReset();
+  /* Huy bo CO THE xay ra ngay trong cua so hot-stage. Luc do goc toa do la TAU,
+     nen khoi camera tach tang ngam 71 m tren DAY TAU — cao hon mui 19 m, tuc
+     ngam vao troi trong. Huy bo la cu cat manh hon moi phim camera, ma phim
+     camera 1-4 da xoa hotCam tu truoc. */
+  hotCam = 0;
   setPhase('HỦY BỎ', 'hot'); Sfx.thud(220); shakeT = 1.2;
   logLine(`HỦY BỎ KHI PHÓNG — ${lyDo}`, 'bad');
   logLine('Tách tàu khỏi booster — booster mất', 'bad');
@@ -8521,7 +8551,11 @@ const ENV = (() => {
   function capNhat(alt, now) {
     /* Dung lai PMREM TON TIEN, nen chi lam khi canh that su doi: do cao nhich
        qua 2 km hoac 4%, va khong qua mot lan moi 0,4 giay. */
-    if (now - tCu < 400 && Math.abs(alt - altCu) < Math.max(2000, altCu * 0.04)) return;
+    /* `||` chu khong `&&`: dieu kien DUNG LAI la "doi du nhieu VA qua 0,4 giay",
+       nen dieu kien BO QUA la phu dinh cua no — "con som HOAC chua doi du". Viet
+       bang && thi no khong chan gi ca: dung im tren be, cu qua 0,4 giay la dung
+       lai ca PMREM mot lan, mai mai. */
+    if (now - tCu < 400 || Math.abs(alt - altCu) < Math.max(2000, altCu * 0.04)) return;
     tCu = now; altCu = alt;
     u.troi.value.copy(_sky);
     const k = Math.min(1, Math.max(0, (alt - 3000) / 70000));
@@ -8548,6 +8582,13 @@ const ENV = (() => {
    try {
      MSteel.metalness = 0.5; MSteel.roughness = 0.42; MSteel.needsUpdate = true;
      MSteelD.metalness = 0.75; MSteelD.roughness = 0.62; MSteelD.needsUpdate = true;
+     /* Ba vat lieu than — booster, than tau, mui — la gan het nhung gi nguoi choi
+        nhin thay, va thepThan() dat chung o metalness .88 / roughness .34 vi tinh
+        CO envMap. Khong co moi truong de phan chieu thi kim loai gan nhu khong con
+        phan xa khuech tan: bo quen chung o duong lui nay thi ca ten lua thanh den. */
+     for (const m of [MThanB, MThanS, MMui]) {
+       m.metalness = 0.5; m.roughness = 0.42; m.needsUpdate = true;
+     }
    } catch (_) {}
    if (!daBao) { daBao = 1; try { logLine('Không dựng được bản đồ môi trường — thép về chế độ cũ', 'bad'); } catch (_) {} }
    console.warn('ENV hong:', e);
@@ -9486,7 +9527,19 @@ function frame(now) {
         if (!marks.km && t2.alt >= 100000) { marks.km = 1; logLine('Vượt đường Kármán — 100 km'); }
         for (const e of evs) onShipEvent(e);
       }
-      if (bo && bo.alive && phase !== 'END') {
+      /* BO VUA SINH TRONG CHINH LAN LAP NAY thi DUNG buoc no. MECO duoc phat ra
+         boi F.step(st) o ngay tren, va makeBooster lay trang thai st SAU buoc do
+         — tuc bo da dung thoi diem cua st. Buoc tiep o day la buoc THU HAI, cho
+         booster chay truoc tau vinh vien dung mot DT. O 1744 m/s thi mot DT la
+         34,9 m: luc tach, booster nam PHIA TRUOC tau 34,8 m thay vi trung diem,
+         nen khe ve ra khoi hanh o 105,8 m roi CO LAI suot hon hai giay trong khi
+         tau vuot qua no — 102 khung hinh hai tang ap lai gan nhau. Bo buoc thua
+         thi khe khoi hanh dung 71,0 m va tang don dieu (da do headless ca hai
+         ben). Khong doi gi ve diem booster: day la cung mot day trang thai, chi
+         lech cho no duoc VE o khung nao, va bo di thi game khop lai voi
+         tools/boosteval.js, von chi buoc bo mot lan moi vong. */
+      if (boJust) boJust = false;
+      else if (bo && bo.alive && phase !== 'END') {
         const bt0 = bo.phase;
         // LUON chay may tinh hanh trinh — no giu pha bay, diem cham du bao va
         // nguong dot ham song. Lai tay chi thay the LENH CO CAU, khong tat no.
@@ -9879,9 +9932,16 @@ function frame(now) {
   /* Lua qua vanh thong hoi: len dan trong 0,4 giay dau (chuyen danh lua), chay
      suot cua so, roi NHAY LOE mot nhip khi nha kep va tat trong ~1,15 giay.
      Binh phuong sepFlash de nhip loe dut khoat chu khong nhoa deu. */
-  if (sepFlash > 0) sepFlash = Math.max(0, sepFlash - raw / 1.15);
-  if (hotCam > 0) hotCam = Math.max(0, hotCam - raw);
-  hotFxStep((!bo && st.hot ? Math.min(1, st.hotT / .4) : 0) + sepFlash * sepFlash * .95, now);
+  /* Tru theo `sim` chu khong `raw`: hai bo dem nay dong khung cho mot cua so do
+     bang giay MO PHONG (HOT_DUR = 3,2). Neu nguoi choi tua len lai giua cua so
+     thi ca nhip co lai dung ty le, khong con cu may song lau hon su kien no sinh
+     ra de cho xem. O warp 1 thi sim === raw, khong doi mot ly nao. */
+  if (sepFlash > 0) sepFlash = Math.max(0, sepFlash - sim / 1.15);
+  if (hotCam > 0) hotCam = Math.max(0, hotCam - sim);
+  /* Muc nen GIU gia tri cua so roi nhoa cung nhip loe, neu khong thi dung khoanh
+     khac nha kep k tut tu 1 xuong 0,95 — "nhip loe" hoa ra TOI hon luc dang chay
+     5%. Nay la 1 -> 1,7 (dung tran cua hotFxStep) roi tat. */
+  hotFxStep((!bo && st.hot ? Math.min(1, st.hotT / .4) : sepFlash) + sepFlash * sepFlash * .7, now);
 
   /* ---- HIEU UNG KHI DONG: plasma tai nhap, khe ban le canh, xoay grid fin.
      Do sang lay tu NHIET LUONG DIEM DUNG (Sutton-Graves) chu khong bat theo

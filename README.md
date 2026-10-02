@@ -34,8 +34,32 @@ lọc sáng có đầu gối mềm, năm mức thu/phóng kiểu Call of Duty, v
 giải lấy độ sâu thẳng từ `logarithmicDepthBuffer` (`w = 2^(2d/fc) − 1`) nên
 không cần pass pháp tuyến riêng.
 
-Bấm **P** để bật tắt. Máy yếu thì bộ canh khung hình tự hạ ba nấc: bỏ khử răng
-cưa → tắt hậu kỳ → hạ độ phân giải.
+Cuối chuỗi là tone mapping ACES. Không có nó thì vùng sáng bị kẹp phẳng thành
+trắng bệt — đó mới là nguyên nhân thật của cảm giác "chói mà chán", không phải
+thiếu hiệu ứng.
+
+Thép đọc ra thép nhờ hai thứ, không nhờ thêm thư viện nào: một bản đồ môi trường
+sinh lúc chạy, và vân thép thủ tục — trường độ cao 512x512 có rãnh hàn cùng gờ nổi
+ở mỗi ranh giới vòng thép 1,83 m, từ đó lấy ra roughnessMap và normalMap bằng Sobel.
+Không tải về một byte ảnh nào.
+
+Bấm **P** để bật tắt hậu kỳ, **O** (hoặc **0**) để mở bảng chỉnh: chín núm cho độ
+phơi sáng, cường độ loé, bóng khe, vân thép và ba nguồn sáng, kèm ô văn bản in ra
+dòng giá trị để dán lại vào mã. Máy yếu thì bộ canh khung hình tự hạ ba nấc: bỏ khử
+răng cưa → tắt hậu kỳ → hạ độ phân giải.
+
+## Tách tầng nóng
+
+Hot-staging có đủ trong lò vật lý: 3,2 giây hai tầng cùng cháy, booster hạ còn 3 máy
+giữa, và 16% lượng đẩy của tàu đập vào đỉnh booster thành xung 1,84 m/s ngược chiều
+bay — đó mới là lý do hai tầng rời nhau nhanh, trước khi chênh lệch lực đẩy kịp ăn.
+
+Phần nhìn thấy khó hơn phần cơ chế. Lò bay là 3-DOF nên cả chồng chỉ có **một** điểm
+trạng thái; khi còn dính, lớp vẽ phải đặt đáy tàu cao hơn đáy booster đúng 71 m. Ngay
+sau MECO booster khởi hành từ chính điểm đó, nên nếu bỏ phần bù ấy đi thì đúng khoảnh
+khắc tách, tàu tụt thẳng 71 m vào lòng booster — cú đẩy biến thành cú giật ngược. Nay
+giữ nguyên phần bù tới khi khe thật vượt qua nó rồi mới nhoà dần: đo headless 60 giây
+sau MECO, khe vẽ ra khởi hành đúng 71,0 m và tăng ở mọi khung hình.
 
 ## Chạy được ngay (không cần Unreal)
 
@@ -65,9 +89,14 @@ mặt đất ở thông số gốc cho ra đúng 2.30 MN / 347 s / Ae 1.33 m². 
 
 ## Chấm điểm không cần trình duyệt
 
-Sửa `hotstage.html` xong thì chạy `./tools/check.sh` — nó kiểm cú pháp rồi trích lại
-ba mô-đun. Lưu ý: nó chỉ bắt lỗi cú pháp, **không** bắt được lỗi tham chiếu hay sai
-phạm vi biến.
+Sửa `hotstage.html` xong thì chạy `./tools/check.sh` — nó kiểm cú pháp, trích lại ba
+mô-đun, rồi soát shader. Bộ soát shader có vì một lý do cụ thể: shader là **chuỗi**
+đối với `node`, nên một uniform khai báo bên JS mà quên khai báo trong GLSL vẫn qua
+`node --check` trơn tru rồi chết lúc chạy, làm chương trình vô hiệu và trắng màn hình.
+Nó đối chiếu khoá của đối tượng uniform với các dòng `uniform` trong GLSL tương ứng.
+
+Vẫn còn lớp nó **không** bắt được: lỗi tham chiếu, sai phạm vi biến, và mọi thứ chỉ
+hiện ra khi có GPU.
 
 ```bash
 node tools/boosteval.js sweep <nhãn>   # 28 chuyến booster vào tháp
