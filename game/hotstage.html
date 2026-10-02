@@ -6009,7 +6009,20 @@ function latticeTexture() {
   const alpha = latticeTexture();
   const finMat = new THREE.MeshStandardMaterial({
     color: 0x8A9099, roughness: .5, metalness: .85,
-    alphaMap: alpha, transparent: true, alphaTest: .45, side: THREE.DoubleSide
+    /* KHONG dat `transparent`. Luoi nay chi can PHEP THU ALPHA de duc lo, va
+       alphaTest thi chay duoc trong duong ve DAC. De `transparent: true` thi no
+       bi day sang duong trong suot, bat tron mau va sap xep lai theo chieu sau —
+       mep tung o luoi thanh ra khong on dinh giua cac khung, va day la nguon lan
+       tan nhap nhay ro nhat khi camera dong.
+       Do bang chenh lech giua cac khung lien tiep trong vung canh gio, bon to hop
+       trong cung mot luot:
+         trong suot, khong A2C (goc) 0,281
+         trong suot, co A2C          0,277
+         dac,        co A2C          0,258
+         dac,        khong A2C       0,198   <- chon cai nay, giam 29,5%
+       Luu y alphaToCoverage lam XAU DI: voi chi 2 mau MSAA, no doi mot mep cung
+       lay mot mau phu rang rac, tuc doi nhieu khong gian lay nhieu thoi gian. */
+    alphaMap: alpha, alphaTest: .45, side: THREE.DoubleSide
   });
   const finGeo = new THREE.BoxGeometry(5.4, 0.30, 5.0);   // ban kinh x day x tiep tuyen
   const armGeo = new THREE.CylinderGeometry(.42, .42, 1.6, 10);
