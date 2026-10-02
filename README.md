@@ -34,6 +34,13 @@ lọc sáng có đầu gối mềm, năm mức thu/phóng kiểu Call of Duty, v
 giải lấy độ sâu thẳng từ `logarithmicDepthBuffer` (`w = 2^(2d/fc) − 1`) nên
 không cần pass pháp tuyến riêng.
 
+AO tự tắt dần khi bán kính lấy mẫu 1,2 m chiếu xuống dưới vài điểm ảnh. Phải có
+bước đó: ở xa thì cả 12 mẫu rơi vào cùng một texel nên `wm == w`, trong khi điểm
+mẫu vẫn bị đẩy ra dọc pháp tuyến — `dz` ra dương và số hạng che bị kẹp lên 1,0.
+Tức ở xa nó cho AO **tối đa** chứ không phải không có AO, và vì độ sâu log lượng
+tử hoá thô ở tầm đó, nó thành từng vệt sọc trên địa hình nhìn từ vài km độ cao.
+Đo sau khi sửa: ở bệ phóng AO vẫn đổi 8,8 % điểm ảnh, ở 7 km chỉ còn 0,17 %.
+
 Cuối chuỗi là tone mapping ACES. Không có nó thì vùng sáng bị kẹp phẳng thành
 trắng bệt — đó mới là nguyên nhân thật của cảm giác "chói mà chán", không phải
 thiếu hiệu ứng.

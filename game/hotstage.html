@@ -8977,8 +8977,18 @@ const FX = (() => {
         w = exp2(2*d/fc) - 1
      Phap tuyen suy tu dao ham man hinh cua vi tri dung lai. Ban kinh lay mau la
      1,2 MET trong khong gian the gioi: vua cho khe ket cau thap, canh gio, vanh
-     dong co — con qua cau Trai Dat cach hang nghin km thi ban kinh chieu len man
-     hinh nho hon mot diem anh nen khong sinh AO, dung nhu phai the. */
+     dong co.
+
+     CHO NAY TRUOC DAY GHI MOT GIA DINH SAI: rang o xa thi ban kinh chieu len man
+     hinh nho hon mot diem anh "nen khong sinh AO, dung nhu phai the". Nguoc han.
+     Khi ca 12 mau roi vao CUNG MOT texel thi wm == w, nhung -mau.z van lech vi
+     diem mau bi day ra doc phap tuyen mot doan r*0.45; the la dz ra duong va
+     che += clamp(banKinh/dz) thuong bi kep thang len 1.0. Tuc o xa no cho AO TOI
+     DA chu khong phai khong co AO — va vi do sau log bi luong tu hoa tho o tam
+     do, no thanh TUNG VET SOC tren dia hinh, nhin tu may km do cao thi ca dai bo
+     bien ke soc. Nguong w > 2e5 khong cuu duoc gi: dia hinh luc do moi cach vai
+     chuc km, lot qua thoai mai.
+     Nen pass nay phai tu tat theo ban kinh CHIEU LEN MAN HINH — xem rPix duoi. */
   const uAO = { tDepth: { value: null }, fc: { value: 1 }, tanHalf: { value: 1 }, aspect: { value: 1 },
                 buoc: { value: new THREE.Vector2() }, banKinh: { value: 1.2 }, manh: { value: 1.0 } };
   const mAO = mat(`
@@ -8995,6 +9005,13 @@ const FX = (() => {
     void main(){
       float w = sauTuyenTinh(vUv);
       if (w > 2.0e5 || w <= 0.0) { gl_FragColor = vec4(1.0); return; }   // troi va hanh tinh: bo qua
+      /* Ban kinh lay mau quy ra DIEM ANH. Duoi vai diem anh thi bo dem do sau
+         khong con phan giai noi doan day 1,2 m, moi mau doc trung mot texel, va
+         ket qua la nhieu co cau truc chu khong phai bong. Tat dan thay vi cat
+         dut de khong hien ra mot duong vien tron giua mat dat. */
+      float rPix = banKinh / max(w * tanHalf, 1e-6) * buoc.y * 0.5;
+      float mo = smoothstep(0.6, 2.5, rPix);
+      if (mo <= 0.0) { gl_FragColor = vec4(1.0); return; }
       vec3 p = viTri(vUv, w);
       vec3 nx = dFdx(p), ny = dFdy(p);
       vec3 n = normalize(cross(nx, ny));
@@ -9015,7 +9032,7 @@ const FX = (() => {
         float dz = (-mau.z) - wm;                  // > 0: co vat chan truoc diem mau
         if (dz > 0.02) che += clamp(banKinh / max(dz, 1e-4), 0.0, 1.0);
       }
-      float ao = 1.0 - manh * che / float(N);
+      float ao = 1.0 - manh * mo * che / float(N);
       gl_FragColor = vec4(clamp(ao, 0.0, 1.0));
     }`, uAO);
 
