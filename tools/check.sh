@@ -12,3 +12,8 @@ sys.stdout.write(s[a:b])
 PY
 node --check /tmp/_hs_check.js && echo "cu phap OK"
 python3 "$D/tools/sync-modules.py"
+
+# Soat uniform cua shader tu viet. node --check khong the bat duoc lop loi nay:
+# shader la CHUOI doi voi node, nen quen khai bao mot uniform van qua tron tru
+# roi chet luc chay voi "undeclared identifier" va man hinh trang.
+python3 "$(dirname "$0")/shadercheck.py" || exit 1
