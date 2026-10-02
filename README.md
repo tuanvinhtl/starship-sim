@@ -43,7 +43,22 @@ sinh lúc chạy, và vân thép thủ tục — trường độ cao 512x512 có
 ở mỗi ranh giới vòng thép 1,83 m, từ đó lấy ra roughnessMap và normalMap bằng Sobel.
 Không tải về một byte ảnh nào.
 
-Bấm **P** để bật tắt hậu kỳ, **O** (hoặc **0**) để mở bảng chỉnh: chín núm cho độ
+Cả ba đường vẽ — một khung, hai khung (phím **5**), và lúc tắt quầng sáng — đều đi
+qua pass ghép, nên phơi sáng và ACES giống nhau ở mọi chế độ. Hai đường sau chạy ở
+nấc "chỉ tone": không AO, không loé. Phải làm vậy vì đèn nền đã hạ xuống 1/3 và
+metalness nâng lên .88 *chính vì* tính là luôn có ACES; đường nào né pass ghép thì
+cháy trắng hơn cả bản chưa có hậu kỳ. Loé vẫn không được đi qua chế độ hai khung —
+đó là lý do ban đầu người ta né hậu kỳ ở đó — còn tone mapping thì theo từng điểm
+ảnh nên không rò qua đường chia.
+
+Hai khung vẽ vào một bộ đệm **không khử răng cưa** riêng, vì nó vẽ hai ô bằng
+scissor tức che phủ từng phần: trên bộ đệm đa mẫu thì phép phân giải ra texture
+không phủ hết, và ngoài hai ô hiện ra xác của những lần vẽ trước — một con tàu và
+một booster lơ lửng giữa nền đen. Đo ba lần không confound: samples 2 thì có,
+samples 0 thì không, kể cả sau khi đi vòng qua góc máy khác rồi quay lại. Đánh đổi:
+hai khung mất khử răng cưa, đổi lấy đúng tông màu.
+
+Bấm **P** để bật tắt quầng sáng và bóng khe (tông giữ nguyên), **O** (hoặc **0**) để mở bảng chỉnh: chín núm cho độ
 phơi sáng, cường độ loé, bóng khe, vân thép và ba nguồn sáng, kèm ô văn bản in ra
 dòng giá trị để dán lại vào mã. Máy yếu thì bộ canh khung hình tự hạ ba nấc: bỏ khử
 răng cưa → tắt hậu kỳ → hạ độ phân giải.

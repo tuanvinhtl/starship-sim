@@ -7295,7 +7295,7 @@ addEventListener('keydown', e => {
     else logMode5();
   }
   if (['w','s','a','d','q','e','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) toManual();
-  if (k === 'p') { FX.bat = !FX.bat; logLine(FX.bat ? 'Hậu kỳ: bật' : 'Hậu kỳ: tắt', 'hi'); }
+  if (k === 'p') { FX.bat = !FX.bat; logLine(FX.bat ? 'Quầng sáng + bóng khe: bật' : 'Quầng sáng + bóng khe: tắt — tông giữ nguyên', 'hi'); }
   /* Nhan ca chu O lan so 0: hai ky tu nay nhin gan nhu giong nhau trong van
      ban, va so 1-6 da la phim camera nen 0 dang de trong. */
   if (k === 'o' || k === '0') TUNE.bat();
@@ -8872,7 +8872,7 @@ function watchFps(raw) {
     logLine('Máy không tải nổi — bỏ khử răng cưa', 'bad');
   } else if (fpsCut === 2) {
     FX.bat = false;
-    logLine('Vẫn nặng — tắt hậu kỳ', 'bad');
+    logLine('Vẫn nặng — tắt quầng sáng và bóng khe', 'bad');
   } else {
     renderer.setPixelRatio(Math.min(devicePixelRatio, 1)); resize();
     logLine('Vẫn nặng — hạ độ phân giải', 'bad');
@@ -9060,6 +9060,23 @@ const FX = (() => {
   const HF = { type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
                format: THREE.RGBAFormat, depthBuffer: false };
   let rtScene = null, mip = [], rtAO = null, rtAOb = null, W = 1, H = 1;
+  /* BO DEM PHANG — khong khu rang cua — chi danh cho che do hai khung.
+     Hai khung ve hai o bang scissor, tuc CHE PHU TUNG PHAN bo dem. Tren bo dem
+     DA MAU thi phep phan giai ra texture khong phu het, va ngoai hai o hien ra
+     xac cua nhung lan ve truoc: mot con tau va mot booster lo lung giua nen den.
+     Da do ba lan, khong confound: samples = 2 thi co, samples = 0 thi khong, ke
+     ca sau khi di vong qua goc may khac roi quay lai. Danh doi: hai khung mat
+     khu rang cua, doi lay dung tong mau — ma lech tong moi la cai nguoi choi
+     thay. Tao luoi: phan lon nguoi choi khong bao gio bam phim 5. */
+  let rtPhang = null;
+  function rtDoi() {
+    if (rtPhang && rtPhang.width === W && rtPhang.height === H) return rtPhang;
+    if (rtPhang) rtPhang.dispose();
+    rtPhang = new THREE.WebGLRenderTarget(W, H, {
+      type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, depthBuffer: true, stencilBuffer: false, samples: 0 });
+    return rtPhang;
+  }
   const MUC = 5;                                        // so muc thu nho cua chuoi bloom
   const AO8 = { type: THREE.UnsignedByteType, minFilter: THREE.LinearFilter,
                 magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, depthBuffer: false };
@@ -9083,16 +9100,28 @@ const FX = (() => {
       mw = Math.max(2, mw >> 1); mh = Math.max(2, mh >> 1);
       mip.push(new THREE.WebGLRenderTarget(mw, mh, HF));
     }
+    if (rtPhang) { rtPhang.dispose(); rtPhang = null; }
     if (rtAO) rtAO.dispose(); if (rtAOb) rtAOb.dispose();
     const aw = Math.max(2, W >> 1), ah = Math.max(2, H >> 1);   // AO chay o nua phan giai
     rtAO = new THREE.WebGLRenderTarget(aw, ah, AO8);
     rtAOb = new THREE.WebGLRenderTarget(aw, ah, AO8);
   }
 
-  function render(ve) {
-    renderer.setRenderTarget(rtScene); renderer.clear(); ve();      // dung canh vao bo dem
+  /* chiTone = chi lay PHOI SANG + ACES, bo ca AO lan chuoi loe.
+     Vi sao can nac nay: duong cong ACES va he so phoi sang nam trong pass ghep,
+     nen moi duong ve KHONG qua pass do se ra mot tong khac han — ma den nen da
+     bi ha xuong 1/3 va metalness nang len .88 CHINH VI tinh la luon co ACES. Hai
+     khung (phim 5) va luc tat hau ky (phim P) truoc day ve thang ra canvas, nen
+     dung hai cho do anh chay trang hon ca ban truoc khi co hau ky.
+     Van khong cho loe di qua: do dung la ly do hai khung ne hau ky tu dau — quang
+     sang loe qua duong chia giua hai o. Tone mapping thi theo TUNG DIEM ANH nen
+     blit toan man khong lam ro ri gi qua duong chia. */
+  function render(ve, chiTone, phang) {
+    const rt = phang ? rtDoi() : rtScene;
+    renderer.setRenderTarget(rt); renderer.clear(); ve();           // dung canh vao bo dem
 
-    if (api.ao) {                                                   // --- AO ---
+    const lamAO = api.ao && !chiTone;
+    if (lamAO) {                                                    // --- AO ---
       const fc = 2.0 / Math.log2(camera.far + 1.0);
       uAO.tDepth.value = rtScene.depthTexture; uAO.fc.value = fc;
       uAO.tanHalf.value = Math.tan(camera.fov * Math.PI / 360);
@@ -9103,24 +9132,32 @@ const FX = (() => {
       uMo.buoc.value.set(1 / rtAO.width, 1 / rtAO.height);
       blit(mMo, rtAOb);
     }
-    uGhep.coAO.value = api.ao ? 1 : 0;
+    uGhep.coAO.value = lamAO ? 1 : 0;
     uGhep.tAO.value = rtAOb ? rtAOb.texture : null;
 
-    uBright.tDiffuse.value = rtScene.texture; blit(mBright, mip[0]);
-    for (let i = 1; i < MUC; i++) {                                  // thu nho dan
-      uDown.tDiffuse.value = mip[i-1].texture;
-      uDown.buoc.value.set(1 / mip[i-1].width, 1 / mip[i-1].height);
-      blit(mDown, mip[i]);
+    if (!chiTone) {
+      uBright.tDiffuse.value = rtScene.texture; blit(mBright, mip[0]);
+      for (let i = 1; i < MUC; i++) {                                // thu nho dan
+        uDown.tDiffuse.value = mip[i-1].texture;
+        uDown.buoc.value.set(1 / mip[i-1].width, 1 / mip[i-1].height);
+        blit(mDown, mip[i]);
+      }
+      const truoc = renderer.autoClear; renderer.autoClear = false;
+      for (let i = MUC - 1; i > 0; i--) {                             // phong to, cong don
+        uUp.tDiffuse.value = mip[i].texture;
+        uUp.buoc.value.set(1 / mip[i].width, 1 / mip[i].height);
+        qMesh.material = mUp; renderer.setRenderTarget(mip[i-1]); renderer.render(qScene, qCam);
+      }
+      renderer.autoClear = truoc;
     }
-    const truoc = renderer.autoClear; renderer.autoClear = false;
-    for (let i = MUC - 1; i > 0; i--) {                               // phong to, cong don
-      uUp.tDiffuse.value = mip[i].texture;
-      uUp.buoc.value.set(1 / mip[i].width, 1 / mip[i].height);
-      qMesh.material = mUp; renderer.setRenderTarget(mip[i-1]); renderer.render(qScene, qCam);
-    }
-    renderer.autoClear = truoc;
-    uGhep.tDiffuse.value = rtScene.texture; uGhep.tBloom.value = mip[0].texture;
+    uGhep.tDiffuse.value = rt.texture; uGhep.tBloom.value = mip[0].texture;
+    /* Tat loe bang cach NHAN 0 chu khong doi shader: locNaN chay TRUOC phep nhan
+       trong mGhep nen bo dem loe cu/chua dung cung khong lot gi qua. Tra lai ngay
+       gia tri cu — day la nui nguoi choi van duoc o bang chinh. */
+    const manhCu = uGhep.manh.value;
+    if (chiTone) uGhep.manh.value = 0;
     blit(mGhep, null);
+    uGhep.manh.value = manhCu;
     renderer.setRenderTarget(null);
   }
 
@@ -10272,10 +10309,10 @@ function frame(now) {
   if (camMode === 5 && !dual) camMode = 3;
   $('dual').hidden = !dual;
   $('hud').classList.toggle('dual', dual);
-  /* Hai khung KHONG qua hau ky: bloom se loe qua duong chia giua hai o. */
-  if (dual) renderDual(tel, bt);
-  else if (FX.bat) FX.render(() => renderer.render(scene, camera));
-  else renderer.render(scene, camera);
+  /* CA BA duong deu qua pass ghep, de phoi sang va ACES giong nhau o moi che do.
+     Hai khung va luc tat hau ky thi di o nac "chi tone": khong AO, khong loe. */
+  if (dual) FX.render(() => renderDual(tel, bt), 1, 1);
+  else FX.render(() => renderer.render(scene, camera), !FX.bat);
 
   /* ---- am thanh: bam theo ga, so may va mat do khi quyen ---- */
   {
