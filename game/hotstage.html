@@ -7397,7 +7397,11 @@ function reset() {
   shipResult = null; boostResult = null; shipTelFinal = null; shipLand = null; turbo = false;
   F.setPayload(0); depN = 0; depT = 0; depShut = 0; bayOpen = 0; depDone = false; satList = [];
   for (const m of satMeshes) m.visible = false; setPayUI();
-  dorPlan = null; dorAng = 0; dorBurned = false; seamQ = null; seamT = 0;
+  /* entryErrKm chi duoc boc trong startDeploy(), nen chuyen ISS hay chuyen huy bo
+     o lan choi sau se tai nhap bang sai so lech ngang DI MUON cua chuyen Starlink
+     truoc do — trong khi cung nhiem vu do chay ngay sau khi tai trang thi bang 0. */
+  dorPlan = null; dorAng = 0; dorBurned = false; seamQ = null; seamT = 0; entryErrKm = 0;
+  $('eff').title = '';          // chu giai cua o tu the: nhanh booster khong ghi lai
   iss = null; dockT = 0; issWait0 = 0; dockManual = false; issBoCap = false; khiDaBao = 0;
   abortInfo = null; abortDaBay = false;
   gDinh = 0; gLau = 0; o2DaBao = 0; doanChet = false; misTruoc = 0; gTruoc = null;
@@ -7411,7 +7415,10 @@ function reset() {
   hotInfo = null; hingeBurn = null;
   sepPad = 0; sepFlash = 0; hotCam = 0; boJust = false; hotFxStep(0, 0);
   peakTb = 0; peakTl = 0; peakTh = 0; peakYaw = 0;
+  /* Tra lai CA NHAN chu khong chi bo class: bam tua xong ma chuyen do ket thuc
+     giua chung thi nut ket o chu "Dang tua..." sang tan chuyen sau. */
   $('skip').hidden = true; $('skip').classList.remove('busy');
+  $('skip').innerHTML = '&#9193; Tua tới sự kiện';
   /* TRA TU THE VE GOC. Luc tau tai nhap, lop ve gan THANG
      `shipObj.quaternion.set(srt.q4...)` — tu the 3D day du, ba truc. Khi ve lai be
      thi nhanh "con dinh" chi dat `rotation.z`, nen x va y GIU NGUYEN tu the
@@ -7434,6 +7441,19 @@ function reset() {
   tlReset(); clearDualHUD(); $('dual').hidden = true; cinReset();
   // goc may va co camAuto cung phai ve mac dinh, khong thi chuyen truoc ro sang chuyen sau
   camMode = 1; camAuto = false;
+  /* CHOT MOT-CHIEU cua moc su kien. `marks` la mot tui co "da ban roi": moi khoa
+     chi duoc bat MOT lan va khong bao gio tat. reset() xua nay khong he cham toi
+     no, nen tu chuyen thu hai tro di:
+       marks.ign  -> mat cum khoi danh lua o T-3 giay va tieng thud 70 Hz
+       marks.m1   -> mat dong "Vuot am thanh — Mach 1" VA CA TIENG NO SIEU THANH
+       marks.mq   -> mat dong "Qua max-Q"
+       marks.km   -> mat dong "Vuot duong Karman — 100 km"
+     Tro treu la reset() da don san CAI HO HAT ngay duoi (smokeLife), chi quen mat
+     cai chot quyet dinh co rot hat vao ho nua hay khong.
+     Phai `delete` tung khoa chu khong gan `marks = {}` vi no khai bao `const`.
+     `marks.beep` xoa luon cung vo hai: no so sanh theo GIA TRI (`sec !== marks.beep`)
+     chu khong phai chot, nen van keu dung. */
+  for (const k in marks) delete marks[k];
   $('log').innerHTML = ''; $('over').hidden = true; $('catchbar').hidden = true;
   $('intro').hidden = false;          // R phai tra ve man hinh mo dau, khong bo nguoi choi treo o PRE
   $('tT').classList.remove('act');
@@ -7467,6 +7487,10 @@ function fuelBar(vId, bId, kg, fullKg) {
 function setCellLabels(mode) {
   const L = mode === 'dock' ? LABELS_DOCK : mode === 'ship' ? LABELS_SHIP : mode === 'ret' ? LABELS_RETURN : LABELS_ASCENT;
   document.querySelectorAll('#fd .cell .lab').forEach((e, i) => e.textContent = L[i]);
+  /* Xoa luon MAU cu. Bang so doan cap to ' ok' / ' crit' cho ca bon o giua, nhung
+     chi o 1 va o 3 duoc ghi lai moi khung — o 2 va o 4 khong ai xoa. Doi nhan bao
+     gio cung la doi pha, nen day la cho dung de tra mau ve goc. */
+  document.querySelectorAll('#fd .cell').forEach(e => e.className = 'cell');
 }
 
 /* ===================== INPUT ===================== */
@@ -7721,6 +7745,11 @@ function onShipEvent(e) {
     setPhase('Booster tách', 'hot');
     buildGrid('booster'); setCellLabels('ret');
     $('catchbar').hidden = false;
+    /* Dat nhan ngay day. Nhanh TAU ve (updateHUDShip) va nhanh CAP ISS deu tu dat
+       nhan cua minh moi khung, rieng cu bat BOOSTER thi chi bat thanh len roi dung
+       nhan dang co san — nen choi ISS xong phong lai la cu bat booster doi tieu de
+       "Hanh lang tiep can". */
+    document.querySelector('#catchbar .lab').textContent = 'Căn chỉnh với tháp';
     camMode = 3; shakeT = .8;
     sepPad = SHIP_OFFSET; sepFlash = 1;
     hotCam = Math.max(hotCam, 1.8);    // giu them 1,8 giay de THAY hai tang roi nhau
@@ -8728,13 +8757,18 @@ async function recSave(summary) {
   rec.fail = summary.fail;
   rec.dur = Math.round(recClock());
   delete rec.nextAt;
-  recLast = rec;
+  /* CHUP ban ghi lai truoc khi cho. Sau `await` o duoi, nguoi choi hoan toan co
+     the da bam choi lai: reset() dat `rec = null` (hoac mot ban ghi MOI), ma may
+     dong duoi lai doc LAI bien toan cuc — thanh ra ghi nham doi tuong, hoac nem
+     vi doc `.id` cua null roi bi try/catch nuot mat. Giu ban minh dang ghi. */
+  const r = rec;
+  recLast = r;
   const db = await recStore();
   if (!db) return { ok: false, why: 'kho du lieu khong dung duoc o ban xem nay' };
   try {
-    await db.collection('flights').doc(rec.id).set(rec);
+    await db.collection('flights').doc(r.id).set(r);
     recPrune(db);
-    return { ok: true, id: rec.id };
+    return { ok: true, id: r.id };
   } catch (e) {
     return { ok: false, why: (e && e.code) ? e.code : 'ghi that bai' };
   }
