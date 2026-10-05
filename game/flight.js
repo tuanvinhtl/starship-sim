@@ -607,6 +607,12 @@
   const ARM_FIN = 62 - B_COM;                   // grid fin o 62 m
   const GIMBAL_MAX = 15 * Math.PI / 180;
   const S_FIN = 30, CN_FIN = 1.2, CL_FIN = 0.8; // dien tich + he so cua 4 canh
+  /* TOC DO BE toi da cua grid fin, don vi hanh trinh moi giay. Mot don vi = ca
+     dai 0..1, va lop ve xoay `fin * 32 do`, nen 1,0 o day = 32 do/giay.
+     Truoc day `b.fin` duoc gan THANG, tuc tam luoi thep nang hang tan quay het
+     hanh trinh trong mot buoc 20 ms. Do duoc: 4,4% so buoc doi hoi tren 60 do/s
+     va dinh toi 3200 do/s, dung o pha tach tang, tai nhap va roi ve thap. */
+  let FIN_RATE = 1.6;                           // = 51 do/giay
   const RCS_TMAX = 5.5e6;                       // N*m — du lat 180 do trong ~17 s
   const RCS_TANK = 3500, RCS_FLOW = 8;          // kg, kg/s — voi khi nong an tu thung chinh
   /* LUC NGANG THUAN cua RCS khi nong — cung cach tinh nhu tau (xem ship3d RCS_TMAX):
@@ -812,15 +818,18 @@
     const omWant = clamp(errA * 0.55, -0.30, 0.30);
     const tWant = I * clamp((omWant - b.om) * 1.4, -2.0, 2.0);
 
-    let torque = 0; b.fin = 0; b.rcsCmd = 0;
+    /* `b.fin` nay la VI TRI THAT cua canh, giu lai giua cac buoc chu khong bi xoa
+       ve 0 moi vong nhu truoc — co vay moi gioi han duoc toc do. Lenh di vao
+       finMuon; canh bam theo voi toc do huu han o cuoi khoi. */
+    let torque = 0, finMuon = 0; b.rcsCmd = 0;
+    const tFin = q * S_FIN * CN_FIN * ARM_FIN;
     if (Fthrust > 1e4) {                                   // gimbal
       const tMax = Fthrust * Math.sin(GIMBAL_MAX) * ARM_ENG;
       torque = clamp(tWant, -tMax, tMax); b.eff = 'GIMBAL';
     } else {
-      const tFin = q * S_FIN * CN_FIN * ARM_FIN;
       if (tFin > 1e5) {                                    // grid fin (q > ~82 Pa)
-        b.fin = clamp(tWant / tFin, -1, 1);
-        torque = b.fin * tFin; b.eff = 'GRID FIN';
+        finMuon = clamp(tWant / tFin, -1, 1);
+        b.eff = 'GRID FIN';
       } else if (b.rcs > 0) {                              // RCS khi nong
         torque = clamp(tWant, -RCS_TMAX, RCS_TMAX);
         b.rcsCmd = torque / RCS_TMAX;
@@ -828,6 +837,15 @@
         b.eff = 'RCS';
       } else b.eff = 'KHONG';
     }
+    /* Bam theo lenh voi toc do huu han, VA khi khong con duoc dieu khien nua
+       (gimbal dang lam, hay q qua thap) thi canh tu tra ve 0 cung voi toc do do
+       chu khong bat ve 0 tuc thi. */
+    const buocFin = FIN_RATE * dt;
+    b.fin = clamp((b.fin || 0) + clamp(finMuon - (b.fin || 0), -buocFin, buocFin), -1, 1);
+    /* Mo-men THAT lay tu vi tri that cua canh. Phan khong kip tao ra se khong co
+       ai bu — booster khong co kenh thu ba trong pha nay — nen do tre hien ra
+       thanh sai so tu the, dung nhu ngoai doi. */
+    if (b.eff === 'GRID FIN') torque = b.fin * tFin;
     // on dinh khi dong: than tu xoay ve the day-truoc, va can xoay.
     // Theo DONG KHI, khong theo van toc so voi mat dat.
     const wS = windAt(f.alt, b.t);

@@ -70,6 +70,16 @@
     aBase: Math.PI * 4.5 * 4.5, aSide: 50 * 9,
     cdAx: 0.9, cdBroad: 1.30,
     sFlap: 15, cdFlap: 1.25,          // m2 moi canh
+    /* TOC DO BE toi da cua canh gio, don vi hanh trinh moi giay.
+       Mot don vi = ca dai 0..1 = 0,90 rad = 51,6 do (lay tu chinh lop ve:
+       spread = 0,95 - 0,90*e radian). Nen 1,0 o day = 51,6 do/giay.
+
+       VI SAO PHAI CO: truoc day dong duoi gan THANG vi tri muon vao sh.flap[i],
+       tuc canh gio nang hang tan quay het hanh trinh trong MOT buoc 20 ms. Do
+       duoc: lo dang ra lenh toi 1543 do/giay. Khong co toc do huu han thi cung
+       khong co toc do goc, ma khong co toc do goc thi khong tinh duoc cong suat
+       chap hanh — va cung khong co do tre nao de bo tu lai phai bu. */
+    flapRate: 1.0,
     /* ===== CUM VOI KHI NONG =====
        Truoc day mo hinh cho CUNG mot mo-men 1.6 MN.m quanh CA BA TRUC. Sai ve
        hinh hoc: voi chuc-ngua/dao-huong nam o mui va o duoi, canh tay don toi
@@ -1260,9 +1270,15 @@
     }
     const base = cmd.ext === undefined ? .5 : cmd.ext;
     let sy = 0, sz = 0;
+    const buoc = CFG.flapRate * dt;             // di duoc bao nhieu hanh trinh trong buoc nay
     for (let i = 0; i < 4; i++) {
       const fl = CFG.flaps[i];
-      sh.flap[i] = clamp(base * (1 - (sh.tuck || 0)) + pitchU * fl.fore + rollU * fl.right, 0, 1);
+      const muon = clamp(base * (1 - (sh.tuck || 0)) + pitchU * fl.fore + rollU * fl.right, 0, 1);
+      /* Bam theo lenh voi toc do huu han. Phan mo-men canh KHONG kip tao ra se tu
+         chay xuong gimbal roi RCS o duoi, vi `res` duoi day tinh tu vi tri THAT
+         cua canh chu khong tu vi tri muon — nen do tre hien ra thanh khi RCS bi
+         tieu, dung nhu ngoai doi. */
+      sh.flap[i] = clamp(sh.flap[i] + clamp(muon - sh.flap[i], -buoc, buoc), 0, 1);
       sy += sh.flap[i] * fl.r.z; sz += sh.flap[i] * fl.r.y;
     }
     const tauFlap = V(0, -kf * sy, kf * sz);
