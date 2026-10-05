@@ -65,6 +65,12 @@ một booster lơ lửng giữa nền đen. Đo ba lần không confound: sample
 samples 0 thì không, kể cả sau khi đi vòng qua góc máy khác rồi quay lại. Đánh đổi:
 hai khung mất khử răng cưa, đổi lấy đúng tông màu.
 
+Núm **Khử răng cưa** trong bảng chỉnh cho chọn 0 / 2 / 4 mẫu — mặc định 2. Nâng lên
+4 làm mượt lưới thép của tháp và cánh gió, thứ 2 mẫu chưa đủ sức. Để người chơi tự
+chọn chứ không nâng mặc định, vì giá phụ thuộc máy: trên M3 đo không ra chênh lệch
+kể cả ở 4096x3072 (9,4 so với 10,1 ms, cả hai đều còn ghim ở vsync), nhưng máy yếu
+thì khác hẳn — và thang hạ cấu hình theo khung hình vẫn kéo về 0 khi cần.
+
 Bấm **P** để bật tắt quầng sáng và bóng khe (tông giữ nguyên), **O** (hoặc **0**) để mở bảng chỉnh: chín núm cho độ
 phơi sáng, cường độ loé, bóng khe, vân thép và ba nguồn sáng, kèm ô văn bản in ra
 dòng giá trị để dán lại vào mã. Máy yếu thì bộ canh khung hình tự hạ ba nấc: bỏ khử

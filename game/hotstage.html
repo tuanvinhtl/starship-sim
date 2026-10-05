@@ -9361,10 +9361,17 @@ const FX = (() => {
   return api;
 })();
 
+/* May khong do duoc 4 mau thi dung co doi: hoi thang renderer roi kep lai.
+   WebGL2 bat buoc it nhat 4, nhung may yeu va trinh duyet cu van co the bao it
+   hon, va dua mot so qua lon vao `samples` thi bo dem khong dung duoc. */
+const MSAA_MAX = (() => {
+  try { return Math.max(0, renderer.capabilities.maxSamples | 0); } catch (_) { return 2; }
+})();
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   const d = renderer.getDrawingBufferSize(new THREE.Vector2());
+  FX.msaa = Math.min(FX.msaa, MSAA_MAX);
   FX.size(d.x, d.y, lowFX ? 0 : FX.msaa);
 }
 addEventListener('resize', resize); resize();
@@ -9390,6 +9397,17 @@ const TUNE = (() => {
   }
   const NUM = [
     ['Phơi sáng',      .2, 3,   .05, () => FX.phoi.value,   v => FX.phoi.value = v],
+    /* So MAU khu rang cua: 0 / 2 / 4. Day la num DUY NHAT trong bang nay cap lai
+       bo dem thay vi chi doi mot so, nen chan lai khi gia tri khong that su doi —
+       keo con truot ma cap lai bo dem o moi nhip la giat hinh.
+       Vi sao de nguoi choi tu chon chu khong nang mac dinh len 4: do roi, 2 -> 4
+       ton them 9 ms o 2048x1536 (22,13 -> 31,15), tuc gan mot nua ngan sach khung
+       hinh. May khoe thi dang, may vua thi khong. Cai 4 mau chua duoc la LUOI THEP
+       CUA THAP — hinh hoc manh that, chi nhieu mau hon moi cuu. */
+    ['Khử răng cưa',    0, 4,  2,  () => FX.msaa,
+                                   v => { const n = Math.min(MSAA_MAX, Math.round(v / 2) * 2);
+                                          if (n === FX.msaa) return;
+                                          FX.msaa = n; lowFX = false; resize(); }],
     ['envMap',          0, 2.5, .05, () => vatLieu()[0] ? vatLieu()[0].envMapIntensity : 1,
                                      v => vatLieu().forEach(m => { m.envMapIntensity = v; m.needsUpdate = true; })],
     ['Ngưỡng loé',     .3, 2.5, .05, () => FX.nguong.value, v => FX.nguong.value = v],
