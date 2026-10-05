@@ -7412,6 +7412,15 @@ function reset() {
   sepPad = 0; sepFlash = 0; hotCam = 0; boJust = false; hotFxStep(0, 0);
   peakTb = 0; peakTl = 0; peakTh = 0; peakYaw = 0;
   $('skip').hidden = true; $('skip').classList.remove('busy');
+  /* TRA TU THE VE GOC. Luc tau tai nhap, lop ve gan THANG
+     `shipObj.quaternion.set(srt.q4...)` — tu the 3D day du, ba truc. Khi ve lai be
+     thi nhanh "con dinh" chi dat `rotation.z`, nen x va y GIU NGUYEN tu the
+     bung-truoc cua chuyen truoc: choi lai la thay con tau nam nghieng, chong len
+     than booster ngay tren be.
+     Trong three.js `rotation` va `quaternion` cua cung mot vat the LA MOT, nen dat
+     rotation ve 0 la du — khong can dung toi quaternion. Da do: truoc ban va,
+     sau reset() van con x = 1,2 va y = 0,5 rad. */
+  boosterObj.rotation.set(0, 0, 0); shipObj.rotation.set(0, 0, 0);
   boosterObj.visible = true; shipObj.visible = true;
   for (let i = 0; i < SMOKE; i++) smokeLife[i] = 0;
   smoke.material.opacity = 0;
