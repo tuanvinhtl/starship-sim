@@ -4859,6 +4859,11 @@ function datBong() {
     if (!goc) continue;
     goc.traverse(o => {
       if (!o.isMesh) return;
+      /* MAT DAT, MAT NUOC va THUC VAT khong duoc do bong. Ham nay duyet `pad`,
+         ma ba thu do deu la con cua `pad` — de nguyen thi 147 nghin tam giac
+         dia hinh cong 131 nghin tam giac co bi nem vao luot dung bong 2048^2
+         MOI KHUNG, cho mot thu ma ban than no la be mat nhan bong. */
+      if (o.userData.khongDoBong) { o.castShadow = false; o.receiveShadow = true; n++; return; }
       const ms = Array.isArray(o.material) ? o.material : [o.material];
       const mem = ms.some(m => m && (m.transparent || m.blending === THREE.AdditiveBlending));
       o.castShadow = !mem; o.receiveShadow = true; n++;
@@ -5463,6 +5468,7 @@ function lamTheGioiGan() {
   const datGan = new THREE.Mesh(gD, new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 1, metalness: 0 }));
   datGan.receiveShadow = true; datGan.castShadow = false;
+  datGan.userData.khongDoBong = true;
   pad.add(datGan);
 
   /* MAT NUOC dung CHINH luoi do, dac, o muc bien + trieu. Duong bo la GIAO
@@ -5482,10 +5488,128 @@ function lamTheGioiGan() {
     vertexColors: true, roughness: Math.sqrt(Math.sqrt(0.003 + 0.00512 * U)),
     metalness: 0, ior: 1.333, reflectivity: 0.5 }));
   nuocGan.receiveShadow = true; nuocGan.castShadow = false;
+  nuocGan.userData.khongDoBong = true;
   pad.add(nuocGan);
   return { datGan, nuocGan, soTamGiac: (nD - 1) * (nD - 1) * 2 };
 }
 const THE_GIOI_GAN = lamTheGioiGan();
+/* ===================== THUC VAT =====================
+   MAT DO RUT RA TU DIA HINH, khong rai deu. Ba yeu to (do man, do am, tan so
+   ngap) o bo vinh deu la MOT bien: cao do tren muc bien. Trieu o day rat nho
+   (NOAA 8779750: MN 0.382 m) nen chenh 30 cm cao do la doi han quan xa.
+   Phan tang theo TPWD Ecological Mapping Systems of Texas; Caudle et al. 2019
+   giai thich vi sao thua: mua ~700 mm ma boc thoat hoi cao.
+   CAO DO RANH GIOI tung loai: TPWD khong cho so — day la gia tri thuc vat hoc
+   pho thong, CHUA kiem chung tai cho. Ghi ro de ai doc con biet. */
+const ZONE_CO = [          // [cao do m, mat do tuong doi, cao cay m]
+  [-0.20, 0.00, 0   ],
+  [ 0.20, 0.35, 0.65],     // Spartina — bai ngap trieu
+  [ 0.45, 0.80, 0.20],     // Salicornia/Sesuvium/Batis — bo sat dat
+  [ 0.90, 1.10, 0.60],     // Borrichia — MANG CHINH cua khung hinh
+  [ 2.00, 0.55, 0.60],
+  [ 3.00, 0.12, 0.40],     // co dun: thua, mang tran nhieu hon mang co
+  [ 6.00, 0.03, 0.40],
+];
+/* Mat do TUYET DOI la con so duy nhat o day khong do duoc — no la he so nhan
+   len hinh dang da co nguon o tren. Ghi ten la "chua do". */
+/* Vanh gieo: TU mep khu be phong RA den cu ly ma mot cum tut xuong duoi mot
+   diem anh. Khong phai mot dia quanh goc — may quay tam mat dung O TRONG khu be,
+   ma khu be la dat trong, nen mot dia ban kinh nho hon vanh trong se ra dung 0
+   cum (da mac dung loi do).
+   R_CO_NGOAI: cum cao 0.6 m, fov 40 tren 1382 px cho mot diem anh = 0.51 mrad,
+   nen cum tut duoi 1 px o 1.2 km. Lay 520 m vi do la cho suong mu va mat do
+   anh nen tiep quan — xa hon thi them hinh hoc khong doi duoc gi nhin thay. */
+/* Do duoc tren may nay o 1.1 Mpix: 0.25 cum/m^2 ra 144 nghin cum va ton 2.3 ms
+   o goc rong, 1.2 ms o goc sat tau. Phan lap diem anh ti le voi so diem anh, nen
+   tren man 3.1 Mpix (kich thuoc ma so do tham chieu trong file dung) con so do
+   thanh gan 6.5 ms — qua nhieu cho mot lop nen. Ha xuong 0.15 va thu vanh ngoai
+   ve 450 m thi so cum con mot nua, va o 450 m mot cum 0.6 m con 1.3 diem anh nen
+   phan mat di da nam duoi nguong nhin thay. */
+const MAT_DO_CO = 0.15;              // cum/m^2 — HE SO THANG, chua do tai cho
+const R_CO_TRONG = 170, R_CO_NGOAI = 450;
+function traZone(h) {
+  if (h <= ZONE_CO[0][0]) return [0, 0];
+  const L = ZONE_CO[ZONE_CO.length - 1];
+  if (h >= L[0]) return [L[1], L[2]];
+  let i = 1; while (ZONE_CO[i][0] < h) i++;
+  const a = ZONE_CO[i - 1], b = ZONE_CO[i], t = (h - a[0]) / (b[0] - a[0]);
+  return [a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+}
+
+function lamThucVat() {
+  /* Anh MOT CUM LA co kenh trong suot. Khong co no thi hai tam giao nhau ra
+     phien dac — da thu, nhin nhu hop go cam xuong dat. */
+  const NA = 128, ca = document.createElement('canvas'); ca.width = ca.height = NA;
+  const gx = ca.getContext('2d'); gx.clearRect(0, 0, NA, NA);
+  let sd = 9876; const rn = () => (sd = (sd * 1664525 + 1013904223) >>> 0) / 4294967296;
+  for (let k = 0; k < 30; k++) {
+    const x0 = NA * .5 + (rn() - .5) * NA * .70, cao = NA * (.45 + .52 * rn());
+    const nga = (rn() - .5) * NA * .34, rong = NA * (.010 + .018 * rn());
+    gx.beginPath(); gx.moveTo(x0 - rong, NA);
+    gx.quadraticCurveTo(x0 - rong * .6 + nga * .5, NA - cao * .55, x0 + nga, NA - cao);
+    gx.quadraticCurveTo(x0 + rong * .6 + nga * .5, NA - cao * .55, x0 + rong, NA);
+    gx.closePath();
+    const t = rn();
+    gx.fillStyle = `rgb(${Math.round(118 + 62 * t)},${Math.round(138 + 52 * t)},${Math.round(68 + 42 * t)})`;
+    gx.fill();
+  }
+  const txCo = new THREE.CanvasTexture(ca); txCo.anisotropy = 4;
+
+  const gCo = new THREE.BufferGeometry(), vv = [], nn = [], uu = [];
+  for (const a of [0, Math.PI / 3, 2 * Math.PI / 3]) {
+    const C = Math.cos(a), S = Math.sin(a);
+    vv.push(-.5 * C, 0, -.5 * S,  .5 * C, 0, .5 * S,  .5 * C, 1, .5 * S,
+            -.5 * C, 0, -.5 * S,  .5 * C, 1, .5 * S, -.5 * C, 1, -.5 * S);
+    uu.push(0, 0, 1, 0, 1, 1,  0, 0, 1, 1, 0, 1);
+    // phap tuyen HUONG LEN: mot tham co nhan sang nhu mat dat, khong nhu tuong dung
+    for (let k = 0; k < 6; k++) nn.push(0, 1, 0);
+  }
+  gCo.setAttribute('position', new THREE.Float32BufferAttribute(vv, 3));
+  gCo.setAttribute('normal', new THREE.Float32BufferAttribute(nn, 3));
+  gCo.setAttribute('uv', new THREE.Float32BufferAttribute(uu, 2));
+
+  const DTICH = Math.PI * (R_CO_NGOAI * R_CO_NGOAI - R_CO_TRONG * R_CO_TRONG);
+  const SO_THU = Math.round(DTICH * MAT_DO_CO);
+  const mats = [], cols = [], m4 = new THREE.Matrix4(), qq = new THREE.Quaternion();
+  const pv = new THREE.Vector3(), sc = new THREE.Vector3(), ax = new THREE.Vector3(0, 1, 0);
+  let s2 = 4242; const rnd = () => (s2 = (s2 * 1664525 + 1013904223) >>> 0) / 4294967296;
+  for (let i = 0; i < SO_THU; i++) {
+    const a = rnd() * Math.PI * 2;
+    const r = Math.sqrt(R_CO_TRONG * R_CO_TRONG + rnd() * (R_CO_NGOAI * R_CO_NGOAI - R_CO_TRONG * R_CO_TRONG));
+    const dr = Math.cos(a) * r, cr = Math.sin(a) * r;
+    const h = hBoca(dr, cr, false);
+    const z = traZone(h);
+    if (z[0] <= 0 || rnd() > z[0]) continue;
+    worldPosCr(-PIT + LIFT_DAT + h, dr, cr, pv);
+    const cao = z[1] * (.6 + .8 * rnd());
+    sc.set(cao * (.8 + .5 * rnd()), cao, cao * (.8 + .5 * rnd()));
+    qq.setFromAxisAngle(ax, rnd() * Math.PI);
+    m4.compose(pv, qq, sc); mats.push(m4.clone());
+    const k = .78 + .44 * rnd();
+    cols.push(.30 * k, .36 * k, .20 * k);      // da o khong gian TUYEN TINH
+  }
+  /* alpha-TEST chu khong alpha-blend. Bo dem do sau cua canh nay duoc gia dinh
+     chi chua hinh DAC: SSAO lay mau tu no, va tan xa khi quyen tinh be day tu
+     no. Blend + depthWrite:false thi co bien mat khoi ca hai. */
+  const mCo = new THREE.MeshStandardMaterial({ map: txCo, alphaTest: .42,
+    roughness: .95, metalness: 0, side: THREE.DoubleSide });
+  const co = new THREE.InstancedMesh(gCo, mCo, mats.length);
+  mats.forEach((m, i) => co.setMatrixAt(i, m));
+  co.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cols), 3);
+  co.castShadow = false; co.receiveShadow = true;
+  co.userData.khongDoBong = true;
+  /* three r150 CHUA co InstancedMesh.computeBoundingSphere (them tu r151), va
+     phep cat khung nhin cua Mesh doc `geometry.boundingSphere` — ma hinh hoc o
+     day chi la MOT cum o goc, nen de nguyen thi ca tham co bi cat sai ngay khi
+     goc toa do roi ra ngoai khung. Dat tay mot khoi cau trum ca vanh gieo:
+     khong co no thi hoac cat sai, hoac phai tat frustumCulled va tra gia 235
+     nghin tam giac xu ly moi khung ke ca khi tau da len 100 km. */
+  gCo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, -PIT, 0), R_CO_NGOAI + 30);
+  pad.add(co);
+  return { co, soCum: mats.length, matDoThuc: mats.length / DTICH };
+}
+const THUC_VAT = lamThucVat();
+
 
 const MConc = new THREE.MeshStandardMaterial({ color: 0x6E6A63, roughness: .95 });
 const MSteelD = new THREE.MeshStandardMaterial({ color: 0x4A4E55, roughness: .55, metalness: .85 });
