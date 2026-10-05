@@ -579,6 +579,23 @@
         sh._faoa = clamp(a0 + clamp(sA, -.2, .2) * .65, aMin, aMax);
         sh._fbank = clamp(b0 + clamp(sB, -.3, .3) * .65, -70 * Math.PI / 180, 70 * Math.PI / 180);
       }
+      /* LAI TAY: nguoi choi dat THANG hai muc tieu rot bung, va bo du bao thoi
+         nham lai. Phai lam o DAY chu khong phai thay qCmd tu ben ngoai: qCmd cua
+         pha nay la qFromAxes(belly, nose) — no ma hoa ca PHUONG VI, nen dung
+         attitudeCmd(aoa, bank) thay vao la mat huong bung, tau vat lon giu mot tu
+         the khac va chay sach binh header. Da do: lam kieu do thi ca chuyen "giu
+         nguyen gia tri cua may" cung ve dich voi 0,0 t thay vi 10,7 t. Thu pham
+         la MAT PHUONG VI chu khong phai viec giu cu yen: qua duong nay, giu cu
+         dung yen tu 30/20/10/6/4/3/2 km toi cu lat deu ve dich 10,6-10,8 t
+         (lang) va 10,1-10,7 t (gio giat) — bang may. Mat nhien lieu la do GIU
+         SAI TU THE, khong phai do khong dong gi.
+         Dat o day thi moi thu con lai cua auto() giu nguyen: van dung quaternion
+         dung phuong vi, van tu lat va tu dot ham. */
+      if (sh.manual) {
+        sh._faoa = clamp(sh.cmdAoa === undefined ? sh._faoa : sh.cmdAoa, aMin, aMax);
+        sh._fbank = clamp(sh.cmdBank === undefined ? sh._fbank : sh.cmdBank,
+                          -70 * Math.PI / 180, 70 * Math.PI / 180);
+      }
       const aNet = Math.max(1, T3 / sh.m - g);
       sh.hBurn = f.vu < 0 ? (f.vu * f.vu) / (2 * aNet) : 0;
       if (h <= sh.hBurn + SGC.FLIP_MARGIN) { sh.phase = 'FLIP'; sh.flipT = 0; sh.flipT0 = sh.t; sh.flipAlt = f.alt; }
@@ -1489,12 +1506,23 @@
     const f = frame(sh, F), A = F.atmosphere(f.alt);
     const nose = qrot(sh.q, V(0, 1, 0));
     const aoaAct = Math.acos(clamp(Math.abs(vdot(nose, f.vhat)), -1, 1));
+    /* NGHIENG DO DUOC, khong phai lenh. sh.bank chi la ban sao lenh ma allocate()
+       ghi lai, nen bao no ra ngoai duoi ten "bank" la bay: luc lai tay, lenh chay
+       truoc tu the hang chuc do (do duoc trong trang: can cham cu 55 do sau 1,6 s
+       ma than tau moi o 37 do). Truc ngang than la -Z — dung truc k ma attitudeCmd
+       quay quanh — nen chieu no vao mat phang vuong van toc roi do goc CO DAU so
+       voi truc side cua chinh attitudeCmd o nghieng 0 thi ra dung bien do nguoc. */
+    const kAx = vmul(qrot(sh.q, V(0, 0, 1)), -1);
+    const kPp = vsub(kAx, vmul(f.vhat, vdot(kAx, f.vhat)));
+    const sideRef = vnorm(vcross(f.vhat, f.rhat));
+    const bankAct = Math.atan2(vdot(vcross(sideRef, kPp), f.vhat), vdot(sideRef, kPp));
     return {
       t: sh.t, alt: f.alt, speed: f.speed, vspeed: f.vu, lateral: f.down, cross: f.cross,
       q: .5 * A.rho * f.speed * f.speed, mach: A.a > 0 ? f.speed / A.a : 0,
       prop: sh.prop, propFrac: sh.prop / (F.VEH.s2.prop * .09),
       throttle: sh.throttle, engines: sh.nEng, phase: sh.phase,
-      aoa: aoaAct, bank: sh.bank, flap: sh.flap.slice(), ext: sh.ext, tuck: sh.tuck || 0,
+      aoa: aoaAct, bank: bankAct, bankCmd: sh.bank,
+      flap: sh.flap.slice(), ext: sh.ext, tuck: sh.tuck || 0,
       eff: sh.eff, rcs: sh.rcs, rcsFrac: sh.rcs / CFG.rcsTank, rcsCmd: sh.rcsCmd || 0,
       rcsLim: CFG.rcsLim,
       roll: sh.w.y, impact: sh.pi || 0, hBurn: sh.hBurn || 0,

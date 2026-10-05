@@ -179,6 +179,18 @@ body{
 #hrow .hb i.chay{background:#C0392B}
 #hrow .hc u{display:block;font:500 10px/1.3 var(--fm);color:var(--haze);text-decoration:none}
 #hrow .hc u.chay{color:#E8705F}
+#stick{position:absolute;left:50%;transform:translateX(-50%);bottom:296px;
+  width:min(340px,74vw);pointer-events:none}
+#stick[hidden]{display:none!important}
+#stick .lab{display:block;text-align:center;margin-bottom:6px}
+#stick .sr{display:grid;grid-template-columns:50px 1fr 72px;gap:8px;align-items:center;margin-bottom:5px}
+#stick .sr b{font:500 9px/1.4 var(--fm);color:var(--dim);letter-spacing:.1em}
+#stick .sl{position:relative;height:6px;background:#11161D;border:1px solid var(--edge);border-radius:2px}
+#stick .sl i{position:absolute;top:0;bottom:0;background:var(--cryo);border-radius:1px}
+#stick .sl s{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;
+  background:var(--flame);text-decoration:none}
+#stick .sv{font:500 10px/1.3 var(--fm);color:var(--haze);text-align:right}
+#stick .sv em{font-style:normal;color:var(--flame)}
 #catchbar .lab{display:block;text-align:center;margin-bottom:7px}
 #catchrail{
   position:relative;height:16px;border:1px solid var(--edge);border-radius:2px;
@@ -419,6 +431,11 @@ body{
       <div class="hc"><b>AL</b><div class="hb"><i id="hb2"></i></div><u id="ht2">&mdash;</u></div>
       <div class="hc"><b>AR</b><div class="hb"><i id="hb3"></i></div><u id="ht3">&mdash;</u></div>
     </div>
+  </div>
+  <div id="stick" hidden>
+    <span class="lab">Bạn đang lái &mdash; W/S góc tấn · A/D nghiêng · Z trả lái</span>
+    <div class="sr"><b>GÓC TẤN</b><div class="sl"><i id="sk0"></i><s id="sc0"></s></div><span class="sv" id="sv0">&mdash;</span></div>
+    <div class="sr"><b>NGHIÊNG</b><div class="sl"><i id="sk1"></i><s id="sc1"></s></div><span class="sv" id="sv1">&mdash;</span></div>
   </div>
   <div id="catchbar" hidden>
     <span class="lab">Căn chỉnh với tháp</span>
@@ -2737,6 +2754,23 @@ body{
         sh._faoa = clamp(a0 + clamp(sA, -.2, .2) * .65, aMin, aMax);
         sh._fbank = clamp(b0 + clamp(sB, -.3, .3) * .65, -70 * Math.PI / 180, 70 * Math.PI / 180);
       }
+      /* LAI TAY: nguoi choi dat THANG hai muc tieu rot bung, va bo du bao thoi
+         nham lai. Phai lam o DAY chu khong phai thay qCmd tu ben ngoai: qCmd cua
+         pha nay la qFromAxes(belly, nose) — no ma hoa ca PHUONG VI, nen dung
+         attitudeCmd(aoa, bank) thay vao la mat huong bung, tau vat lon giu mot tu
+         the khac va chay sach binh header. Da do: lam kieu do thi ca chuyen "giu
+         nguyen gia tri cua may" cung ve dich voi 0,0 t thay vi 10,7 t. Thu pham
+         la MAT PHUONG VI chu khong phai viec giu cu yen: qua duong nay, giu cu
+         dung yen tu 30/20/10/6/4/3/2 km toi cu lat deu ve dich 10,6-10,8 t
+         (lang) va 10,1-10,7 t (gio giat) — bang may. Mat nhien lieu la do GIU
+         SAI TU THE, khong phai do khong dong gi.
+         Dat o day thi moi thu con lai cua auto() giu nguyen: van dung quaternion
+         dung phuong vi, van tu lat va tu dot ham. */
+      if (sh.manual) {
+        sh._faoa = clamp(sh.cmdAoa === undefined ? sh._faoa : sh.cmdAoa, aMin, aMax);
+        sh._fbank = clamp(sh.cmdBank === undefined ? sh._fbank : sh.cmdBank,
+                          -70 * Math.PI / 180, 70 * Math.PI / 180);
+      }
       const aNet = Math.max(1, T3 / sh.m - g);
       sh.hBurn = f.vu < 0 ? (f.vu * f.vu) / (2 * aNet) : 0;
       if (h <= sh.hBurn + SGC.FLIP_MARGIN) { sh.phase = 'FLIP'; sh.flipT = 0; sh.flipT0 = sh.t; sh.flipAlt = f.alt; }
@@ -3647,12 +3681,23 @@ body{
     const f = frame(sh, F), A = F.atmosphere(f.alt);
     const nose = qrot(sh.q, V(0, 1, 0));
     const aoaAct = Math.acos(clamp(Math.abs(vdot(nose, f.vhat)), -1, 1));
+    /* NGHIENG DO DUOC, khong phai lenh. sh.bank chi la ban sao lenh ma allocate()
+       ghi lai, nen bao no ra ngoai duoi ten "bank" la bay: luc lai tay, lenh chay
+       truoc tu the hang chuc do (do duoc trong trang: can cham cu 55 do sau 1,6 s
+       ma than tau moi o 37 do). Truc ngang than la -Z — dung truc k ma attitudeCmd
+       quay quanh — nen chieu no vao mat phang vuong van toc roi do goc CO DAU so
+       voi truc side cua chinh attitudeCmd o nghieng 0 thi ra dung bien do nguoc. */
+    const kAx = vmul(qrot(sh.q, V(0, 0, 1)), -1);
+    const kPp = vsub(kAx, vmul(f.vhat, vdot(kAx, f.vhat)));
+    const sideRef = vnorm(vcross(f.vhat, f.rhat));
+    const bankAct = Math.atan2(vdot(vcross(sideRef, kPp), f.vhat), vdot(sideRef, kPp));
     return {
       t: sh.t, alt: f.alt, speed: f.speed, vspeed: f.vu, lateral: f.down, cross: f.cross,
       q: .5 * A.rho * f.speed * f.speed, mach: A.a > 0 ? f.speed / A.a : 0,
       prop: sh.prop, propFrac: sh.prop / (F.VEH.s2.prop * .09),
       throttle: sh.throttle, engines: sh.nEng, phase: sh.phase,
-      aoa: aoaAct, bank: sh.bank, flap: sh.flap.slice(), ext: sh.ext, tuck: sh.tuck || 0,
+      aoa: aoaAct, bank: bankAct, bankCmd: sh.bank,
+      flap: sh.flap.slice(), ext: sh.ext, tuck: sh.tuck || 0,
       eff: sh.eff, rcs: sh.rcs, rcsFrac: sh.rcs / CFG.rcsTank, rcsCmd: sh.rcsCmd || 0,
       rcsLim: CFG.rcsLim,
       roll: sh.w.y, impact: sh.pi || 0, hBurn: sh.hBurn || 0,
@@ -7394,6 +7439,13 @@ let hotInfo = null, hingeBurn = null;
      sepFlash— nhip loe luc nha kep, giam ve 0 trong ~1,15 giay
      hotCam  — dem lui giu goc may sat khe noi */
 let sepPad = 0, sepFlash = 0, hotCam = 0, boJust = false;
+/* LAI TAY PHA TAU VE. Co rieng, khong dung chung co `auto` cua pha leo va pha
+   booster — giong het cach dockManual lam o doan cap ISS. Phai tach ra vi duong
+   toManual() chung se goi F.progradePitch(st) va F.shipAuto, ma hai cai do la dan
+   huong 2D: goi len trang thai tau 3D la ghi de trung ten truong (_pT/pi/ext/tuck)
+   roi nhiet ban le thanh NaN vinh vien. Day la ly do that khien lai tay bi chan tu
+   dau, chu khong phai ngai viec. */
+let shipManual = false, shipAoa = 0, shipBank = 0;
 let suongNum = 1;        // nui nhan cho tan xa khi quyen, bang chinh van duoc
 /* Co CA MUC 1 MAY: luat ha moi dung 1 may o duoi 250 m (3 may o ga toi thieu da la
    T/W 1.25, khong giu duoc toc do ha). Thieu muc nay thi luc nguoi choi gianh lai
@@ -7475,6 +7527,7 @@ function reset() {
   rudInfo = null; mecoInfo = null; secoInfo = null; peakQA = 0; peakHeat = 0; rec = null;
   hotInfo = null; hingeBurn = null;
   sepPad = 0; sepFlash = 0; hotCam = 0; boJust = false; hotFxStep(0, 0);
+  shipManual = false; shipAoa = 0; shipBank = 0;
   peakTb = 0; peakTl = 0; peakTh = 0; peakYaw = 0;
   /* Tra lai CA NHAN chu khong chi bo class: bam tua xong ma chuyen do ket thuc
      giua chung thi nut ket o chu "Dang tua..." sang tan chuyen sau. */
@@ -7515,7 +7568,7 @@ function reset() {
      `marks.beep` xoa luon cung vo hai: no so sanh theo GIA TRI (`sec !== marks.beep`)
      chu khong phai chot, nen van keu dung. */
   for (const k in marks) delete marks[k];
-  $('log').innerHTML = ''; $('over').hidden = true; $('catchbar').hidden = true; $('hinge').hidden = true;
+  $('log').innerHTML = ''; $('over').hidden = true; $('catchbar').hidden = true; $('hinge').hidden = true; $('stick').hidden = true;
   $('intro').hidden = false;          // R phai tra ve man hinh mo dau, khong bo nguoi choi treo o PRE
   $('tT').classList.remove('act');
   setPhase('Đếm ngược');
@@ -7583,13 +7636,37 @@ function toManual() {
   // progradePitch tra ve 0 = "giu thang dung". Ten lua bay doc suot chuyen,
   // len 1300 km va khong bao gio vao quy dao — nguoi choi khong hieu vi sao.
   if (phase !== 'ASCENT' && phase !== 'RETURN' && phase !== 'SHIPRET') return;
-  /* TAU QUAY VE LUON TU BAY. shr o pha nay la trang thai 3D (S3.fromPlan): khong co lenh
-     lai tay nao dua vao S3.step, con F.shipAuto (dan huong 2D) dung chung ten truong _pT /
-     pi / ext / tuck — goi no la ghi de len tau 3D: shr.pi mat, nhiet ban le NaN vinh vien
-     (tat luon hong ban le). startShipReturn() cung bat lai auto = true. */
+  /* TAU QUAY VE co duong lai tay RIENG, khong di qua co `auto` chung o duoi.
+     Ly do van nhu cu va van con hieu luc: shr la trang thai 3D (S3.fromPlan), ma
+     duong chung nay goi F.progradePitch va F.shipAuto — dan huong 2D dung chung
+     ten truong _pT / pi / ext / tuck. Goi chung len tau 3D la ghi de: shr.pi mat,
+     nhiet ban le thanh NaN vinh vien (tat luon hong ban le).
+     Nen lai tay tau di bang co shipManual + shr.manual, va chi o ENTRY/FLOP. */
   if (inShip()) {
-    const now = performance.now();
-    if (now - noManualT > 4000) { noManualT = now; logLine('Tàu quay về luôn tự bay — không lái tay được', 'hi'); }
+    /* Chi cho lai o ENTRY va FLOP. Cu LAT va DOT HAM van de may: lat la bai toan
+       thoi diem tinh tu do cao va van toc, sai mot giay la vo tau — de nguoi choi
+       bam tay vao do thi khong phai thu thach ma la do xuc xac. Nguoi choi lai
+       phan DAI va co the sua duoc: tu the trong luc rot bung, tuc minh roi xuong
+       CHO NAO. Sai o day hien ra thanh lech vi tri luc vao lat, va may khong cuu
+       duoc neu lech qua xa — do la hau qua that chu khong phai chet ngay. */
+    if (!shr || !shr.alive) return;
+    if (shr.phase !== 'ENTRY' && shr.phase !== 'FLOP') {
+      const now = performance.now();
+      if (now - noManualT > 4000) { noManualT = now;
+        logLine('Cú lật và đốt hãm luôn tự động — chỉ lái được lúc rơi bụng', 'hi'); }
+      return;
+    }
+    if (!shipManual) {
+      shipManual = true; everManual = true;
+      /* Boc tu MUC TIEU cua may (_faoa/_fbank) chu khong tu tu the THAT: tu the
+         that luon tre sau muc tieu vai do, nen boc no la khoanh khac giao lai bi
+         giat mot cai. Lay muc tieu thi lenh dau tien cua nguoi choi trung dung cai
+         may dang nham — giao lai khong gon. */
+      shipAoa = shr._faoa !== undefined ? shr._faoa : (shr.aoa || S3.FLOP_AOA);
+      shipBank = shr._fbank !== undefined ? shr._fbank : (shr.bank || 0);
+      $('tT').classList.add('act');
+      logLine('BẠN ĐANG LÁI — W/S góc tấn · A/D nghiêng · Z trả lái', 'hi');
+    }
     return;
   }
   auto = false; everManual = true;
@@ -7656,6 +7733,10 @@ addEventListener('keydown', e => {
      ban, va so 1-6 da la phim camera nen 0 dang de trong. */
   if (k === 'o' || k === '0') TUNE.bat();
   if (k === 'x' && phase === 'ASCENT' && !abortInfo) startAbort('người chỉ huy bấm nút');
+  if (k === 'z' && shipManual) {
+    shipManual = false; $('tT').classList.remove('act');
+    logLine('Đã trả lái cho máy', 'hi');
+  }
   if (k === 'z' && dockManual) {
     dockManual = false;
     if (iss) { iss.leg = null; iss.onDinh = st.t + 400; }
@@ -9965,6 +10046,19 @@ function frame(now) {
 
   /* ---- dieu khien tay ---- */
   // Khong co SHIPRET: tau quay ve luon tu bay (xem toManual)
+  /* Lai tay tau ve: W/S doi GOC TAN, A/D doi NGHIENG. Day la lenh TU THE chu
+     khong phai lenh tung canh gio — dung tang voi cach doan cap ISS cho giand
+     lai, va dung voi cach phi cong that lai mot vat the co bo on dinh ben trong.
+     Bon canh gio van la co cau thuc hien, va vi chung da co toc do be huu han nen
+     lenh cua nguoi choi KHONG duoc dap ung tuc thi. */
+  if (shipManual && shr && shr.alive) {
+    const aoaR = 26 * DEG * raw, bankR = 34 * DEG * raw;   // do/giay
+    const nhanh = held['shift'] ? 2.2 : 1;
+    if (held['w'] || held['arrowup']) shipAoa = Math.min(92 * DEG, shipAoa + aoaR * nhanh);
+    if (held['s'] || held['arrowdown']) shipAoa = Math.max(40 * DEG, shipAoa - aoaR * nhanh);
+    if (held['a'] || held['arrowleft']) shipBank = Math.max(-55 * DEG, shipBank - bankR * nhanh);
+    if (held['d'] || held['arrowright']) shipBank = Math.min(55 * DEG, shipBank + bankR * nhanh);
+  }
   if (!auto && (phase === 'ASCENT' || phase === 'RETURN')) {
     const tr = inReturn() ? 0.8 : 0.6, pr = inReturn() ? 42 : 13;
     if (held['w'] || held['arrowup']) throttleCmd = Math.min(1, throttleCmd + tr * raw);
@@ -10073,6 +10167,15 @@ function frame(now) {
       if (shr && shr.alive && phase !== 'END') {
         const p0 = shr.phase;
         const vTruocB = shr.alive ? Math.hypot(shr.v.x, shr.v.y, shr.v.z) : 0;
+        /* Lai tay di qua CO TREN TRANG THAI chu khong qua tham so ghi de cua
+           step(): ghi de thi auto() khong chay, ma chinh auto() la cho dat
+           sh.phase = 'FLOP' va 'FLIP' — may trang thai pha se chet han. */
+        if (shipManual && shr.phase !== 'ENTRY' && shr.phase !== 'FLOP') {
+          shipManual = false; shr.manual = false; $('tT').classList.remove('act');
+          logLine('Vào cú lật — trả lái cho máy', 'hi');
+        }
+        shr.manual = shipManual;
+        if (shipManual) { shr.cmdAoa = shipAoa; shr.cmdBank = shipBank; }
         const e = S3.step(shr, DT, F);
         if (shr.alive) gGhi(Math.abs(Math.hypot(shr.v.x, shr.v.y, shr.v.z) - vTruocB) / DT / 9.80665, DT);
         if (shr.phase !== p0) {
@@ -11004,6 +11107,7 @@ function updateHUDDock(tel, bt) {
 function updateHUD(tel, bt, srt) {
   if (srt) return updateHUDShip(srt);
   veBanLe(null);                 // chi pha tau ve moi co ban le de xem
+  veCan(null);
   /* Doan cap co bang so rieng: sau o binh thuong deu vo nghia o day (Mach 27,8
      va ap suat dong 0 kPa thi doc de lam gi), con thu can biet — toc do khep,
      lech ngang, lech goc — thi khong o nao co. */
@@ -11086,6 +11190,28 @@ function updateHUD(tel, bt, srt) {
 
 /* 1500 K la nguong chay cua ban le, lay tu T_HINGE_MAX trong ship3d.js. */
 const T_BANLE = 1500;
+/* Dong ho lai tay: mot thanh cho moi truc, VACH XANH la tu the THAT, VACH CAM la
+   LENH cua tay. Khong co no thi nguoi choi lai mu: hai thu lech nhau toi 18 do o
+   dinh, va chenh lech ay chinh la cai phai cam duoc de lai. Dai lay dung cu cua
+   bo xu ly phim, khong dat so rieng. */
+const CAN_AOA = [40, 92], CAN_BANK = [-55, 55];
+function veCan(t) {
+  const el = $('stick');
+  if (!t || !shipManual) { el.hidden = true; return; }
+  el.hidden = false;
+  const R = 180 / Math.PI;
+  const dat = (i, lo, hi, that, lenh, goc) => {
+    const f = v => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+    const a = f(that), z = f(goc);
+    $('sk' + i).style.left = Math.min(a, z) + '%';
+    $('sk' + i).style.width = Math.abs(a - z) + '%';
+    $('sc' + i).style.left = f(lenh) + '%';
+    $('sv' + i).innerHTML = Math.round(that) + '° <em>' + Math.round(lenh) + '°</em>';
+  };
+  dat(0, CAN_AOA[0], CAN_AOA[1], t.aoa * R, shipAoa * R, CAN_AOA[0]);
+  dat(1, CAN_BANK[0], CAN_BANK[1], t.bank * R, shipBank * R, 0);
+}
+
 function veBanLe(t) {
   const el = $('hinge');
   if (!t || !t.Th) { el.hidden = true; return; }
@@ -11104,6 +11230,7 @@ function veBanLe(t) {
 
 function updateHUDShip(t) {
   veBanLe(t);
+  veCan(t);
   $('spd').innerHTML = Math.round(t.speed * 3.6).toLocaleString('vi-VN') + '<u>km/h</u>';
   $('alt').innerHTML = (t.alt / 1000).toFixed(1) + '<u>km</u>';
   $('phlab').textContent = 'Thời gian về';
