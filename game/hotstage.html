@@ -4265,12 +4265,19 @@ const Sfx = (() => {
     }
     return b;
   }
+/* Tran do tre, giay. Qua 1,4 km thi am da suy giam rat manh roi, ma de tran
+   cao hon thi luc tau lui xa o 2 km/s do tre tang 5,9 GIAY moi giay — tieng bi
+   keo gian gan nhu dung lai. Nguoi dung duoi dat nghe dung nhu vay that, nhung
+   trong tro choi thi no chi nghe nhu may hong. Kep o day. */
+const TRE_TRAN = 4.0;
+
   function chain(type, freq, Q) {
     const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
     if (Q !== undefined) f.Q.value = Q; return f;
   }
 
   let comp = null;
+  let xaDen = 0;            // im lang toi moc nay, de ong tre chay het cai cu
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -4319,17 +4326,36 @@ const Sfx = (() => {
        Ca do am truoc day don kenh. Tach lam hai: mot ben thang, mot ben tre
        13 ms roi danh sang phai (hieu ung Haas). Tai nghe thanh mot khoi rong
        chu khong con la mot cham giua dau. */
+    /* --- BUS KHOANG CACH: tre lan truyen + hap thu khi quyen + giam theo 1/r ---
+       Chen NGAY SAU bao hoa va TRUOC ca ba nhanh (hai ben stereo va doi am), de
+       moi thu phia sau cung di chung mot quang duong — neu chi tre mot nhanh thi
+       stereo bi tach doi thanh hai su kien.
+
+       Vi sao day la mon dang gia nhat: toan bo lop am thanh cu KHONG he biet
+       camera dang dung cach bao xa. Camera be cach 480 m, bam sau booster 190 m,
+       goc 2 cach vai km, gan tren than thi 0 m — ca bon nghe y het nhau. Ma lo
+       vat ly thi biet chinh xac tung con so do.
+
+       DOPPLER LA QUA TANG, KHONG PHAI VIET THEM: khi khoang cach doi thi
+       delayTime doi theo, va chinh phep lay mau lai cua duong tre de ra dich cao
+       do. Nguon lui xa -> tre tang -> tram xuong. Dung co che that. */
+    eng.xa = ctx.createDelay(TRE_TRAN);
+    eng.xa.delayTime.value = 0;
+    eng.hap = chain('lowpass', 20000, 0.7);    // hap thu: tan cao chet truoc
+    eng.xg = ctx.createGain(); eng.xg.gain.value = 1;   // trai rong 1/r
+    eng.sat.connect(eng.xa); eng.xa.connect(eng.hap); eng.hap.connect(eng.xg);
+
     eng.pL = ctx.createStereoPanner(); eng.pL.pan.value = -0.65;
     eng.pR = ctx.createStereoPanner(); eng.pR.pan.value = 0.65;
     eng.dl = ctx.createDelay(0.05); eng.dl.delayTime.value = 0.013;
-    eng.sat.connect(eng.pL); eng.pL.connect(master);
-    eng.sat.connect(eng.dl); eng.dl.connect(eng.pR); eng.pR.connect(master);
+    eng.xg.connect(eng.pL); eng.pL.connect(master);
+    eng.xg.connect(eng.dl); eng.dl.connect(eng.pR); eng.pR.connect(master);
 
     /* --- DOI AM --- gui mot phan qua convolver. Len cao thi tat dan: khong co
        khong khi thi khong co gi doi lai. */
     eng.conv = ctx.createConvolver(); eng.conv.buffer = irBuf(1.9, 2.4);
     eng.rev = ctx.createGain(); eng.rev.gain.value = 0;
-    eng.sat.connect(eng.rev); eng.rev.connect(eng.conv); eng.conv.connect(master);
+    eng.xg.connect(eng.rev); eng.rev.connect(eng.conv); eng.conv.connect(master);
     } catch (e) {
       /* Trinh duyet cu thieu StereoPanner hoac Convolver thi bo cac lop moi va
          noi thang nhu cu, chu khong de mat sach am thanh. */
@@ -4404,9 +4430,35 @@ const Sfx = (() => {
       return enabled;
     },
     /* level 0..1, engFrac = ti le may dang chay, pAmb = ap suat moi truong */
-    setEngine(level, engFrac, pAmb) {
+    /* xa = khoang cach camera -> nguon, met. tocAm = toc do am TAI CHO, lay tu
+       chinh atmosphere() cua lo bay (no da tra ve `a`), nen tren cao am di cham
+       hon that chu khong cam cung 340. */
+    setEngine(level, engFrac, pAmb, xa, tocAm) {
       if (!ok()) return;
       const air = 0.20 + 0.80 * Math.min(1, pAmb / 101325);   // chan khong -> chi con rung ket cau
+      if (eng.xa) {
+        const d = Math.max(0, xa || 0), c = tocAm > 50 ? tocAm : 340;
+        /* TRE LAN TRUYEN. Hang so thoi gian 0,25 s khong phai de cho muot: chinh
+           no la cai lam delayTime TRUOT thay vi nhay, va mot duong tre dang truot
+           chinh la Doppler. Nguon lui xa -> tre dai ra -> cao do tut xuong. */
+        eng.xa.delayTime.setTargetAtTime(Math.min(TRE_TRAN, d / c), T(), 0.25);
+        /* TRAI RONG. That ra la 1/r, nhung 1/r thuan thi o 2 km con 15% — trong
+           tro choi thanh ra khong con nghe thay gi. Nen nen lai bang can bac hai:
+           0 m = 1, 480 m = 0,75, 2 km = 0,48, 5 km = 0,33. Van doc ra xa gan, ma
+           khong tat han. Day la cho tao CO Y lech khoi vat ly. */
+        /* Cat NHANH (0,02 s) nhung mo lai CHAM (0,2 s): muc dich cua cua xa la
+           giet tieng thua, ma tut trong 0,9 giay thi no van kip keu. Mo lai thi
+           khong voi, de khong co cu bat vao giua chung. */
+        const im = T() < xaDen;
+        eng.xg.gain.setTargetAtTime(
+          im ? 0 : Math.max(0.12, Math.sqrt(600 / (600 + d))), T(), im ? 0.02 : 0.2);
+        /* HAP THU KHI QUYEN. Tan cao chet nhanh hon tan thap rat nhieu theo quang
+           duong — day moi la ly do ten lua o xa la tieng ung uc trong long nguc
+           con o gan la tieng xe lach tach. 480 m = 14 kHz, 2 km = 4,9 kHz,
+           5 km = 580 Hz. */
+        eng.hap.frequency.setTargetAtTime(
+          Math.max(180, 20000 * Math.exp(-d / 1400)), T(), 0.3);
+      }
       const v = level * (0.35 + 0.65 * engFrac);
       eng.g.gain.setTargetAtTime(v * 0.6 * (0.4 + 0.6 * air), T(), 0.09);
       eng.lp.frequency.setTargetAtTime(150 + 1500 * v * air, T(), 0.12);
@@ -4417,6 +4469,36 @@ const Sfx = (() => {
       if (eng.cmg) eng.cmg.gain.setTargetAtTime(v * 0.42 * air, T(), 0.12);
       // Doi am: to nhat sat mat dat, het sach trong chan khong.
       if (eng.rev) eng.rev.gain.setTargetAtTime(v * 0.34 * Math.pow(air, 1.6), T(), 0.25);
+    },
+    /* CUA SO DOC TRANG THAI. Ca lop am thanh nam trong mot closure nen tu ben
+       ngoai khong soi duoc gi — da mot lan phai bo cuoc giua chung vi the. Ham
+       nay chi DOC, khong doi gi, va la cach duy nhat kiem duoc rang tre lan
+       truyen that su bam theo khoang cach. */
+    /* XA ONG. Duong tre lan truyen giu toi 4 GIAY tieng da phat. Bam dat lai thi
+       cac gain nguon ve 0 ngay, nhung cai dang nam TRONG ong van chay not —
+       nguoi choi bam r roi van nghe 33 may gam them mot giay o man hinh menu.
+
+       Chi dat mot MOC THOI GIAN roi de setEngine ton trong no. Ban dau tao lam
+       bang cach len lich setValueAtTime(0) o moc +4,1 s — hong: setEngine chay
+       moi khung lai len lich chong len cung mot thong so, nen cai moc kia con nam
+       do va se tat phut tieng 4 giay sau MOI lan dat lai. Mot bien thi khong the
+       danh nhau voi dong tu dong hoa.
+       Cho im dung bang do tre DANG co chu khong phai ca tran, vi ong chi dang giu
+       bay nhieu. */
+    xaOng() {
+      if (!ctx || !eng.xa) return;
+      xaDen = T() + Math.min(TRE_TRAN, eng.xa.delayTime.value) + 0.15;
+    },
+    trangThai() {
+      if (!ctx) return { moChua: false };
+      return {
+        moChua: true, ctx: ctx.state,
+        tre_s: eng.xa ? +eng.xa.delayTime.value.toFixed(3) : null,
+        xaGain: eng.xg ? +eng.xg.gain.value.toFixed(3) : null,
+        hapThu_Hz: eng.hap ? Math.round(eng.hap.frequency.value) : null,
+        engGain: eng.g ? +eng.g.gain.value.toFixed(4) : null,
+        coBusXa: !!eng.xa,
+      };
     },
     setWind(q) {
       if (!ok()) return;
@@ -7243,7 +7325,7 @@ function reset() {
   dlg = F.makeDeluge(); dlgAuto = true;
   padRel = 0; padRelease(0); stackT = -1;
   bRes = null; boostFrost.visible = false; boostFrost.scale.y = .001;
-  twInitDyn(towerPad); towerPad._cl = null; Sfx.setMotor(0, 0);
+  twInitDyn(towerPad); towerPad._cl = null; Sfx.setMotor(0, 0); Sfx.xaOng();
   for (let i = 0; i < STEAM; i++) { steamLife[i] = 0; steamAl[i] = 0; }
   steam.material.uniforms.uOpa.value = 0; steamAcc = 0;
   for (let i = 0; i < WDROP; i++) { wLife[i] = 0; wAlpha[i] = 0; }
@@ -10561,7 +10643,13 @@ function frame(now) {
     const thr = phase === 'COUNT' ? (pre <= 3 ? (3 - Math.max(0, pre)) / 3 : 0)
               : srt ? srt.throttle
               : (phase === 'ASCENT' || phase === 'RETURN') ? (bo ? bt.throttle : tel.throttle) : 0;
-    Sfx.setEngine(lit > 0 ? thr : 0, lit / totalEng, pAmb);
+    /* Khoang cach THAT tu ong kinh toi vat the dang phat tieng, do thang trong
+       khong gian canh — nen no dung cho MOI che do camera ma khong phai liet ke
+       tung cai: goc be ~480 m, bam booster 190 m, goc 2 vai km, gan tren than
+       thi gan 0 va luc do khong co tre, dung nhu mot micro gan tren tau. */
+    const xaAm = camera.position.distanceTo(actPos);
+    const tocAm = (srt ? atmS : bo ? atmB : atmS).a || 340;
+    Sfx.setEngine(lit > 0 ? thr : 0, lit / totalEng, pAmb, xaAm, tocAm);
     Sfx.setWind(src.q || 0);
     Sfx.setEntry(fxHeat, fxSlot);
     /* Tieng xi RCS ca khi tau DAY NGANG can bang sat thap (truoc chi keu khi
