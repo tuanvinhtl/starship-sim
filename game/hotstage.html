@@ -4265,11 +4265,15 @@ const Sfx = (() => {
     }
     return b;
   }
-/* Tran do tre, giay. Qua 1,4 km thi am da suy giam rat manh roi, ma de tran
-   cao hon thi luc tau lui xa o 2 km/s do tre tang 5,9 GIAY moi giay — tieng bi
-   keo gian gan nhu dung lai. Nguoi dung duoi dat nghe dung nhu vay that, nhung
-   trong tro choi thi no chi nghe nhu may hong. Kep o day. */
-const TRE_TRAN = 4.0;
+/* Tran do tre, giay. Ban dau tao de 4,0 — DO ROI va thay hong: o camera be, tran
+   do bi cham ngay khi ten lua moi len 1,4 km, tuc tu do Doppler dung han, trong
+   khi tieng van con nghe ro (suy giam moi 0,55). Nang len 10 giay = 3,4 km, cho
+   do suy giam con 0,39 va bo loc hap thu da keo xuong 1,7 kHz — tuc mot tieng un
+   un xa xam, luc do tre co dong bang cung khong ai nhan ra.
+   Khong de cao hon nua: luc tau lui o 2 km/s thi do tre tang 5,9 GIAY moi giay,
+   phat lai o toc do 0,14 — tieng bi keo gian gan nhu dung lai. Nguoi dung duoi
+   dat nghe dung nhu vay that, nhung trong tro choi no chi nghe nhu may hong. */
+const TRE_TRAN = 10.0;
 
   function chain(type, freq, Q) {
     const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
@@ -4278,6 +4282,7 @@ const TRE_TRAN = 4.0;
 
   let comp = null;
   let xaDen = 0;            // im lang toi moc nay, de ong tre chay het cai cu
+  let irBe = null, irTroi = null, irDangDung = '';
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
@@ -4353,7 +4358,14 @@ const TRE_TRAN = 4.0;
 
     /* --- DOI AM --- gui mot phan qua convolver. Len cao thi tat dan: khong co
        khong khi thi khong co gi doi lai. */
-    eng.conv = ctx.createConvolver(); eng.conv.buffer = irBuf(1.9, 2.4);
+    /* HAI DAP UNG XUNG thay vi mot. O be phong, am dap vao hao lua, chan thap,
+       trai bon va man nuoc roi doi lai — duoi dai va day phan xa. Giua troi thi
+       khong co gi de doi: chi con mot cai duoi rat ngan cua chinh chum khi.
+       Doi bang cach gan lai buffer, co TRE (1200 m len / 1800 m xuong) de no
+       khong nhay qua nhay lai khi bay lung chung quanh nguong. */
+    irBe = irBuf(2.6, 1.7);          // be phong: dai, nhieu phan xa
+    irTroi = irBuf(0.5, 5.0);        // giua troi: ngan, tat nhanh
+    eng.conv = ctx.createConvolver(); eng.conv.buffer = irBe; irDangDung = 'be';
     eng.rev = ctx.createGain(); eng.rev.gain.value = 0;
     eng.xg.connect(eng.rev); eng.rev.connect(eng.conv); eng.conv.connect(master);
     } catch (e) {
@@ -4433,7 +4445,7 @@ const TRE_TRAN = 4.0;
     /* xa = khoang cach camera -> nguon, met. tocAm = toc do am TAI CHO, lay tu
        chinh atmosphere() cua lo bay (no da tra ve `a`), nen tren cao am di cham
        hon that chu khong cam cung 340. */
-    setEngine(level, engFrac, pAmb, xa, tocAm) {
+    setEngine(level, engFrac, pAmb, xa, tocAm, cao) {
       if (!ok()) return;
       const air = 0.20 + 0.80 * Math.min(1, pAmb / 101325);   // chan khong -> chi con rung ket cau
       if (eng.xa) {
@@ -4460,15 +4472,30 @@ const TRE_TRAN = 4.0;
           Math.max(180, 20000 * Math.exp(-d / 1400)), T(), 0.3);
       }
       const v = level * (0.35 + 0.65 * engFrac);
+      /* AM SAC THEO SO MAY CHAY. 33 may khong chi TO hon 3 may — nhieu nguon roi
+         rac cong lai thanh mot mang rong va it cao do, con 3 may thi ro net va co
+         cao do hon (hai dao dong 26/41 Hz chinh la phan co cao do do). Nen it may
+         thi NANG phan dao dong len, va thu be rong Haas lai vi chum lua hep hon.
+         PHAI khai bao o DAY: ban dau tao de no xuong duoi, canh cho dung crackle,
+         ma dong eng.og ben tren lai dung truoc — ReferenceError vung chet, va
+         node --check khong bao gio thay duoc loai nay. */
+      const itMay = 1 - Math.max(0, Math.min(1, engFrac));
       eng.g.gain.setTargetAtTime(v * 0.6 * (0.4 + 0.6 * air), T(), 0.09);
       eng.lp.frequency.setTargetAtTime(150 + 1500 * v * air, T(), 0.12);
-      eng.og.gain.setTargetAtTime(0.22 + 0.26 * (1 - air), T(), 0.2);  // chan khong: nghieng ve tram
+      eng.og.gain.setTargetAtTime((0.22 + 0.26 * (1 - air)) * (0.6 + 0.85 * itMay),
+                                  T(), 0.2);  // chan khong nghieng ve tram; it may thi ro cao do hon
       /* Vo lach tach chi ton tai khi co khong khi de mang song xung kich, va
          chi ro khi ga lon. Tren cao no tat han, con lai rung ket cau. */
+      if (eng.dl) eng.dl.delayTime.setTargetAtTime(0.005 + 0.013 * engFrac, T(), 0.5);
       if (eng.cg) eng.cg.gain.setTargetAtTime(v * 0.18 * air * air, T(), 0.12);
       if (eng.cmg) eng.cmg.gain.setTargetAtTime(v * 0.42 * air, T(), 0.12);
       // Doi am: to nhat sat mat dat, het sach trong chan khong.
       if (eng.rev) eng.rev.gain.setTargetAtTime(v * 0.34 * Math.pow(air, 1.6), T(), 0.25);
+      /* Doi dap ung xung theo do cao, co tre hai nguong. */
+      if (eng.conv && irBe && irTroi && cao !== undefined) {
+        if (irDangDung !== 'troi' && cao > 1800) { eng.conv.buffer = irTroi; irDangDung = 'troi'; }
+        else if (irDangDung !== 'be' && cao < 1200) { eng.conv.buffer = irBe; irDangDung = 'be'; }
+      }
     },
     /* CUA SO DOC TRANG THAI. Ca lop am thanh nam trong mot closure nen tu ben
        ngoai khong soi duoc gi — da mot lan phai bo cuoc giua chung vi the. Ham
@@ -4498,6 +4525,9 @@ const TRE_TRAN = 4.0;
         hapThu_Hz: eng.hap ? Math.round(eng.hap.frequency.value) : null,
         engGain: eng.g ? +eng.g.gain.value.toFixed(4) : null,
         coBusXa: !!eng.xa,
+        doiAm: irDangDung,                                            // 'be' hay 'troi'
+        daoDong: eng.og ? +eng.og.gain.value.toFixed(3) : null,       // phan co cao do
+        haas_s: eng.dl ? +eng.dl.delayTime.value.toFixed(4) : null,   // be rong stereo
       };
     },
     setWind(q) {
@@ -4580,6 +4610,37 @@ const TRE_TRAN = 4.0;
       o.connect(g); g.connect(master); o.start(); o.stop(T() + dur + 0.05);
     },
     /* no / va cham manh */
+    /* NO SIEU THANH. Khong phai mot tieng no ma HAI, cach nhau vai chuc mili
+       giay: song xung kich o mui va song o duoi. Do la cai ma tai nhan ra ngay la
+       "bum-bum" chu khong phai "bum" — hinh dang N-wave.
+       Chi keu khi NGUOI NGHE DUNG DUOI DAT: camera gan tren than thi khong bao
+       gio nghe duoc no cua chinh minh, vi no luon o phia sau.
+       Don gian hoa co y: trong thuc te non Mach quet toi nguoi nghe theo mot
+       duong phuc tap, o day lay thang khoang cach luc vuot Mach chia toc do am. */
+    noSieuThanh(xa, tocAm, manh) {
+      if (!ok()) return;
+      const c = tocAm > 50 ? tocAm : 340;
+      /* Tran 25 giay. Vuot Mach 1 thuong xay ra o 8-11 km, tuc tieng no mat
+         25-32 giay moi xuong toi nguoi dung duoi dat — day la do THAT, va cu no
+         den muon han hinh dung la cai lam no dang nho. */
+      const tre = Math.min(25, Math.max(0, xa || 0) / c);
+      const m = Math.max(0, Math.min(1, manh === undefined ? 1 : manh));
+      if (m < 0.02) return;
+      for (const [lech, bien] of [[0, 1], [0.085, 0.72]]) {
+        const t0 = T() + tre + lech;
+        const n = ctx.createBufferSource(); n.buffer = noiseBuf(0.5);
+        /* Cu nen cuc nhanh roi tat: 4 ms len, 180 ms xuong. Mo mot chut tan cao
+           theo quang duong di, giong het bus khoang cach. */
+        const hp = chain('highpass', 40, 0.7);
+        const lp = chain('lowpass', Math.max(260, 9000 * Math.exp(-(xa || 0) / 2600)), 0.8);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(0.9 * m * bien, t0 + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+        n.connect(hp); hp.connect(lp); lp.connect(g); g.connect(master);
+        n.start(t0); n.stop(t0 + 0.3);
+      }
+    },
     boom(power, len) {
       if (!ok()) return;
       len = len || 1.6;
@@ -9847,7 +9908,18 @@ function frame(now) {
         gGhi(t2.axialG, DT);
         if (t2.q > peakQ) peakQ = t2.q;
         if (t2.qAlpha > peakQA) peakQA = t2.qAlpha;
-        if (!marks.m1 && t2.mach >= 1) { marks.m1 = 1; logLine('Vượt âm thanh — Mach 1'); }
+        if (!marks.m1 && t2.mach >= 1) { marks.m1 = 1; logLine('Vượt âm thanh — Mach 1');
+          /* Nguoi nghe phai dung DUOI DAT moi co no. Camera gan tren than (goc 4
+             rat gan, hoac dang bam tau) thi khong: vat the khong tu nghe duoc no
+             cua chinh minh. Lay nguong 60 m. */
+          const xaB = camera.position.distanceTo(_sp);
+          /* Do manh cua no ti le voi AP SUAT MOI TRUONG cho vat the dang bay:
+             len cao khi loang thi song xung kich yeu di, va tren 30 km thi gan
+             nhu khong con gi xuong toi dat. Lay thang tu atmosphere() chu khong
+             boi mot cong thuc. */
+          const atmB = F.atmosphere(t2.alt);
+          if (xaB > 60) Sfx.noSieuThanh(xaB, atmB.a, Math.min(1, atmB.p / 101325 * 2.2));
+        }
         if (!marks.mq && t2.q < peakQ * 0.82 && peakQ > 20000) { marks.mq = 1; logLine(`Qua max-Q — ${(peakQ / 1000).toFixed(1)} kPa`, 'hi'); }
         if (!marks.km && t2.alt >= 100000) { marks.km = 1; logLine('Vượt đường Kármán — 100 km'); }
         for (const e of evs) onShipEvent(e);
@@ -10649,7 +10721,7 @@ function frame(now) {
        thi gan 0 va luc do khong co tre, dung nhu mot micro gan tren tau. */
     const xaAm = camera.position.distanceTo(actPos);
     const tocAm = (srt ? atmS : bo ? atmB : atmS).a || 340;
-    Sfx.setEngine(lit > 0 ? thr : 0, lit / totalEng, pAmb, xaAm, tocAm);
+    Sfx.setEngine(lit > 0 ? thr : 0, lit / totalEng, pAmb, xaAm, tocAm, src.alt || 0);
     Sfx.setWind(src.q || 0);
     Sfx.setEntry(fxHeat, fxSlot);
     /* Tieng xi RCS ca khi tau DAY NGANG can bang sat thap (truoc chi keu khi
