@@ -5013,12 +5013,159 @@ function earthMaps() {
   return { map: tex(cM), rough: tex(cR), bump: tex(cB) };
 }
 
+/* ===================== DIA LY BOCA CHICA — SO DO THUC DIA =====================
+   Moi con so duoi day den tu do dac, khong tu nhieu bia. Nguon:
+     USGS 3DEP 1 m (epqs.nationalmap.gov) — cao do tai be, dinh dun
+     USGS NED 10 m (opentopodata /v1/ned10m) — luoi 80 m trong 3.5 km, 300 m
+       trong 12 km, 1 km trong 30 km (tai trong phien lam viec nay)
+     NOAA NCEI Coastal Relief Model — do sau gan bo
+     NOAA CO-OPS tram 8779750 / 8779770 — moc trieu
+     OpenStreetMap (Overpass) — duong bo, kenh tau, loma
+   MOC CAO DO: NAVD88 lech mucbien trung binh 8 mm tai tram 8779750 va 12 mm tai
+   8779770, nen cao do DEM doc THANG thanh "met tren muc bien".
+
+   DIA HINH O DAY KHONG CO DOI NUI. Do tren 2821 diem luoi 1 km ban kinh 30 km:
+   thap nhat -0.6 m, cao nhat 10.6 m, trung vi 0.00 m, 72% duoi 1 m. Trong 5 km
+   cho cao nhat la 3.8 m va do la SONG DUN CAT. Dat dau tien cao qua 50 m cach
+   110 km; nui that (Sierra Madre Oriental) cach 260-270 km — ngoai tam nhin o
+   moi do cao camera duoi 2 km.
+   HE QUA AN TOAN: bien do dia hinh (-30 .. +6 m) nam DUOI moi nguong vat ly
+   (va cham -10 m, mat booster -50 m, bullseye 20 m, bac nho nhat cua bo ha canh
+   1 m), nen dia hinh la lop VE thuan tuy, khong duoc va khong can dong vao vat
+   ly — moi seed da ghi trong tools/*eval.js giu nguyen hieu luc. */
+
+/* MAT CAT NGANG BO, met tren muc bien, theo met DONG tinh tu thap.
+   0-510 m tu NED 10 m doi chieu 3DEP 1 m; tu 510 m tro ra tu NOAA CRM. */
+const PROF_BOCA = [
+  [    0,  1.55], [  300,  0.50], [  330,  0.70], [  350,  1.50],
+  [  360,  2.47], [  370,  4.28], [  385,  5.88],          // dinh dun
+  [  400,  4.86], [  420,  4.67], [  440,  4.09], [  450,  3.26],
+  [  470,  1.55], [  490,  0.15], [  510,  0.00],          // mep nuoc
+  [  560, -0.91], [  660, -2.33], [  760, -3.09], [  960, -4.61],
+  [ 1160, -5.13], [ 1560, -6.77], [ 1960, -9.47], [ 2960,-12.25],
+  [ 4960,-16.58], [ 9960,-23.07], [19960,-30.38],
+];
+function profBoca(x) {
+  if (x <= PROF_BOCA[0][0]) return PROF_BOCA[0][1];
+  const L = PROF_BOCA[PROF_BOCA.length - 1];
+  if (x >= L[0]) return L[1];
+  let i = 1; while (PROF_BOCA[i][0] < x) i++;
+  const a = PROF_BOCA[i - 1], b = PROF_BOCA[i];
+  return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0]);
+}
+/* LOMA — dun DAT SET phu cay bui gai, vat noi cao nhat ma vung nay co.
+   Khoang cach + cao do: centroid OSM tra NED 10 m. Phuong vi thi du lieu KHONG
+   CO — day la lua chon de chung nhin thay tu goc be, phai ghi ro nhu vay. */
+const LOMA_BOCA = [  // [m tu thap, m tren muc bien, sigma m, phuong vi do (CHON)]
+  [ 2850, 1.80, 150, 284], [ 4300, 2.15, 150, 300], [ 6300, 6.90, 170, 292],
+  [ 7800, 7.70, 170, 276], [ 8900, 9.00, 180, 306], [13200, 9.60, 200, 288],
+];
+/* Nhieu dung chung cho dia ly. Dung lai mkNoise3/_e01 o tren. */
+const _nG1 = mkNoise3(24601, 40), _nG2 = mkNoise3(777, 32), _nG3 = mkNoise3(5507, 48);
+const _fbmG = (nf, x, y, oct) => { let s = 0, a = .5, f = 1;
+  for (let i = 0; i < oct; i++) { s += a * nf(x * f, y * f, 2.3); a *= .5; f *= 2.13; }
+  return s * 1.32; };
+const _smG = (a, b, x) => { const t = _e01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+
+/* Mep nuoc khong thang. Bien do 18 m = toc do lui bo Brazos Island (Caudle et al.
+   2019: 1.2 m/nam trung binh 1937-2013) nhan ~15 nam — do go ghe hop ly cua mot
+   duong bo dang lui, khong phai mot con so bia. */
+function wobBoca(cr) { return (_fbmG(_nG1, cr / 1000 * 0.9, .5, 3) - .5) * 18; }
+
+/* CAO DO (m tren muc bien) tai (dr, cr) tinh bang MET tu thap.
+   `tho = true` bo cac thanh phan HEP (lach trieu, long song): o anh nen chom
+   cau mot texel la 739 m, ma lach rong ~60 m va long song 170 m — duoi mot
+   texel. Tinh chung o do khong them chi tiet nao, chi them rang cua va 1.9
+   giay thoi gian tai trang (do duoc). Luoi gan thi goi voi tho = false. */
+function hBoca(dr, cr, tho) {
+  const x = dr - wobBoca(cr);                 // m ve phia dong, da bu uon bo
+  let h = profBoca(Math.max(0, x));
+  /* Phia tay moc 300 m la BAI LAY: thong ke luoi 1 km ban kinh 30 km cho
+     p50 0.00, p75 1.57, p90 3.44 m va 72% duoi 1 m. Nen 0.50 m cong truong
+     nhieu bien do 0.60 m cho ra dung phan vi do. */
+  const vaoLay = _smG(300, -200, x);
+  if (vaoLay > 0) {
+    const lay = 0.50 + (_fbmG(_nG2, dr / 900, cr / 900, 4) - .5) * 1.20;
+    h = h * (1 - vaoLay) + lay * vaoLay;
+    /* LACH TRIEU: mang phan nhanh tren bai lay, day sau ~1.0 m. Dung |nhieu-0.5|
+       nho de ra DUONG manh thay vi mang. Overpass xac nhan lach gan nhat 1.64 km. */
+    if (!tho) {
+      const l = Math.abs(_fbmG(_nG3, dr / 2100, cr / 2100, 4) - .5);
+      h -= 1.05 * (1 - _smG(0, 0.030, l)) * vaoLay;
+    }
+    /* SOUTH BAY: 4.60 km phuong vi 321, 4.8 x 4.0 km, sau 0.6-1.2 m, sieu man. */
+    const sbX = -3570, sbY = 3580;            // 4600 m o 321 do
+    const gd = Math.atan2(cr - sbY, dr - sbX);
+    const rr = 1 + (_fbmG(_nG3, Math.cos(gd) * 2.4 + 9, Math.sin(gd) * 2.4 + 9, 3) - .5) * 0.44;
+    h -= 1.70 * (1 - _smG(0.78, 1.14, Math.hypot((dr - sbX) / 2400, (cr - sbY) / 2000) / rr));
+    /* CUA RIO GRANDE: 4.67 km phuong vi 170 — tuc 4.60 km NAM, 0.81 km DONG.
+       Long hep (lach bun), uon khuc khong deu nen lay nhieu hai thang. */
+    if (!tho) {
+      const noRong = 0.55 + 0.75 * _smG(-14000, 500, dr);
+      const truc = -4600 + (dr - 810) * (-0.30)
+        + ((_fbmG(_nG1, (dr + 40000) / 3200, 0.25, 3) - .5) * 2100
+         + (_fbmG(_nG2, (dr + 40000) / 9000, 7.5, 2) - .5) * 2600) * noRong;
+      const ng = cr - truc, coS = _smG(1450, 1050, dr) * _smG(-32000, -26000, dr);
+      h += 1.10 * Math.exp(-Math.pow(ng / 550, 2)) * coS;    // bo song tu nhien
+      h -= 5.20 * Math.exp(-Math.pow(ng / 170, 2)) * coS;    // long
+    }
+  }
+  /* LOMA. Phuong vi la lua chon (khong co du lieu), khoang cach va cao do la do. */
+  for (let i = 0; i < LOMA_BOCA.length; i++) {
+    const L = LOMA_BOCA[i], a = L[3] * Math.PI / 180;
+    const lx = Math.sin(a) * L[0], ly = Math.cos(a) * L[0];
+    const d2 = (dr - lx) * (dr - lx) + (cr - ly) * (cr - ly);
+    h += L[1] * Math.exp(-d2 / (2 * L[2] * L[2]));
+  }
+  /* SAN DAP khu be phong: 3DEP 1 m doc 1.86 m, NED 10 m doc 2.12 m tai be. */
+  h += (1.95 - h) * (1 - _smG(240, 460, Math.hypot(dr, cr)));
+  return h;
+}
+
+/* QUAN XA THUC VAT theo cao do + khoang cach bo. Danh sach loai lay tu TPWD
+   Ecological Mapping Systems of Texas; phan tang theo che do ngap trieu — chenh
+   30 cm cao do la doi han loai o bo vinh. TPWD ghi dich danh Boca Chica co vat
+   rong do Borrichia frutescens chi phoi, nen nen canh KHONG phai cat vang ma la
+   xam-luc lom dom tren bun set xam.
+     0 nuoc  1 bun trieu  2 co man  3 vat Borrichia  4 co con cat  5 bui  6 cat tron */
+function quanXaBoca(h, x) {
+  if (h < 0) return 0;
+  if (x > 330) return 6;                      // mat bai: song va gio khong cho gi moc
+  if (h < 0.18) return 1;                     // bun trieu uot, ngap hang ngay
+  if (x > 180) return 4;                      // sau dinh dun: co con cat thua
+  if (h < 0.42) return 7;                     // vung muoi: kho, dong vo muoi trang
+  if (h < 0.80) return 2;
+  if (h < 2.60) return 3;
+  return 5;
+}
+/* Mau tung quan xa (0-255). Tong the XAM-LUC theo mo ta TPWD cho Boca Chica
+   (vat Borrichia tren bun set xam), khong phai bang mau cat vang cua ban do cu.
+   Dai tuong phan phai RONG: bun uot sam, vo muoi gan trang, co man luc dam —
+   lan dau tao de ca ba gan nhau nen ca dong bang ra mot mang khaki phang li. */
+const MAU_QX = [null, [74,70,60], [86,104,64], [124,124,92], [168,158,120],
+                [72,84,54], [196,186,158], [198,194,182]];
+/* MAU DINH PHAI O KHONG GIAN TUYEN TINH. Anh canvas duoc danh dau sRGB nen
+   three tu giai ma, con thuoc tinh `color` cua hinh hoc thi KHONG — three doc
+   thang. Dua so sRGB vao do la mau sang vot len: 124/255 = 0.486 sRGB nhung chi
+   la 0.207 tuyen tinh, tuc sang gap 2.3 lan. Do la ly do ca dong bang ra mot
+   mang khaki nhat thay vi vat Borrichia xam-luc. */
+const MAU_QX_TT = MAU_QX.map(c => c && c.map(v => {
+  const u = v / 255;
+  return u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4);
+}));
+
 /* Mang bo bien quanh be phong. Nua be rong PATCH_KM tinh theo tam xa.
    DIA HINH: be phong nam tren mot DAI CAT chay doc phuong lech ngang, rong
    ~43 km theo phuong tam xa, hai ben la bien. Phai lam vay chu khong phai "dat
    o phia tay, bien o phia dong": tam xa cua tau nhan ca hai dau (±), nen neu
    mot ben la luc dia thi mot nua so chuyen thap noi se dung tren can. */
-const PATCH_KM = 331, LAND_W = -34, LAND_E = 9;     // ranh dai cat, km theo tam xa
+/* LAND_E: MEP NUOC do duoc o 0.49 km dong (phuong vi 085). Hai nguon doc lap
+   khop nhau: OSM natural=coastline, va NOAA Coastal Relief Model cat muc 0 m o
+   0.54 km; duong TX-4 cung ket thuc o 476 m dong. Truoc day de 9 km — xa gap
+   mua^i tam lan, nen tu be phong khong bao gio thay bien.
+   LAND_W giu -34: phia tay la luc dia lien tuc 270 km nen moi con so deu la bia,
+   va 34 km da nam ngoai chan troi 33.2 km cua goc nhin tai be. */
+const PATCH_KM = 331, LAND_W = -34, LAND_E = 0.49;  // ranh dai cat, km theo tam xa
 function coastMaps() {
   const N = 896;               // ~740 m/texel; 1024 ton them 0.25 s luc tai trang
   const nA = mkNoise3(24601, 40), nB = mkNoise3(777, 32);
@@ -5032,8 +5179,29 @@ function coastMaps() {
   const gM = cM.getContext('2d'), gR = cR.getContext('2d');
   const iM = gM.createImageData(N, N), iR = gR.createImageData(N, N);
   const M = iM.data, R = iR.data;
+  /* hBoca ton 1.08 us moi goi (do trong trang), nhan 896^2 texel ra 864 ms —
+     mot giay ruoi cham khi tai trang chi de ve mot phong nen 331 km ma o do
+     MOT TEXEL la 739 m. Nen lay mau thua BUOC 4 (2.96 km) roi noi suy song
+     tuyen tinh: 50 nghin lan goi thay vi 800 nghin. Duong bo bi lam muot trong
+     ~3 km, tuc 0.9% be rong khung o thang do nay — khong nhin thay, va luoi gan
+     ±16 km (goi hBoca day du) moi la thu nguoi choi thuc su nhin. */
+  const BUOC = 4, NC = Math.ceil(N / BUOC) + 1;
+  const HC = new Float32Array(NC * NC);
+  for (let j = 0; j < NC; j++) for (let i = 0; i < NC; i++) {
+    const uu = (i * BUOC + .5) / N, vv = (j * BUOC + .5) / N;
+    HC[j * NC + i] = hBoca((.5 - uu) * 2 * PATCH_KM * 1000, (vv - .5) * 2 * PATCH_KM * 1000, true);
+  }
+  const hLay = (x, y) => {
+    const a = x / BUOC, b = y / BUOC;
+    const i = Math.min(NC - 2, a | 0), j = Math.min(NC - 2, b | 0);
+    const fu = a - i, fv = b - j;
+    const p0 = HC[j * NC + i], p1 = HC[j * NC + i + 1];
+    const p2 = HC[(j + 1) * NC + i], p3 = HC[(j + 1) * NC + i + 1];
+    return (p0 * (1 - fu) + p1 * fu) * (1 - fv) + (p2 * (1 - fu) + p3 * fu) * fv;
+  };
   for (let y = 0; y < N; y++) {
     const v = (y + .5) / N;
+    const cr = (v - .5) * 2 * PATCH_KM;          // km lech ngang
     /* Hai duong bo CHI phu thuoc v, nen tinh mot lan moi hang. De trong vong
        trong thi hai fbm 4 tang chay 800 nghin lan thay vi 900 lan — do duoc
        chiem gan mot nua thoi gian sinh anh. */
@@ -5042,30 +5210,35 @@ function coastMaps() {
     const bW = LAND_W + wob, bE = LAND_E + wob2;
     for (let x = 0; x < N; x++) {
       const u = (x + .5) / N;
-      const dr = (u - .5) * 2 * PATCH_KM;          // km theo tam xa
-      const inland = Math.min(dr - bW, bE - dr);   // >0 la tren can
+      /* TRUC u NGUOC CHIEU TAM XA. Voi SphereGeometry(phiStart = 1.5pi - D) roi
+         rotateX(pi/2): tai u = 0 toa do the gioi ra +331 km, tai u = 1 ra -331 km.
+         Cong thuc cu (u - .5) gan nhan nguoc hoan toan. Hom nay khong lo vi dai
+         dat gan doi xung quanh dr = 0; nhung vua dat LAND_E = 0.49 km la mep nuoc
+         hien ra o phia TAY — nguoc han truc phong. */
+      const dr = (.5 - u) * 2 * PATCH_KM;          // km theo tam xa
       const det = f2(nB, u * 26, v * 26, 4, 1.0);
+      /* Mau lay tu CHINH truong cao do thuc dia, khong tu mot luat rieng: neu
+         hai cai tach nhau thi song dun trong mau se khong nam tren song dun
+         trong hinh hoc. */
+      const hh = hLay(x, y);
       let r, g, b, rough;
-      if (inland > 0) {
-        const bo = _e01(inland / 2.6);             // dai bai cat
-        // dam pha giua dai cat
-        const lag = _e01((3.5 - Math.abs(inland - 15 - (det - .5) * 9)) / 3.5);
-        r = 178 + det * 34; g = 168 + det * 30; b = 132 + det * 26;         // cat
-        const scrub = _e01((inland - 3) / 7) * (.55 + det * .5);
-        r += (86 - r) * scrub * .8; g += (104 - g) * scrub * .8; b += (62 - b) * scrub * .8;
-        r += (44 - r) * lag; g += (86 - g) * lag; b += (96 - b) * lag;      // nuoc dam
-        rough = 230 - lag * 190;
-        r += (r - 128) * (bo - 1) * .12;
+      if (hh >= 0) {
+        const Q = MAU_QX[quanXaBoca(hh, dr * 1000 - wobBoca(cr * 1000))];
+        const k = .88 + det * .26;
+        r = Q[0] * k; g = Q[1] * k; b = Q[2] * k;
+        rough = 236;
       } else {
-        const dp = _e01(-inland / 26);             // 0 sat bo -> 1 ngoai khoi
-        const surf = _e01(1 - -inland / 1.6) * .55;
-        r = 22 + (1 - dp) * 92 + surf * 150;
-        g = 74 + (1 - dp) * 108 + surf * 150;
-        b = 116 + (1 - dp) * 74 + surf * 140;
-        // van song lan tan
-        const sw = (f2(nB, u * 90, v * 42, 2, 1.0) - .5) * 16 * (1 - dp * .5);
+        /* Hap thu cua nuoc tinh khiet (m^-1) ~620/550/450 nm. Nuoc sau ra xanh
+           la vi do bi nuot truoc, khong phai vi ta chon mot mau xanh. Nen day
+           ngoai bo la cat thach anh, trong dam kin va lach la bun lang. */
+        const d = -hh, ho = dr * 1000 > 0;
+        const D0 = ho ? 204 : 54, D1 = ho ? 189 : 48, D2 = ho ? 153 : 36;
+        r = D0 * Math.exp(-0.350 * 2 * d);
+        g = D1 * Math.exp(-0.060 * 2 * d);
+        b = D2 * Math.exp(-0.010 * 2 * d);
+        const sw = (f2(nB, u * 90, v * 42, 2, 1.0) - .5) * 14 * Math.exp(-d / 6);
         r += sw; g += sw; b += sw * .6;
-        rough = 20 + surf * 120;
+        rough = 26 + 90 * Math.exp(-d / 3);
       }
       /* Mo dan ra ria de noi vao qua cau toan cau, khong lo duong vien vuong. */
       const edge = _e01((0.5 - Math.max(Math.abs(u - .5), Math.abs(v - .5))) / 0.055);
@@ -5148,6 +5321,10 @@ earth.position.set(0, -RE - PIT, 0); scene.add(earth);
     normalMap: VAN_DAT, normalScale: new THREE.Vector2(0.55, 0.55),
     transparent: true, depthWrite: false
   }));
+  /* receiveShadow la co TUNG MESH, khong di truyen tu cha. earth.receiveShadow da
+     bat o datBong() nhung chom thi khong — ma chom moi la mat dat nhin thay trong
+     ban kinh 331 km. */
+  patch.receiveShadow = true;
   earth.add(patch);
   window.__vanDat = VAN_DAT;          // de bang chinh van duoc do noi
 }
@@ -5208,6 +5385,108 @@ const stars = new THREE.Points(starGeo, starMat); scene.add(stars);
 
 /* ===== BE PHONG (co dinh tai goc) ===== */
 const pad = new THREE.Group(); scene.add(pad);
+/* ===================== THE GIOI GAN: DIA HINH + MAT NUOC =====================
+   LUOI DO DAN THEO HAM MU, khong phai clipmap. Mot luoi 193x193 duy nhat voi
+   toa do phi tuyen: buoc 8 m o tam, 774 m o ria, nua be rong 16 384 m, 73 728
+   tam giac, MOT lenh ve. Tinh hoan toan — khong cap nhat dinh theo camera, nen
+   khong co nhay muc, khong co duong noi giua cac vanh, va khong ton mot micro
+   giay nao trong khung dang tua 4000 buoc.
+   Vi sao duoc: canh nay bi chan boi SO LENH VE (~1500/khung, 6 us moi lenh),
+   khong phai so tam giac (110 nghin o 12 Mtri/s). Them 74 nghin tam giac trong
+   1 lenh ve la gan nhu mien phi.
+
+   LA CON CUA `pad`: pad.position duoc dat lai moi khung theo goc troi, nen toa
+   do dinh o day nho (ria 16 384 m -> ulp float32 0.002 m). Neu treo vao `earth`
+   nhu `patch` thi toa do la ~6.371e6 va ulp thanh 0.5 m — dung cai da lam cho cu
+   nang 0.25 m cua `patch` bien mat hoan toan (Math.fround(RE + 0.25) === RE).
+
+   LIFT = 1.0 m: mat `patch` cao nhat la RE + 0.5 m sau khi vao float32, nen
+   nang ca the gioi gan len 1.0 m thi moi diem cua no nam TREN `patch`. `patch`
+   co depthWrite:false nhung depthTest:true nen bi loai o phep thu do sau —
+   khong can khoet lo qua cau, khong can bo `transparent`, vanh mo alpha 36.4 km
+   van nguyen. Luong tu do sau o 16.4 km la 17.5 mm, nen le 0.5 m du 29 lan.
+   Buoc 1.0 m nhin tu 16.4 km la 0.13 diem anh o fov 40: khong thay duoc. */
+const LIFT_DAT = 1.0;
+const R_DAT = 16384, N_DAT = 193, K_DAT = 4.60;
+const gLuoi = t => Math.sign(t) * (Math.exp(Math.abs(t) * K_DAT) - 1) / (Math.exp(K_DAT) - 1) * R_DAT;
+/* THUY TRIEU: NOAA CO-OPS tram 8779750 (SPI Brazos Santiago) MN = 0.382 m,
+   GT = 0.449 m — Caudle et al. goi thang la "microtidal". Trong mot chuyen bay
+   90 phut trieu chi doi 0.072 m, khong nhin thay, nen dat MOT LAN chu khong
+   hoat hinh. Nhung voi do doc bai 1:40 thi mep nuoc dich 15 m ngang giua lan
+   choi trieu cao va lan trieu thap — mot chi tiet that, mien phi. */
+let TRIEU = 0;
+function datTrieu() { TRIEU = 0.191 * Math.sin(2 * Math.PI * (Date.now() / 1000) / 89424); }
+datTrieu();
+
+function lamTheGioiGan() {
+  const nD = N_DAT, so = nD * nD;
+  const vDat = new Float32Array(so * 3), cDat = new Float32Array(so * 3);
+  const vNuoc = new Float32Array(so * 3), cNuoc = new Float32Array(so * 3);
+  const _v = new THREE.Vector3();
+  const toa = new Float32Array(nD);
+  for (let i = 0; i < nD; i++) toa[i] = gLuoi(i / (nD - 1) * 2 - 1);
+  for (let j = 0; j < nD; j++) {
+    const cr = toa[j];
+    for (let i = 0; i < nD; i++) {
+      const dr = toa[i], k = (j * nD + i) * 3;
+      const h = hBoca(dr, cr, false);
+      worldPosCr(-PIT + LIFT_DAT + h, dr, cr, _v);
+      vDat[k] = _v.x; vDat[k + 1] = _v.y; vDat[k + 2] = _v.z;
+      worldPosCr(-PIT + LIFT_DAT + TRIEU, dr, cr, _v);
+      vNuoc[k] = _v.x; vNuoc[k + 1] = _v.y; vNuoc[k + 2] = _v.z;
+      /* Mau nuoc = HAP THU BEER-LAMBERT qua hai lan be day (xuong day roi quay
+         len). He so hap thu cua nuoc tinh khiet ~620/550/450 nm. Nuoc sau ra
+         xanh luc la vi anh do bi nuot truoc — khong phai vi ta chon mau xanh.
+         Nen day: ngoai bo la cat thach anh, trong dam kin va lach trieu la bun
+         lang. Lan dau tao cho ca hai cung mau cat nen dam nong chay trang. */
+      const d2 = Math.max(0, TRIEU - h) * 2, ho = dr > 0;
+      const Dy = ho ? [0.80, 0.74, 0.60] : [0.21, 0.19, 0.14];
+      cNuoc[k]     = Dy[0] * Math.exp(-0.350 * d2);
+      cNuoc[k + 1] = Dy[1] * Math.exp(-0.060 * d2);
+      cNuoc[k + 2] = Dy[2] * Math.exp(-0.010 * d2);
+      /* Mau dat: quan xa cho tong mau, cong mot truong lom dom bien do +-13%
+         chu ky 90 m — vat Borrichia khong phai mot tam tham dong mau. */
+      const Q = MAU_QX_TT[quanXaBoca(h, dr - wobBoca(cr))] || MAU_QX_TT[1];
+      const lom = .87 + .26 * _fbmG(_nG2, dr / 90, cr / 90, 2);
+      cDat[k] = Q[0] * lom; cDat[k + 1] = Q[1] * lom; cDat[k + 2] = Q[2] * lom;
+    }
+  }
+  const idx = [];
+  for (let j = 0; j < nD - 1; j++) for (let i = 0; i < nD - 1; i++) {
+    const a = j * nD + i, b = a + 1, c = a + nD, d = c + 1;
+    idx.push(a, c, b, b, c, d);
+  }
+  const gD = new THREE.BufferGeometry();
+  gD.setAttribute('position', new THREE.BufferAttribute(vDat, 3));
+  gD.setAttribute('color', new THREE.BufferAttribute(cDat, 3));
+  gD.setIndex(idx); gD.computeVertexNormals();
+  const datGan = new THREE.Mesh(gD, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 1, metalness: 0 }));
+  datGan.receiveShadow = true; datGan.castShadow = false;
+  pad.add(datGan);
+
+  /* MAT NUOC dung CHINH luoi do, dac, o muc bien + trieu. Duong bo la GIAO
+     TUYEN hai mat chu khong phai mot duong ta bang dinh: cho nao dat cao hon
+     nuoc thi dat che nuoc, nguoc lai thi nuoc che dat. Nho vay song, lach trieu
+     va dam pha khong ton them gi — khoet hBoca xuong duoi 0 la nuoc tu day vao,
+     va mep nuoc tu dich dung khi trieu doi.
+     Do nham tu COX-MUNK (1954): do doc binh phuong trung binh cua mat bien
+     sigma^2 = 0.003 + 0.00512 U, U lay tu chinh lo bay. ior 1.333 cho F0 =
+     0.0204 — MeshStandardMaterial ghim F0 = 0.04 (thuy tinh), gan gap doi. */
+  const gN = new THREE.BufferGeometry();
+  gN.setAttribute('position', new THREE.BufferAttribute(vNuoc, 3));
+  gN.setAttribute('color', new THREE.BufferAttribute(cNuoc, 3));
+  gN.setIndex(idx); gN.computeVertexNormals();
+  const U = 7;                                   // m/s, thay bang gio that o duoi
+  const nuocGan = new THREE.Mesh(gN, new THREE.MeshPhysicalMaterial({
+    vertexColors: true, roughness: Math.sqrt(Math.sqrt(0.003 + 0.00512 * U)),
+    metalness: 0, ior: 1.333, reflectivity: 0.5 }));
+  nuocGan.receiveShadow = true; nuocGan.castShadow = false;
+  pad.add(nuocGan);
+  return { datGan, nuocGan, soTamGiac: (nD - 1) * (nD - 1) * 2 };
+}
+const THE_GIOI_GAN = lamTheGioiGan();
+
 const MConc = new THREE.MeshStandardMaterial({ color: 0x6E6A63, roughness: .95 });
 const MSteelD = new THREE.MeshStandardMaterial({ color: 0x4A4E55, roughness: .55, metalness: .85 });
 /* Gio DA CO envMap (xem khoi ENV), nen tra metalness ve muc that cua inox.
