@@ -161,6 +161,24 @@ body{
   width:min(340px,74vw);pointer-events:none;
 }
 #catchbar[hidden]{display:none!important}
+/* Dai BAN LE CANH GIO — chi hien khi tau dang ve. Bon ban le nong len theo DO BE
+   cua chinh canh do, va tren 1500 K thi bat dau chay: hingeDmg bo len, canh mat
+   toi 85% luc. Truoc day ca qua trinh nay VO HINH — nguoi choi khong thay gi cho
+   toi khi mot ban le chay HAN, luc do da xong. */
+#hinge{position:absolute;left:50%;transform:translateX(-50%);bottom:232px;
+  width:min(340px,74vw);pointer-events:none}
+#hinge[hidden]{display:none!important}
+#hinge .lab{display:block;text-align:center;margin-bottom:6px}
+#hrow{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
+#hrow .hc{text-align:center}
+#hrow .hc b{display:block;font:500 9px/1.4 var(--fm);color:var(--dim);letter-spacing:.1em}
+#hrow .hb{height:5px;margin:3px 0 2px;background:#11161D;border:1px solid var(--edge);
+  border-radius:2px;overflow:hidden}
+#hrow .hb i{display:block;height:100%;background:var(--cryo);transition:width .12s linear}
+#hrow .hb i.am{background:var(--flame)}
+#hrow .hb i.chay{background:#C0392B}
+#hrow .hc u{display:block;font:500 10px/1.3 var(--fm);color:var(--haze);text-decoration:none}
+#hrow .hc u.chay{color:#E8705F}
 #catchbar .lab{display:block;text-align:center;margin-bottom:7px}
 #catchrail{
   position:relative;height:16px;border:1px solid var(--edge);border-radius:2px;
@@ -393,6 +411,15 @@ body{
     </div>
   </div>
 
+  <div id="hinge" hidden>
+    <span class="lab">Bản lề cánh gió &mdash; cháy từ 1500 K</span>
+    <div id="hrow">
+      <div class="hc"><b>FL</b><div class="hb"><i id="hb0"></i></div><u id="ht0">&mdash;</u></div>
+      <div class="hc"><b>FR</b><div class="hb"><i id="hb1"></i></div><u id="ht1">&mdash;</u></div>
+      <div class="hc"><b>AL</b><div class="hb"><i id="hb2"></i></div><u id="ht2">&mdash;</u></div>
+      <div class="hc"><b>AR</b><div class="hb"><i id="hb3"></i></div><u id="ht3">&mdash;</u></div>
+    </div>
+  </div>
   <div id="catchbar" hidden>
     <span class="lab">Căn chỉnh với tháp</span>
     <div id="catchrail"><div id="catchzone"></div><div id="catchdot" style="left:50%"></div></div>
@@ -7454,7 +7481,7 @@ function reset() {
      `marks.beep` xoa luon cung vo hai: no so sanh theo GIA TRI (`sec !== marks.beep`)
      chu khong phai chot, nen van keu dung. */
   for (const k in marks) delete marks[k];
-  $('log').innerHTML = ''; $('over').hidden = true; $('catchbar').hidden = true;
+  $('log').innerHTML = ''; $('over').hidden = true; $('catchbar').hidden = true; $('hinge').hidden = true;
   $('intro').hidden = false;          // R phai tra ve man hinh mo dau, khong bo nguoi choi treo o PRE
   $('tT').classList.remove('act');
   setPhase('Đếm ngược');
@@ -8795,6 +8822,18 @@ function recDiagnose(o, a) {
   if (o.engOut > 0) bits.push(`Mảnh từ bệ làm hỏng ${o.engOut} động cơ`);
   if (o.shipAligned === false) bits.push(`Tàu vào chốt lệch phương ${Math.round(o.shipYaw)}° — cánh gió đập vào tay đũa`);
   if (o.hingeBurn) bits.push(`Bản lề flap ${o.hingeBurn} đã cháy`);
+  else if (o.hingeDmg) {
+    /* Chay DO cung dang bao. Truoc day chi bao khi mot ban le chay HAN (hingeDmg
+       = 1), ma do la truong hop hiem; con 20-80% thi im lang tuyet doi du canh da
+       mat tung do luc va bo lai phai bu bang RCS hoac bang binh header. Do headless
+       tren 39 chuyen: canh TRUOC hong tra gia bang nhien lieu header, canh SAU tra
+       bang khi RCS. */
+    const TEN = ['FL', 'FR', 'AL', 'AR'];
+    const nong = o.hingeDmg.map((v, i) => ({ v, i })).filter(x => x.v > 0.02);
+    if (nong.length) bits.push('Bản lề cháy dở — '
+      + nong.map(x => `${TEN[x.i]} mất ${Math.round(x.v * 85)}% lực`).join(', ')
+      + (o.peakTh ? ` (đỉnh ${o.peakTh} K)` : ''));
+  }
   if (o.shipResult && o.shipResult !== 'orbit') bits.push('Tàu không vào được quỹ đạo');
   else if (o.shipOutcome === 'crash') bits.push(`Tàu vỡ khi hạ (${Math.abs(o.shipVs).toFixed(1)} m/s, nghiêng ${o.shipTilt.toFixed(1)}°)`);
   else if (o.shipOutcome === 'wide') bits.push(`Tàu lệch ${recM(o.shipMiss)} — ngoài vùng đích`);
@@ -10930,6 +10969,7 @@ function updateHUDDock(tel, bt) {
 
 function updateHUD(tel, bt, srt) {
   if (srt) return updateHUDShip(srt);
+  veBanLe(null);                 // chi pha tau ve moi co ban le de xem
   /* Doan cap co bang so rieng: sau o binh thuong deu vo nghia o day (Mach 27,8
      va ap suat dong 0 kPa thi doc de lam gi), con thu can biet — toc do khep,
      lech ngang, lech goc — thi khong o nao co. */
@@ -11010,7 +11050,26 @@ function updateHUD(tel, bt, srt) {
   }
 }
 
+/* 1500 K la nguong chay cua ban le, lay tu T_HINGE_MAX trong ship3d.js. */
+const T_BANLE = 1500;
+function veBanLe(t) {
+  const el = $('hinge');
+  if (!t || !t.Th) { el.hidden = true; return; }
+  el.hidden = false;
+  for (let i = 0; i < 4; i++) {
+    const T = t.Th[i] || 0, d = (t.hingeDmg && t.hingeDmg[i]) || 0;
+    const b = $('hb' + i), u = $('ht' + i);
+    b.style.width = Math.max(0, Math.min(100, T / T_BANLE * 100)) + '%';
+    /* Ba muc mau: lanh, gan nguong (tu 80%), va DA chay. Chay thi hien % mat luc
+       chu khong hien nhiet nua — vi luc do nhiet khong con la tin tuc. */
+    b.className = d > 0 ? 'chay' : (T > T_BANLE * 0.8 ? 'am' : '');
+    u.className = d > 0 ? 'chay' : '';
+    u.textContent = d > 0 ? '\u2212' + Math.round(d * 85) + '%' : Math.round(T) + ' K';
+  }
+}
+
 function updateHUDShip(t) {
+  veBanLe(t);
   $('spd').innerHTML = Math.round(t.speed * 3.6).toLocaleString('vi-VN') + '<u>km/h</u>';
   $('alt').innerHTML = (t.alt / 1000).toFixed(1) + '<u>km</u>';
   $('phlab').textContent = 'Thời gian về';
