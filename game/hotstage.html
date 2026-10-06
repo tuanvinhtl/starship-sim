@@ -6140,8 +6140,16 @@ function makeTower(host, o) {
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, .7, dd), MDark);
       b.position.set(dx, y, -24 + dz); g.add(b);
     }
-    const dg = new THREE.Mesh(new THREE.BoxGeometry(.5, 15.4, .5), MDark);
-    dg.position.set(0, y + 6, -24 - 5.4); dg.rotation.z = .36; g.add(dg);
+    /* Moi tang truoc day chi co MOT thanh cheo, va deu o cung mot mat (dz = -5.4)
+       nghieng cung mot chieu — nhin tu xa ra mot cai thang chu khong ra gian thep
+       chiu luc. Gian that co thanh cheo doi dau xen ke tren ca bon mat. */
+    for (const [mx, mz, qz, qy] of [[0, -5.4, .36, 0], [0, 5.4, -.36, 0],
+                                    [-5.4, 0, 0, .36], [5.4, 0, 0, -.36]]) {
+      const dg = new THREE.Mesh(new THREE.BoxGeometry(.5, 15.4, .5), MDark);
+      dg.position.set(mx, y + 6, -24 + mz);
+      dg.rotation.z = (i % 2 ? -qz : qz); dg.rotation.x = (i % 2 ? -qy : qy);
+      g.add(dg);
+    }
   }
   /* RAY DAN HUONG tren mat huong ra canh tay — xe truot chay tren doi ray nay.
      Khong co ray thi xe nhin nhu troi lo lung canh cot. */
@@ -6483,7 +6491,15 @@ const BOOST_PIN_Y = B_GRIP, BOOST_PIN_R = 6.0;
 const towerPad = makeTower(pad, { h: 205 + PIT, catchAlt: CATCH_ALT + B_GRIP + PIT });
 towerPad.grp.position.y = -PIT;
 for (let i = 0; i < 8; i++) { const t = (200 + 140 * i / 7) * DEG; cyl(4.6, 27, -95 + Math.cos(t) * 55, PY(0), 40 + Math.sin(t) * 55, MSteel, 18); }
-for (let i = 0; i < 3; i++) { const t = (30 + 120 * i) * DEG; cyl(.8, 90, Math.cos(t) * 120, PY(0), Math.sin(t) * 120, MSteelD, 8); }
+/* CHONG SET. Truoc day la ba cot roi cao 90 m dung o ban kinh 120 m — thap hon
+   dinh ten lua (123 m) nen vung bao ve hinh non 45 do cua chung khong trum duoc
+   gi, tuc ba cai cot trang tri. Pad A o Starbase khong lam the: no dat mot thanh
+   chong set ngan ngay TREN NOC THAP, cho thap cao hon la cho thanh dung. */
+{
+  const dinh = towerPad.h;                      // toa do cuc bo dinh cot thap
+  const ct = new THREE.Mesh(new THREE.CylinderGeometry(.13, .09, 3.05, 8), MSteelD);
+  ct.position.set(0, dinh + 1.52, -24); towerPad.grp.add(ct);
+}
 /* ===== DUONG CONG VU (Boca Chica Blvd / TX-4) =====
    Truoc day la mot tam `box(900, .3, 14, 0, .3, 150)` — toa do y THO 0.3 trong
    khi trai bon va cot chong set ngay ben canh deu dung PY(0). Tuc dai be tong
@@ -7067,7 +7083,11 @@ function tileTexture() {
   const prof = [];
   for (let i = 0; i <= 18; i++) {
     const u = i / 18;
-    prof.push(new THREE.Vector2(Math.max(.10, R * Math.sqrt(Math.max(0, 1 - u * u * .985))), u * NOSE));
+    /* Diem cuoi phai tien ve 0 chu khong kep o 0.10: LatheGeometry khong tu dong
+       day, nen san 0.10 de lai mot LO duong kinh 0.20 m ngay dinh mui. Mui that
+       la khoi ogive kin. */
+    const rr = R * Math.sqrt(Math.max(0, 1 - u * u * .985));
+    prof.push(new THREE.Vector2(i === 18 ? 0 : Math.max(.06, rr), u * NOSE));
   }
   const nose = new THREE.Mesh(new THREE.LatheGeometry(prof, 44), MMui);
   nose.position.y = BODY; shipObj.add(nose);
