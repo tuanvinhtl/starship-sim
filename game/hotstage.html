@@ -6892,7 +6892,17 @@ function latticeTexture() {
     }
   }
 
-  /* --- VOI KHI NONG RCS ---
+  /* --- CUA XA DIEU KHIEN TU THE ---
+     KHONG PHAI "voi khi nong". Chu thich cu goi sai: Super Heavy da BO HAN hot
+     gas thruster tu Booster 4 (2021) va dieu khien tu the bang cach xa KHI
+     ULLAGE con lai trong thung — Musk qua Everyday Astronaut 11/8/2021, va
+     Wikipedia goi la "cold gas thrusters fed with residual ullage gas".
+     CHUA SUA: hinh dang luong o day van dung theo kieu khi NONG tu phat sang.
+     Khi lanh thi nhin thay duoc la nho TAN XA anh mat troi chu khong tu sang,
+     nen do sang phai di theo mat do, khong phai giu nguyen. Khong sua ngay vi
+     khong tim duoc nguon nao cho biet no SANG BAO NHIEU — doi so roi hay doi,
+     dung bia mot luat moi.
+
      Truoc day la hai hinh non mau PHANG (loi 7 m, quang 11 m): do sang deu tam
      tap suot chieu dai, va KICH THUOC CO DINH bat ke do cao. Ca hai deu sai, va
      sai nhat o dung cho booster thuc su dung RCS — tren 60 km, gan nhu chan khong.
@@ -6917,16 +6927,40 @@ function latticeTexture() {
     x.fillStyle = g; x.fillRect(0, 0, 8, 64);
     return new THREE.CanvasTexture(c);
   })();
-  const nubGeo = new THREE.CylinderGeometry(.55, .75, 1.2, 10);
+  /* ===== CUA XA RCS: LO PHANG TREN VO, KHONG PHAI VOI NHO RA =====
+     Truoc day moi cua la mot NAM HINH TRU dai 1.2 m dat o ban kinh 4.8 — tuc
+     nho han ra khoi vo 0.9 m. Sai han.
+     Super Heavy KHONG CO voi RCS rieng. Tu Booster 4 (2021) SpaceX bo hot gas
+     thruster va dieu khien tu the bang cach xa chinh KHI ULLAGE trong thung qua
+     cac cua tren vo: "remove the dedicated hot gas thrusters from Super Heavy...
+     use the ullage gas from the tanks for attitude control by having four vents
+     spaced 90 degrees apart" (Musk, Everyday Astronaut, 11/8/2021). Wikipedia
+     mo ta them: "Four perpendicular vents are located within the interstage.
+     Additional vents are located just below the common dome, pointing down
+     toward the engines at a slight angle."
+     Va chung dung la LO: "Both the tank vents and the LOX tank's pressure inlet
+     are really just holes in the tank" — Ringwatchers. Quanh lo chi co TAM THEP
+     GIA CUONG (doubler plate) op sat vo, khong phai co voi.
+     Nen dung: mot dia thep mong nam TREN mat vo, giua la mot lo toi. */
+  function cuaXa(parent, r, y, th, rPlate, rLo) {
+    const g = new THREE.Group();
+    g.position.set(Math.cos(th) * r, y, Math.sin(th) * r);
+    g.rotation.y = -th; g.rotation.z = -Math.PI / 2;   // mat dia huong ra ngoai
+    const tam = new THREE.Mesh(new THREE.CylinderGeometry(rPlate, rPlate, .05, 16), MSteel);
+    tam.position.y = .025; g.add(tam);
+    const lo = new THREE.Mesh(new THREE.CylinderGeometry(rLo, rLo * .82, .09, 14), MDark);
+    lo.position.y = .035; g.add(lo);
+    parent.add(g);
+  }
   const coreGeo = new THREE.ConeGeometry(.55, 3.2, 12, 1, true);
   const haloGeo = new THREE.ConeGeometry(1.5, 7.5, 14, 1, true);
   for (const side of [-1, 1]) {
-    for (const y of [66.5, 60.5]) {              // hai voi moi ben
-      const nub = new THREE.Mesh(nubGeo, MDark);
-      nub.position.set(side * 4.8, y, 0); nub.rotation.z = side > 0 ? -Math.PI/2 : Math.PI/2;
-      boosterObj.add(nub);
+    for (const y of [66.5, 60.5]) {              // hai cua moi ben
+      cuaXa(boosterObj, 4.52, y, side > 0 ? 0 : Math.PI, .62, .26);
       const grp = new THREE.Group();
-      grp.position.set(side * 5.6, y, 0);
+      /* Tia bat dau NGAY TREN MAT VO (4.5 m), khong phai lo lung 1.1 m ngoai
+         khong khi nhu truoc. */
+      grp.position.set(side * 4.52, y, 0);
       grp.rotation.z = side > 0 ? Math.PI / 2 : -Math.PI / 2;   // chia ra ngoai (truoc day nguoc: tia chui vao than)
       const core = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({
         map: rcsTex, color: 0xFFFFFF, transparent: true, opacity: .95,
@@ -7421,8 +7455,12 @@ function tileTexture() {
     }
   }
 
-  /* --- RCS khi nong: cum o mui va o duoi, tao ngau luc --- */
-  const nub = new THREE.CylinderGeometry(.42, .58, 1.0, 8);
+  /* --- RCS: cum o mui va o duoi, tao ngau luc ---
+     Cua xa la LO PHANG TREN VO, khong phai voi nho ra. NSF ta ban V3: "new vents
+     beneath the nose-cone tiles reminiscent of Space Shuttle RCS placements".
+     Truoc day day la nam hinh tru dai 1.0 m, va te hon: cum tren dat o BAN KINH
+     2.9 trong khi vo mui o cho do la 4.18 — tuc nam CHON SAU 1.28 m trong than,
+     va tia lua bat dau o 3.60 m, van con TRONG VO. Nay dat dung tren mat vo. */
   const core = new THREE.ConeGeometry(.62, 5.0, 10, 1, true);
   const halo = new THREE.ConeGeometry(1.6, 7.5, 10, 1, true);
   /* Bon voi moi cum (±X bung/lung, ±Z phia chot) — du de DAY NGANG theo moi
@@ -7431,18 +7469,20 @@ function tileTexture() {
      rotation.z = -pi/2 cho voi phia +X — do bang trinh duyet: -Y cuc bo ra
      huong -X, tuc tia CHIA VAO TRONG than va bi vo tau che mat (tich vo huong
      voi huong ra ngoai = -1.00 o ca 8 voi). Dao dau goc xoay. */
-  for (const [y, arm, rr] of [[44.5, 1, 2.9], [9.0, -1, 4.4]]) {
+  /* BAN KINH VO tai do cao dat cum — tinh tu chinh duong sinh mui, khong dat tay:
+     tren than la R, tren mui la R*sqrt(1 - u^2*0.985) voi u = (y - BODY)/NOSE. */
+  const rVo = y => y <= BODY ? R : R * Math.sqrt(Math.max(.05, 1 - Math.pow((y - BODY) / NOSE, 2) * .985));
+  for (const [y, arm] of [[44.5, 1], [9.0, -1]]) {
+    const rr = rVo(y);
     for (const [ax, side] of [['x', -1], ['x', 1], ['z', -1], ['z', 1]]) {
-      const nb = new THREE.Mesh(nub, MDark);
       const g = new THREE.Group();
       if (ax === 'x') {
-        nb.position.set(side * rr, y, 0); nb.rotation.z = side > 0 ? -Math.PI / 2 : Math.PI / 2;
-        g.position.set(side * (rr + .7), y, 0); g.rotation.z = side > 0 ? Math.PI / 2 : -Math.PI / 2;
+        cuaXa(shipObj, rr + .02, y, side > 0 ? 0 : Math.PI, .44, .19);
+        g.position.set(side * (rr + .02), y, 0); g.rotation.z = side > 0 ? Math.PI / 2 : -Math.PI / 2;
       } else {
-        nb.position.set(0, y, side * rr); nb.rotation.x = side > 0 ? Math.PI / 2 : -Math.PI / 2;
-        g.position.set(0, y, side * (rr + .7)); g.rotation.x = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+        cuaXa(shipObj, rr + .02, y, side > 0 ? Math.PI / 2 : -Math.PI / 2, .44, .19);
+        g.position.set(0, y, side * (rr + .02)); g.rotation.x = side > 0 ? -Math.PI / 2 : Math.PI / 2;
       }
-      shipObj.add(nb);
       const c = new THREE.Mesh(core, new THREE.MeshBasicMaterial({
         color: 0xF2FBFF, transparent: true, opacity: .95,
         blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
