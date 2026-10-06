@@ -534,10 +534,19 @@
      nen ve tinh bay hai-the thuan tuy — khong can luc can. */
   const SAT = { m: 800, dv: 1.2, gap: 1.6 };        // kg, m/s day ra, giay giua hai con
 
+  /* Khoang cach tu GOC TOA DO TAU den TAM CUA KHOANG HANG. Goc cua shipObj nam
+     o DAY than (khoi dong co), con khoang hang o 33.1-39.6 m. Truoc day makeSat
+     tra ve dung { x: s.x, y: s.y } — tuc ve tinh hien ra o DAY TAU, chui ra tu
+     khoang dong co. Nhin ra ngay: cua thi mo tren cao ma hang lai roi ra tu duoi
+     duoi. Lech 36.35 m la vo nghia o thang do quy dao (6671 km) nhung la toan bo
+     van de o thang do nhin thay. */
+  const BAY_OFS = 36.35;
   function makeSat(s, k) {
     const sp = Math.hypot(s.vx, s.vy) || 1;
-    const nx = -s.vy / sp, ny = s.vx / sp, sg = (k % 2) ? 1 : -1;
-    return { x: s.x, y: s.y, vx: s.vx + nx * SAT.dv * sg, vy: s.vy + ny * SAT.dv * sg, t: 0, idx: k };
+    const ux = s.vx / sp, uy = s.vy / sp;              // huong bay = huong mui tau
+    const nx = -uy, ny = ux, sg = (k % 2) ? 1 : -1;    // phap tuyen trong mat phang
+    return { x: s.x + ux * BAY_OFS, y: s.y + uy * BAY_OFS,
+             vx: s.vx + nx * SAT.dv * sg, vy: s.vy + ny * SAT.dv * sg, t: 0, idx: k };
   }
   /* Mot buoc quy dao hai-the (dung cho ca ve tinh lan tau khi dang tha). */
   function orbitStep(p, dt) {

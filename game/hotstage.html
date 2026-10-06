@@ -1097,10 +1097,19 @@ body{
      nen ve tinh bay hai-the thuan tuy — khong can luc can. */
   const SAT = { m: 800, dv: 1.2, gap: 1.6 };        // kg, m/s day ra, giay giua hai con
 
+  /* Khoang cach tu GOC TOA DO TAU den TAM CUA KHOANG HANG. Goc cua shipObj nam
+     o DAY than (khoi dong co), con khoang hang o 33.1-39.6 m. Truoc day makeSat
+     tra ve dung { x: s.x, y: s.y } — tuc ve tinh hien ra o DAY TAU, chui ra tu
+     khoang dong co. Nhin ra ngay: cua thi mo tren cao ma hang lai roi ra tu duoi
+     duoi. Lech 36.35 m la vo nghia o thang do quy dao (6671 km) nhung la toan bo
+     van de o thang do nhin thay. */
+  const BAY_OFS = 36.35;
   function makeSat(s, k) {
     const sp = Math.hypot(s.vx, s.vy) || 1;
-    const nx = -s.vy / sp, ny = s.vx / sp, sg = (k % 2) ? 1 : -1;
-    return { x: s.x, y: s.y, vx: s.vx + nx * SAT.dv * sg, vy: s.vy + ny * SAT.dv * sg, t: 0, idx: k };
+    const ux = s.vx / sp, uy = s.vy / sp;              // huong bay = huong mui tau
+    const nx = -uy, ny = ux, sg = (k % 2) ? 1 : -1;    // phap tuyen trong mat phang
+    return { x: s.x + ux * BAY_OFS, y: s.y + uy * BAY_OFS,
+             vx: s.vx + nx * SAT.dv * sg, vy: s.vy + ny * SAT.dv * sg, t: 0, idx: k };
   }
   /* Mot buoc quy dao hai-the (dung cho ca ve tinh lan tau khi dang tha). */
   function orbitStep(p, dt) {
@@ -7330,22 +7339,59 @@ const clShip = makeCluster(CL_SHIP, true); shipObj.add(clShip);
    Hang so hinh hoc khai bao LAI O DAY chu khong muon cua khoi dung tau: khoi do dong lai
    truoc cho nay, muon R/TH0 cua no la ReferenceError luc tai trang (check.sh chi bat cu
    phap nen khong lo ra). */
-const BAY_R = 4.5, BAY_Y0 = 24, BAY_Y1 = 36;
+/* SAN KHOANG HANG KHONG PHAI CHON — no do THE TICH THUNG NHIEN LIEU quyet dinh.
+   VEH.s2.prop = 1500 t methalox, ty le O/F cua Raptor 3.6:
+     LOX  1174 t / 1141 kg.m-3 = 1029 m3
+     CH4   326 t /  423 kg.m-3 =  771 m3   -> 1800 m3, cong 3% khoang trong = 1854 m3
+   Tiet dien than pi*4.5^2 = 63.6 m2 -> cot thung cao 29.1 m; cong khoang dong co
+   ~4 m thi DINH THUNG o 33.1 m. Tren no toi dinh mui 52.1 m la 19.0 m khoang
+   hang — doi chieu so cong bo cho Starship (~17 m) thi khop.
+   Cua cu dat o 24-36 m: MOT NUA NAM TRONG THUNG LOX. Nay dat 33.1-39.6, tuc tu
+   dung san khoang len toi sat cho than chuyen sang mui. */
+const BAY_R = 4.5, BAY_Y0 = 33.1, BAY_Y1 = 39.6;
 /* Tam cua o 292 do chu khong phai 270 (doi dien chinh giua cung gach): o 270 thi vong
    cua (245-295 do) nuot mat VOI RCS TIEP TUYEN o 247.1 do — bon voi do nam quanh than o
    y = 30, dung trong dai doc cua cua. 292 do thi ho ca hai ben ~20 do, van nam tron ven
    ben lung (cung gach trai 34-146 do). Do thang tu vat the trong canh. */
-const BAY_ARC = .28 * Math.PI, BAY_MID = 292 * Math.PI / 180, BAY_TH = BAY_MID - BAY_ARC / 2;
-let bayDoor = null;
+/* CUNG CUA. Cu la .28pi (50.4 do). Van de: cua truot MOT CANH quanh than mot
+   goc 65.9 do thi huong duong no truon len vung gach den, con huong am thi de
+   len cum RCS o 247.1 do — mot canh khong co cho ma di.
+   Nay HAI CANH truot nguoc nhau, moi canh mot nua cung. Voi .20pi (36 do) thi
+   moi canh di 18 do: canh trai dung o 256 do (cach RCS 8.9 do), canh phai dung
+   o 328 do (cach mep vung gach 32 do). Khe mo rong 2*4.5*sin(18) = 2.78 m, ma
+   ve tinh rong 2.6 m — du 0.18 m, chat nhu mot bo nha that. */
+const BAY_ARC = .20 * Math.PI, BAY_MID = 292 * Math.PI / 180, BAY_TH = BAY_MID - BAY_ARC / 2;
+const BAY_YC = (BAY_Y0 + BAY_Y1) / 2;
+let bayDoorL = null, bayDoorR = null, satKho = null;
 {
-  const H = BAY_Y1 - BAY_Y0, yc = (BAY_Y0 + BAY_Y1) / 2;
+  const H = BAY_Y1 - BAY_Y0, yc = BAY_YC;
+  // long khoang: toi mau, de nhin vao thay sau chu khong thay nen troi
   const rec = new THREE.Mesh(new THREE.CylinderGeometry(BAY_R - .35, BAY_R - .35, H, 24, 1, true, BAY_TH, BAY_ARC), MDark);
   rec.position.y = yc; rec.material.side = THREE.DoubleSide; shipObj.add(rec);
-  bayDoor = new THREE.Mesh(new THREE.CylinderGeometry(BAY_R + .05, BAY_R + .05, H, 24, 1, true, BAY_TH, BAY_ARC), MSteelD);
-  bayDoor.position.y = yc; bayDoor.material.side = THREE.DoubleSide; shipObj.add(bayDoor);
+  // HAI CANH CUA, moi canh nua cung, truot nguoc nhau
+  const nua = BAY_ARC / 2;
+  bayDoorL = new THREE.Mesh(new THREE.CylinderGeometry(BAY_R + .05, BAY_R + .05, H, 16, 1, true, BAY_TH, nua), MSteelD);
+  bayDoorR = new THREE.Mesh(new THREE.CylinderGeometry(BAY_R + .05, BAY_R + .05, H, 16, 1, true, BAY_TH + nua, nua), MSteelD);
+  for (const d of [bayDoorL, bayDoorR]) { d.position.y = yc; d.material.side = THREE.DoubleSide; shipObj.add(d); }
+  // vien tren/duoi + hai ray truot doc hai mep, de thay day la co cau chu khong phai vet cat
   for (const yy of [BAY_Y0, BAY_Y1]) {
-    const rim = new THREE.Mesh(new THREE.CylinderGeometry(BAY_R + .07, BAY_R + .07, .3, 24, 1, true, BAY_TH, BAY_ARC), MDark);
+    const rim = new THREE.Mesh(new THREE.CylinderGeometry(BAY_R + .07, BAY_R + .07, .3, 24, 1, true,
+      BAY_TH - nua, BAY_ARC + BAY_ARC), MDark);
     rim.position.y = yy; rim.material.side = THREE.DoubleSide; shipObj.add(rim);
+  }
+  /* KHO VE TINH nhin thay duoc trong khoang. Truoc day khoang rong tuech nen khi
+     cua mo khong co gi ben trong, va ve tinh thi hien ra tu hu khong. Xep thanh
+     mot chong tam phang ap sat khe — dung cach Starlink nam trong bo nha that. */
+  satKho = new THREE.Group(); satKho.position.y = yc; shipObj.add(satKho);
+  /* Vat lieu rieng: MSat khai bao o khoi duoi, muon no o day la ReferenceError
+     vung chet luc tai trang — check.sh chi bat cu phap nen khong lo ra. */
+  const MKho = new THREE.MeshStandardMaterial({ color: 0x8F98A3, roughness: .6, metalness: .55 });
+  const NK = 16, bd = (H - .6) / NK;
+  for (let i = 0; i < NK; i++) {
+    const t = new THREE.Mesh(new THREE.BoxGeometry(2.6, bd * .72, 1.5), MKho);
+    const a = BAY_MID;
+    t.position.set(Math.sin(a) * (BAY_R - 1.5), -H / 2 + .3 + (i + .5) * bd, Math.cos(a) * (BAY_R - 1.5));
+    t.rotation.y = -a; satKho.add(t);
   }
 }
 /* Kho ve tinh: tam phang nhu Starlink gap lai. Bay doc lap nen gan thang vao canh. */
@@ -10917,7 +10963,17 @@ function frame(now) {
   /* Trong pha ISS tu the tau do lo ghep noi quyet dinh (st.th), khong phai vec-to
      luc day: dang tiep can thi mui phai chi len doc truc hanh lang. */
   if (phase === 'ISS' && iss && st.th !== undefined) shipObj.rotation.z = -st.th;
-  if (bayDoor) bayDoor.rotation.y = bayOpen * 1.15;
+  /* Hai canh truot NGUOC nhau, moi canh dung mot nua cung — the la khe ho het.
+     Mot canh di 1.15 rad nhu truoc thi hoac de len vung gach hoac de len cum RCS. */
+  if (bayDoorL) { bayDoorL.rotation.y = -bayOpen * BAY_ARC / 2;
+                  bayDoorR.rotation.y =  bayOpen * BAY_ARC / 2; }
+  /* Kho ve tinh voi dan theo so con da tha. */
+  if (satKho) {
+    const con = Math.max(0, payloadSats - depN), tong = Math.max(1, payloadSats);
+    const hien = Math.round(satKho.children.length * con / tong);
+    for (let i = 0; i < satKho.children.length; i++) satKho.children[i].visible = i < hien;
+    satKho.visible = phase === 'DEPLOY' || phase === 'ORBIT' || bayOpen > 0;
+  }
   /* Pha xep chong ghi de vi tri hai vat the — phai chay SAU khoi tren, khong
      thi doan dat theo do cao bay se xoa ngay tu the dang duoc nhac. */
   if (phase === 'STACK' && !stackStep(Math.min(.12, sim))) stackDone(false);
