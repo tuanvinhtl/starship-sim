@@ -4335,15 +4335,33 @@ const Sfx = (() => {
   const eng = {}, wind = {}, rcs = {}, entry = {}, wat = {}, mot = {};
   const T = () => ctx.currentTime;
 
+  /* NHIEU HONG (brown) — nghe day hon nhieu trang.
+     Truoc day he so la mot HANG SO MOI MAU: `last = (last + 0.022*w)/1.022`.
+     Mot bo loc mot cuc nhu the co tan so cat ti le voi SAMPLE RATE, nen tieng
+     dong co doi theo may nguoi choi: cat o 152.7 Hz tren may 44.1 kHz, 166.2 Hz
+     tren 48 kHz, va 332.5 Hz tren 96 kHz — cung mot chuyen bay nghe khac han.
+     Dat theo TAN SO THAT: a = 1 - exp(-2*pi*fc/fs).
+     fc = 166 Hz giu nguyen am sac dang co tren may 48 kHz (pho bien nhat), chi
+     bo phan phu thuoc phan cung. Luu y: pho do duoc cua Starship dinh o 4-16 Hz
+     (Gee et al., ACOUSTICS 2025, micro Type-1 cach 10.5 km) — thap hon han cho
+     nay. Khong keo xuong do vi duoi 40 Hz thi loa may tinh xach tay va loa dien
+     thoai khong tai tao duoc gi; day la cho DA BIET lech, khong phai cho quen. */
+  const NOISE_FC = 166;
   function noiseBuf(sec) {
-    const n = Math.floor(ctx.sampleRate * sec);
-    const b = ctx.createBuffer(1, n, ctx.sampleRate);
+    const fs = ctx.sampleRate, n = Math.floor(fs * sec);
+    const b = ctx.createBuffer(1, n, fs);
     const d = b.getChannelData(0);
+    const a = 1 - Math.exp(-2 * Math.PI * NOISE_FC / fs);
+    /* Phuong sai dau ra cua bo loc mot cuc la var_in * a/(2-a), ma `a` doi theo
+       fs — nen phai chuan hoa, khong thi may 96 kHz nghe nho hon han. Moc chuan
+       la 48 kHz de am luong khong doi so voi truoc. */
+    const a48 = 1 - Math.exp(-2 * Math.PI * NOISE_FC / 48000);
+    const bu = 3.6 * Math.sqrt((a48 / (2 - a48)) / (a / (2 - a)));
     let last = 0;
-    for (let i = 0; i < n; i++) {            // nhieu hong (brown) nghe day hon nhieu trang
+    for (let i = 0; i < n; i++) {
       const w = Math.random() * 2 - 1;
-      last = (last + 0.022 * w) / 1.022;
-      d[i] = Math.max(-1, Math.min(1, last * 3.6));
+      last += a * (w - last);
+      d[i] = Math.max(-1, Math.min(1, last * bu));
     }
     return b;
   }
@@ -6810,8 +6828,38 @@ function latticeTexture() {
     gridFins.push(pivot);                  // be lai = xoay pivot quanh truc X cuc bo
   }
 
-  const ring2 = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 2.2, 40), MDark);
-  ring2.position.y = 70.1; boosterObj.add(ring2);
+  /* ===== VANH HOT-STAGE =====
+     Truoc day: CylinderGeometry(4.5, 4.5, 2.2, 40) voi openEnded mac dinh FALSE
+     va vat lieu MDark — tuc mot cai TRONG KIN co nap, mau gan den, cao 2.2 m.
+     That la "vented interstage" cao 1.8 m, bang thep, va KHOET KHE quanh chu vi
+     de khi xa cua tau co duong thoat khi danh lua trong luc con gan booster.
+     Khong co khe thi chinh khoanh khac ma HOTFX duoc viet ra de phuc vu tro nen
+     vo nghia: luong khi khong co loi ra.
+     Khe duc bang PHEP THU ALPHA, dung meo da dung cho grid fin (latticeTexture):
+     alphaTest chay duoc trong duong ve DAC nen khong pha thu tu trong suot. */
+  const vanhTex = (() => {
+    const c = document.createElement('canvas'); c.width = 256; c.height = 32;
+    const g = c.getContext('2d');
+    g.fillStyle = '#fff'; g.fillRect(0, 0, 256, 32);
+    g.fillStyle = '#000';
+    /* So khe: cac nguon chi ta "cutouts"/"vented", khong cho so luong — nen lay
+       mot con so hop ly theo chu vi (28.3 m) chu khong chot theo nguon: 24 khe
+       rong ~0.5 m, chua ~42% chu vi, du de nhin ra la vanh THONG. */
+    for (let i = 0; i < 24; i++) {
+      const x = (i + .28) * 256 / 24;
+      g.fillRect(x, 5, 256 / 24 * .44, 22);
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = THREE.RepeatWrapping;
+    return t;
+  })();
+  const vanhMat = new THREE.MeshStandardMaterial({
+    color: 0x9AA2AB, roughness: .52, metalness: .88,
+    alphaMap: vanhTex, alphaTest: .45, side: THREE.DoubleSide });
+  const ring2 = new THREE.Mesh(
+    new THREE.CylinderGeometry(4.5, 4.5, 1.8, 40, 1, true), vanhMat);
+  ring2.position.y = 69.9; boosterObj.add(ring2);
+  boosterObj.userData.vanhHot = ring2;
 
   /* --- CHOT NANG: hai khoi tru hai ben than o do cao B_GRIP. Bo dieu khien bat
      doc THANG hai chot nay chu khong doc so "miss" tom tat, nen phai co that
@@ -6882,6 +6930,27 @@ const clBoost = makeCluster(CL_BOOST, false); boosterObj.add(clBoost);
    luon quay mat vao ong kinh khong lam duoc. Hai non cap mieng tai vanh — mot toe
    xuong-ra ngoai (luong chinh dap vao dinh booster roi van ra), mot leo nguoc len
    om lay vay dong co tau. */
+/* Vanh hot-stage sau khi nha: mot ban sao roi tu do trong he `pad`. Khong mo
+   phong vat ly cho no — no ra khoi khung hinh trong vai giay, va mot manh vo
+   khong anh huong gi den chuyen bay. */
+let vanhRoi = null;
+function nhaVanhHot() {
+  const r = boosterObj.userData.vanhHot;
+  if (!r || !r.visible || vanhRoi) return;
+  r.visible = false;
+  const m = new THREE.Mesh(r.geometry, r.material);
+  r.getWorldPosition(m.position);
+  m.position.sub(pad.position);                    // doi ve he cua `pad`
+  r.getWorldQuaternion(m.quaternion);
+  m.castShadow = false; m.receiveShadow = true;
+  pad.add(m);
+  /* Van toc dau = van toc thang dung cua booster luc nha, cong mot cu day nhe
+     ra sau nhu lo xo tach that. */
+  const bt = bo ? F.boosterTelemetry(bo) : null;
+  vanhRoi = { m, t: 0, v: bt ? bt.vspeed : 0, wx: .5, wz: .32 };
+  logLine('Nhả vành hot-stage', 'hi');
+}
+
 const HOTFX = (() => {
   /* Vet khi: trang o chan vanh, chuyen cam roi loang het o ria. Xe them soc doc
      vi khi di qua KHE cua vanh nen ra thanh tung tia, khong phai mot mang lien. */
@@ -8046,6 +8115,11 @@ function reset() {
   phase = 'PRE'; pre = 10; warp = 1; auto = true; everManual = false;
   throttleCmd = 1; pitchCmd = 0; bEngIdx = 2; acc = 0; peakQ = 0; missionT = 0; shakeT = 0;
   shipResult = null; boostResult = null; shipTelFinal = null; shipLand = null; turbo = false;
+  /* Vanh hot-stage: hien lai tren booster va don ban sao dang roi. Thieu cho nay
+     thi tu chuyen thu hai tro di booster khong con vanh — dung loai loi "quen
+     don trang thai" ma chi lo lan choi dau khong thay. */
+  if (boosterObj.userData.vanhHot) boosterObj.userData.vanhHot.visible = true;
+  if (vanhRoi) { pad.remove(vanhRoi.m); vanhRoi = null; }
   F.setPayload(0); depN = 0; depT = 0; depShut = 0; bayOpen = 0; depDone = false; satList = [];
   for (const m of satMeshes) m.visible = false; setPayUI();
   /* entryErrKm chi duoc boc trong startDeploy(), nen chuyen ISS hay chuyen huy bo
@@ -10696,6 +10770,12 @@ function frame(now) {
           const bf = F.boosterTelemetry(bo);
           recPhase('B', bo.phase, recClock(), bf.alt, bf.lateral - bf.target, bf.hspeed, bf.vspeed, bf.prop / 1000);
         }
+        /* NHA VANH HOT-STAGE. Block 2 vut vanh thong hoi ngay sau khi ket thuc
+           boostback — no chi can ton tai cho den luc tach tang. De nguyen thi
+           vat the cao nhat cua booster con nguyen suot bon nam phut cuoi va sai
+           100% so chuyen ha. Thay vi mo phong vat ly cho mot manh vo, chi can
+           tha mot ban sao roi tu do: no ra khoi khung hinh trong vai giay. */
+        if (bt0 === 'BOOSTBACK' && bo.phase !== 'BOOSTBACK') nhaVanhHot();
         if (auto && bo.phase !== bt0) {
           const nm = { BOOSTBACK: 'Boostback burn', COAST: 'Bay quán tính', ENTRY: 'Entry burn', FALL: 'Rơi tự do', LANDING: 'Landing burn' }[bo.phase];
           if (nm) { logLine(nm, 'hi'); setPhase(nm, 'hot'); }
@@ -10952,7 +11032,17 @@ function frame(now) {
   pad.position.set(-_shift.x, -_shift.y, -_shift.z);
   _sp.set(0, 0, 0); _bp.copy(_bAbs).sub(_shift);
 
-  /* ---- grid fin + voi RCS ---- */
+    /* ---- vanh hot-stage dang roi ---- */
+  if (vanhRoi) {
+    vanhRoi.t += raw;
+    vanhRoi.v -= 9.81 * raw;                       // roi tu do, bo qua luc can
+    vanhRoi.m.position.y += vanhRoi.v * raw;
+    vanhRoi.m.rotation.x += vanhRoi.wx * raw;
+    vanhRoi.m.rotation.z += vanhRoi.wz * raw;
+    if (vanhRoi.t > 9) { pad.remove(vanhRoi.m); vanhRoi = null; }
+  }
+
+/* ---- grid fin + voi RCS ---- */
   let rcsLoud = 0;
   if (bt) {
     const d = bt.fin * 32 * DEG;               // xoay quanh truc ban le huong tam
