@@ -6887,10 +6887,34 @@ function latticeTexture() {
     }
   }
 
-  /* --- VOI KHI NONG RCS: nub tren than + tia hai lop, phun theo xung --- */
+  /* --- VOI KHI NONG RCS ---
+     Truoc day la hai hinh non mau PHANG (loi 7 m, quang 11 m): do sang deu tam
+     tap suot chieu dai, va KICH THUOC CO DINH bat ke do cao. Ca hai deu sai, va
+     sai nhat o dung cho booster thuc su dung RCS — tren 60 km, gan nhu chan khong.
+     Mot voi phun vao chan khong la luong CUC KY THIEU GIAN NO: khi vua ra khoi
+     mieng la banh ra rat rong, loang di, va nguoi ngay. Nen cai nhin thay gom
+     HAI phan khac han nhau:
+       LOI SANG: vung khi con nong va dac, ngay sat mieng voi. No NGAN LAI khi
+         len cao (cung ngan ay nang luong trai ra the tich lon hon thi nguoi
+         nhanh hon), chu khong dai ra.
+       QUANG LOANG: bien luong, no RONG RA theo sqrt cua ty so ap suat, va mo di
+         theo dung he so do — cung ngan ay khoi luong trong the tich lon hon thi
+         mat do, tuc do sang, giam ti le nghich.
+     Ca hai dung mot anh co GIAM DO SANG DOC CHIEU DAI thay cho mau phang. */
+  const rcsTex = (() => {
+    const c = document.createElement('canvas'); c.width = 8; c.height = 64;
+    const x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, 64);
+    g.addColorStop(0, 'rgba(255,255,255,1)');       // sat mieng voi
+    g.addColorStop(.18, 'rgba(226,244,255,.72)');
+    g.addColorStop(.45, 'rgba(176,216,248,.26)');
+    g.addColorStop(1, 'rgba(140,190,240,0)');       // tan het
+    x.fillStyle = g; x.fillRect(0, 0, 8, 64);
+    return new THREE.CanvasTexture(c);
+  })();
   const nubGeo = new THREE.CylinderGeometry(.55, .75, 1.2, 10);
-  const coreGeo = new THREE.ConeGeometry(.85, 7, 12, 1, true);
-  const haloGeo = new THREE.ConeGeometry(2.2, 11, 12, 1, true);
+  const coreGeo = new THREE.ConeGeometry(.55, 3.2, 12, 1, true);
+  const haloGeo = new THREE.ConeGeometry(1.5, 7.5, 14, 1, true);
   for (const side of [-1, 1]) {
     for (const y of [66.5, 60.5]) {              // hai voi moi ben
       const nub = new THREE.Mesh(nubGeo, MDark);
@@ -6900,13 +6924,13 @@ function latticeTexture() {
       grp.position.set(side * 5.6, y, 0);
       grp.rotation.z = side > 0 ? Math.PI / 2 : -Math.PI / 2;   // chia ra ngoai (truoc day nguoc: tia chui vao than)
       const core = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({
-        color: 0xF2FBFF, transparent: true, opacity: .95,
+        map: rcsTex, color: 0xFFFFFF, transparent: true, opacity: .95,
         blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-      core.position.y = -3.5;
+      core.position.y = -1.6;
       const halo = new THREE.Mesh(haloGeo, new THREE.MeshBasicMaterial({
-        color: 0x7FC7F5, transparent: true, opacity: .3,
+        map: rcsTex, color: 0x9ED4F8, transparent: true, opacity: .3,
         blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
-      halo.position.y = -5.5;
+      halo.position.y = -3.75;
       grp.add(core); grp.add(halo);
       grp.visible = false; boosterObj.add(grp);
       rcsJets.push({ grp, core, halo, side });
@@ -6965,9 +6989,16 @@ const HOTFX = (() => {
      vi khi di qua KHE cua vanh nen ra thanh tung tia, khong phai mot mang lien. */
   const c = document.createElement('canvas'); c.width = 128; c.height = 64;
   const x = c.getContext('2d');
+  /* MAU. Truoc day la dai cam-do (#FFC878 -> #D4652A) — do la mau ngon lua dau
+     hoa chay trong khong khi. Tach tang xay ra o ~65-70 km, tuc gan nhu chan
+     khong, va nhien lieu la METHALOX: khong co khong khi de dot lai, khong co
+     bo hong carbon de phat sang vang. Cai nhin thay la khi chay nong trang-xanh
+     roi loang ra tim nhat o ria — dung dai mau ma chinh shader luong phut cua
+     dong co chinh dang dung. */
   const gr = x.createLinearGradient(0, 0, 0, 64);
-  gr.addColorStop(0, '#FFF6E6'); gr.addColorStop(.16, '#FFC878');
-  gr.addColorStop(.52, '#D4652A'); gr.addColorStop(1, 'rgba(60,10,0,0)');
+  gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(.12, '#DCEEFF');
+  gr.addColorStop(.40, '#8FB6E8'); gr.addColorStop(.72, '#6E72C4');
+  gr.addColorStop(1, 'rgba(60,50,110,0)');
   x.fillStyle = gr; x.fillRect(0, 0, 128, 64);
   x.globalCompositeOperation = 'destination-out';
   for (let i = 0; i < 128; i++) {
@@ -6991,12 +7022,31 @@ const HOTFX = (() => {
   const tren = new THREE.Mesh(new THREE.CylinderGeometry(4.8, 13, 7.5, 40, 1, true), mat());
   tren.rotation.x = Math.PI; tren.position.y = 3.75; g.add(tren);
 
-  // chinh vanh bi nung: sang ngay tai khe, khong co vet
-  const vanh = new THREE.Mesh(new THREE.CylinderGeometry(4.66, 4.66, 2.4, 40, 1, true),
+  // chinh vanh bi nung: sang ngay tai khe, khong co vet. Thep nung do -> cam.
+  const vanh = new THREE.Mesh(new THREE.CylinderGeometry(4.66, 4.66, 1.8, 40, 1, true),
     new THREE.MeshBasicMaterial({ color: 0xFFB267, transparent: true, opacity: 0,
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   g.add(vanh);
-  return { g, duoi, tren, vanh, tex };
+
+  /* TIA THOAT QUA KHE. Day moi la cho vanh thong hoi co ly do ton tai: khi xa
+     cua tau khong the di xuong qua dinh booster, no phai ra NGANG qua cac khoet
+     quanh chu vi. Truoc day hieu ung chi co mot quang tron deu — khong he thay
+     khi di qua khe, nen nguoi xem khong doc ra duoc co che.
+     24 tia, trung voi 24 khe da duc tren ring2. */
+  const kheMat = new THREE.MeshBasicMaterial({ map: tex, color: 0xCFE6FF,
+    transparent: true, opacity: 0, blending: THREE.AdditiveBlending,
+    depthWrite: false, side: THREE.DoubleSide });
+  const kheGeo = new THREE.ConeGeometry(1.1, 9, 10, 1, true);
+  const khe = [];
+  for (let i = 0; i < 24; i++) {
+    const a = (i + .28) / 24 * Math.PI * 2;
+    const m = new THREE.Mesh(kheGeo, kheMat);
+    m.position.set(Math.sin(a) * 9.0, 0, Math.cos(a) * 9.0);
+    m.rotation.z = -Math.PI / 2;                 // truc non nam ngang...
+    m.rotation.y = a - Math.PI / 2;              // ...roi quay ra dung phuong ban kinh
+    khe.push(m); g.add(m);
+  }
+  return { g, duoi, tren, vanh, tex, khe, kheMat };
 })();
 
 /* k = 0 tat han; k = 1 la dang giua cua so hot-stage; k > 1 la nhip loe luc nha kep. */
@@ -7009,10 +7059,21 @@ function hotFxStep(k, now) {
   HOTFX.duoi.material.opacity = Math.min(.92, .60 * a);
   HOTFX.tren.material.opacity = Math.min(.70, .33 * a);
   HOTFX.vanh.material.opacity = Math.min(.95, .80 * a);
-  const r = .80 + .36 * kk + .05 * Math.sin(now * .043);   // ban kinh toe
-  const h = .88 + .30 * kk;                                // chieu dai luong
+  /* Tach tang o ~65-70 km nen luong NO RAT RONG. He so 1.9 lay tu cung luat ma
+     voi RCS dung: banh ra theo can bac hai ty so ap suat, kep tran — o 68 km
+     thi tran da cham tu lau, nen o day la mot so co dinh chu khong phai mot
+     duong cong, va ghi ro nhu vay. */
+  const r = (.80 + .36 * kk + .05 * Math.sin(now * .043)) * 1.9;   // ban kinh toe
+  const h = (.88 + .30 * kk) * 1.35;                               // chieu dai luong
   HOTFX.duoi.scale.set(r, h, r); HOTFX.duoi.position.y = -5.5 * h;
   HOTFX.tren.scale.set(r * .9, h * .9, r * .9); HOTFX.tren.position.y = 3.75 * h * .9;
+  // tia thoat qua khe: nhip rieng, le pha voi luong chinh cho khoi dong bo cung
+  const kf = .7 + .3 * Math.sin(now * .089 + 1.1);
+  HOTFX.kheMat.opacity = Math.min(.85, .62 * a * kf);
+  for (let i = 0; i < HOTFX.khe.length; i++) {
+    const w = .75 + .45 * kk + .18 * Math.sin(now * .071 + i * 1.7);
+    HOTFX.khe[i].scale.set(w, .8 + .5 * kk, w);
+  }
   HOTFX.tex.offset.x = (now * .0013) % 1;                  // khi chay quanh vanh
   HOTFX.g.rotation.y = now * .0009;
 }
@@ -11139,14 +11200,33 @@ function frame(now) {
     const pulse = firing ? (0.35 + 0.65 * Math.pow(Math.max(0, Math.sin(now * 0.069)), 0.35)) : 0;
     // mo-men duong = day mui sang dong => khi phun ve phia TAY (local -X)
     const wantSide = bt.rcsCmd > 0 ? -1 : 1;
+    /* NO THEO AP SUAT MOI TRUONG. Luong thieu gian no banh ra theo can bac hai
+       cua ty so ap suat. Lay MOC LA AP SUAT MAT BIEN chu khong lay ap suat
+       mieng voi — khong ai cong bo ap suat mieng cua voi RCS, va lay ty so so
+       voi mat bien thi khong phai bia con so nao.
+       Kep tran 10 lan: qua do thi mat do, tuc do sang, da duoi nguong nhin thay. */
+    const pA = Math.max(1, F.atmosphere(Math.max(0, bt.alt)).p);
+    const no = Math.min(10, Math.sqrt(101325 / pA));
+    const rNo = Math.pow(no, .35), lNo = Math.pow(no, -.15);   // loi: rong ra, NGAN lai
     for (const j of rcsJets) {
       const on = firing && j.side === wantSide;
       j.grp.visible = on;
       if (!on) continue;
-      const sc = (.4 + .6 * amt) * pulse;
-      j.grp.scale.set(.7 + .3 * sc, sc, .7 + .3 * sc);
+      const sc = (.4 + .6 * amt) * pulse, w = .7 + .3 * sc;
+      j.grp.scale.set(1, 1, 1);
+      /* LOI SANG: khi con nong va dac ngay sat mieng voi. Len cao thi rong ra
+         ma NGAN lai — cung ngan ay nang luong trai ra the tich lon hon nen
+         nguoi nhanh hon. Do sang giu nguyen vi day la khi tu phat sang. */
+      j.core.scale.set(rNo * w, lNo * sc, rNo * w);
+      j.core.position.y = -1.6 * lNo * sc;
+      /* QUANG LOANG: bien luong, no RONG theo dung he so `no` va DAI ra mot
+         chut. Do mo chia cho `no` — cung ngan ay khoi luong trong the tich lon
+         hon thi mat do, tuc do sang, giam ti le nghich. O chan khong no gan nhu
+         bien mat, con lai moi cai loi: dung nhu mot cu phut khi nong nhin tu xa. */
+      j.halo.scale.set(no * w, Math.pow(no, .4) * sc, no * w);
+      j.halo.position.y = -3.75 * Math.pow(no, .4) * sc;
       j.core.material.opacity = .95 * pulse;
-      j.halo.material.opacity = .30 * pulse * (.5 + .5 * amt);
+      j.halo.material.opacity = .30 * pulse * (.5 + .5 * amt) / no;
     }
     rcsLoud = firing ? amt * pulse : 0;
   } else {
