@@ -7965,6 +7965,7 @@ let bRes = null;                       // dua booster ve be + nap nhien lieu
 const rcamPos = new THREE.Vector3(); let rcamInit = false;   // camera dua booster ve be
 let throttleCmd = 1, pitchCmd = 0, bEngIdx = 2, acc = 0, last = performance.now();
 let camMode = 1, uiT = 0, shakeT = 0, peakQ = 0, missionT = 0, turbo = false;
+let vePitch = null;             // tu the VE (co toc do xoay huu han) — xem khoi dung hinh
 /* ---- hang hoa: so ve tinh chon truoc khi phong, va trang thai pha tha ---- */
 const PAY_OPTS = [0, 20, 40, 60];        // 0.8 t moi con; 60 con = 48 t, ve con du ~19 t nhien lieu
 let payloadSats = 40, depN = 0, depT = 0, depShut = 0, bayOpen = 0, depDone = false;
@@ -8160,6 +8161,7 @@ function reset() {
   for (const c of cores) c.visible = false;
   phase = 'PRE'; pre = 10; warp = 1; auto = true; everManual = false;
   throttleCmd = 1; pitchCmd = 0; bEngIdx = 2; acc = 0; peakQ = 0; missionT = 0; shakeT = 0;
+  vePitch = null;               // chuyen sau bat dau lai tu dung lenh, khong giu tu the cu
   shipResult = null; boostResult = null; shipTelFinal = null; shipLand = null; turbo = false;
   /* Vanh hot-stage: hien lai tren booster va don ban sao dang roi. Thieu cho nay
      thi tu chuyen thu hai tro di booster khong con vanh — dung loai loi "quen
@@ -10880,7 +10882,35 @@ function frame(now) {
   /* ---- dat vat the ---- */
   const tel = F.telemetry(st);
   const bt = bo ? F.boosterTelemetry(bo) : null;
-  const shipPitch = pitchOf(st, (auto && !inReturn()) ? null : (inReturn() ? null : pitchCmd));
+  const shipPitchLenh = pitchOf(st, (auto && !inReturn()) ? null : (inReturn() ? null : pitchCmd));
+  /* TU THE VE CO TOC DO XOAY HUU HAN.
+     Lo bay la 3 bac tu do: tu the than KHONG phai mot bien trang thai, chi co
+     HUONG LUC DAY. Lop ve xua nay lay thang huong luc day lam tu the, tuc ngam
+     dinh than xoay tuc thoi — va dung cho do lo ra.
+     Chuong trinh nga (thrustDir, flight.js) chuyen nhanh tai hai nguong:
+     speed >= PITCH_KICK_V va alt >= 500 m. Voi luc day dau chuyen cho gia toc
+     rong 3.9 m/s2 thi hai nguong roi gan nhau o giay 15.4-16.0, va huong luc day
+     quay 3 do trong MOT BUOC TICH PHAN. Do duoc: toc do doi goc dinh 142 do/giay
+     tren mot khoi 5000 tan — khong phuong tien nao lam duoc, va no hien ra dung
+     thanh mot cu giat o dau chuyen.
+     DA THU sua o lo vat ly (hoa muot thrustDir). Bo di: bo dan huong leo duoc
+     hieu chinh BAM SAT cu nhay do — lam muot thi SECO vot tu 165 km len 336 km
+     va nhien lieu con tut tu 67.7 t xuong 34.0 t; con bu lai bang cach tang goc
+     nga thi 3.4 do la tau roi xuong dat. Do la viec hieu chinh lai ca pha leo,
+     khong phai viec cua mot sua doi hinh anh.
+     Cho dung de sua la o DAY: cho tu the VE bam theo lenh voi toc do co han, tuc
+     mo hinh lai dung cai dong luc hoc quay ma lo 3-DOF khong co. Vat ly khong
+     doi mot li — moi seed cham diem van nguyen.
+     3 do/giay: cu nga that cua mot tang mot lon nam trong khoang 1-2 do/giay;
+     lay 3 de con du cho moi thu khac trong pha leo (vong nga trong tai, luon
+     theo gio) bam kip — do duoc nhip nhanh nhat con lai la 0.32 do/giay. */
+  if (vePitch === null || phase !== 'ASCENT') vePitch = shipPitchLenh;
+  else {
+    const buoc = 3.0 * DEG * raw;
+    const lech = F.angleWrap(shipPitchLenh - vePitch);
+    vePitch += Math.max(-buoc, Math.min(buoc, lech));
+  }
+  const shipPitch = vePitch;
 
   const srt = shr ? S3.telemetry(shr, F) : null;
   // 1) tinh vi tri TUYET DOI cua tung vat the
@@ -11573,8 +11603,21 @@ function frame(now) {
   if (shakeT > 0) {
     shakeT -= raw; const s = shakeT * 6;
     camera.position.x += (Math.random() - .5) * s; camera.position.y += (Math.random() - .5) * s;
-  } else if (phase === 'ASCENT' && tel.alt < 3000 && tel.thrust > 0) {
-    const s = 1.1 * tel.throttle;
+  } else if (phase === 'ASCENT' && tel.thrust > 0) {
+    /* RUNG LUC PHONG. Dieu kien cu la `tel.alt < 3000` — mot nguong boolean:
+       o 2999 m rung van du cuong do, o 3001 m tat phut. Khong co gi trong vat
+       ly tao ra mot vach nhu the.
+       Cai lam rung cho dat may la SONG AM tu luong phut, nen no phai tat dan
+       theo DUNG hai thu ma tieng dong co tat dan — va dung luon hai cong thuc
+       ay de hinh va tieng khong noi hai chuyen khac nhau:
+         1/r           : 600 / (600 + d), d = khoang cach that may -> phuong tien
+         mat do khi    : nhan pAmb / P0, chan khong thi khong truyen song duoc
+       He so 1.6 chon de luc roi be (d ~ 273 m o goc 1, pAmb = P0) ra dung 1.10
+       nhu truoc — cam giac o T+0 khong doi, chi khac la no TAT DAN.
+       Do lai: 3 km con 0.187; 10 km con 0.028; 30 km con 0.0009. */
+    const d = camera.position.distanceTo(actPos);
+    const pA = F.atmosphere(Math.max(0, tel.alt)).p;
+    const s = 1.6 * tel.throttle * (600 / (600 + d)) * Math.min(1, pA / 101325);
     camera.position.x += (Math.random() - .5) * s; camera.position.y += (Math.random() - .5) * s;
   }
   camera.updateProjectionMatrix();
