@@ -4458,9 +4458,24 @@ const TRE_TRAN = 10.0;
 
     eng.pL = ctx.createStereoPanner(); eng.pL.pan.value = -0.65;
     eng.pR = ctx.createStereoPanner(); eng.pR.pan.value = 0.65;
-    eng.dl = ctx.createDelay(0.05); eng.dl.delayTime.value = 0.013;
-    eng.xg.connect(eng.pL); eng.pL.connect(master);
-    eng.xg.connect(eng.dl); eng.dl.connect(eng.pR); eng.pR.connect(master);
+    eng.dl = ctx.createDelay(0.05); eng.dl.delayTime.value = 0.0010;
+    /* TACH DAI TRUOC KHI LAM RONG STEREO.
+       Truoc day ca lop dong co di qua mot duong tre 5-18 ms roi danh sang phai
+       (Haas). Hai nhanh cong lai khi nghe MONO cho mot bo loc luoc: voi 18 ms
+       cac diem triet nam o 27,8 / 83,3 / 138,9 / 194,4 Hz — tuc dung giua dai
+       mang toan bo tieng gam (lop nhieu bi loc thong thap o 380 Hz). Tren loa
+       may tinh xach tay, loa dien thoai va moi duong tron mono thi tieng gam bi
+       khoet thung, con tren tai nghe la mot ranh -5 dB.
+       Cach dung la tach dai: duoi 180 Hz tai nguoi KHONG dinh vi duoc huong
+       (buoc song 1,9 m, lon hon khoang cach hai tai), nen phan tram di THANG ra
+       giua khong tre; chi phan tren 180 Hz moi tach hai ben. Va tre ha xuong
+       1,0 ms -> diem triet dau tien o 500 Hz, nam tren ca cu loc 380 Hz. */
+    eng.loW = chain('lowpass', 180, 0.707);
+    eng.hiW = chain('highpass', 180, 0.707);
+    eng.xg.connect(eng.loW); eng.loW.connect(master);
+    eng.xg.connect(eng.hiW);
+    eng.hiW.connect(eng.pL); eng.pL.connect(master);
+    eng.hiW.connect(eng.dl); eng.dl.connect(eng.pR); eng.pR.connect(master);
 
     /* --- DOI AM --- gui mot phan qua convolver. Len cao thi tat dan: khong co
        khong khi thi khong co gi doi lai. */
@@ -4560,16 +4575,22 @@ const TRE_TRAN = 10.0;
            no la cai lam delayTime TRUOT thay vi nhay, va mot duong tre dang truot
            chinh la Doppler. Nguon lui xa -> tre dai ra -> cao do tut xuong. */
         eng.xa.delayTime.setTargetAtTime(Math.min(TRE_TRAN, d / c), T(), 0.25);
-        /* TRAI RONG. That ra la 1/r, nhung 1/r thuan thi o 2 km con 15% — trong
-           tro choi thanh ra khong con nghe thay gi. Nen nen lai bang can bac hai:
-           0 m = 1, 480 m = 0,75, 2 km = 0,48, 5 km = 0,33. Van doc ra xa gan, ma
-           khong tat han. Day la cho tao CO Y lech khoi vat ly. */
+        /* TRAI RONG THEO 1/r — da bo cho "co y lech khoi vat ly" truoc day.
+           Luat cu (can bac hai, kem san 0,12) do ra: o 5 km chi tut 8,1 dB thay
+           vi 16,1 dB, o 100 km tut 16,8 dB thay vi 41,2 dB. Hai hau qua nghe ro:
+           doi qua lai giua goc 1 / 2 / 3 ma am luong gan nhu khong doi, va cai
+           san 0,12 khien dong co van u u o muc -18 dB phat ra tu mot vat cach
+           100 km TRONG CHAN KHONG.
+           Noi lo cu — "1/r thi o 2 km khong con nghe thay gi" — khong dung voi
+           chinh cong thuc nay: 600/(600+2000) = 0,23 chu khong phai 0,15. Va bo
+           nen dong (nguong -18 dB, ty so 4) o cuoi chuoi tu nang phan nho len.
+           Nhan them `air` de trong chan khong no TAT HAN chu khong chi nho di. */
         /* Cat NHANH (0,02 s) nhung mo lai CHAM (0,2 s): muc dich cua cua xa la
            giet tieng thua, ma tut trong 0,9 giay thi no van kip keu. Mo lai thi
            khong voi, de khong co cu bat vao giua chung. */
         const im = T() < xaDen;
         eng.xg.gain.setTargetAtTime(
-          im ? 0 : Math.max(0.12, Math.sqrt(600 / (600 + d))), T(), im ? 0.02 : 0.2);
+          im ? 0 : (600 / (600 + d)) * Math.min(1, pAmb / 101325), T(), im ? 0.02 : 0.2);
         /* HAP THU KHI QUYEN. Tan cao chet nhanh hon tan thap rat nhieu theo quang
            duong — day moi la ly do ten lua o xa la tieng ung uc trong long nguc
            con o gan la tieng xe lach tach. 480 m = 14 kHz, 2 km = 4,9 kHz,
@@ -4592,7 +4613,10 @@ const TRE_TRAN = 10.0;
                                   T(), 0.2);  // chan khong nghieng ve tram; it may thi ro cao do hon
       /* Vo lach tach chi ton tai khi co khong khi de mang song xung kich, va
          chi ro khi ga lon. Tren cao no tat han, con lai rung ket cau. */
-      if (eng.dl) eng.dl.delayTime.setTargetAtTime(0.005 + 0.013 * engFrac, T(), 0.5);
+      /* Be rong stereo van doi theo so may (chum lua rong hon thi nghe rong hon),
+         nhung ca dai 0,8-1,2 ms deu cho diem triet dau tien o 417-625 Hz, tuc
+         nam TREN cu loc thong thap 380 Hz cua tieng gam. */
+      if (eng.dl) eng.dl.delayTime.setTargetAtTime(0.0008 + 0.0004 * engFrac, T(), 0.5);
       if (eng.cg) eng.cg.gain.setTargetAtTime(v * 0.18 * air * air, T(), 0.12);
       if (eng.cmg) eng.cmg.gain.setTargetAtTime(v * 0.42 * air, T(), 0.12);
       // Doi am: to nhat sat mat dat, het sach trong chan khong.
@@ -6460,7 +6484,41 @@ const towerPad = makeTower(pad, { h: 205 + PIT, catchAlt: CATCH_ALT + B_GRIP + P
 towerPad.grp.position.y = -PIT;
 for (let i = 0; i < 8; i++) { const t = (200 + 140 * i / 7) * DEG; cyl(4.6, 27, -95 + Math.cos(t) * 55, PY(0), 40 + Math.sin(t) * 55, MSteel, 18); }
 for (let i = 0; i < 3; i++) { const t = (30 + 120 * i) * DEG; cyl(.8, 90, Math.cos(t) * 120, PY(0), Math.sin(t) * 120, MSteelD, 8); }
-box(900, .3, 14, 0, .3, 150, MConc);
+/* ===== DUONG CONG VU (Boca Chica Blvd / TX-4) =====
+   Truoc day la mot tam `box(900, .3, 14, 0, .3, 150)` — toa do y THO 0.3 trong
+   khi trai bon va cot chong set ngay ben canh deu dung PY(0). Tuc dai be tong
+   900 x 14 m treo lo lung 21.1 m tren mat san, kem mot vet bong dai 900 m do
+   xuong dat. Chinh chu thich o khoi MOC DO CAO da ghi "da mac dung loi nay hai
+   lan" — day la lan thu ba.
+   Gio co dia hinh that nen mot tam phang cung khong dung duoc: no se bi chon
+   duoi san dap 1.95 m roi lai nho len khoi bai lay 0.5 m. Lam thanh DAI BAM
+   THEO DAT. Dau dong ket thuc o 476 m — do la cho TX-4 that cham bai bien
+   (OSM: doan cuoi duong ket thuc 476 m dong be phong). */
+{
+  const DAI_W = 7, CR_DUONG = 150, N_DUONG = 120;
+  const dr0 = -900, dr1 = 476;
+  const vD = new Float32Array((N_DUONG + 1) * 2 * 3), iD = [];
+  const _vd = new THREE.Vector3();
+  for (let i = 0; i <= N_DUONG; i++) {
+    const dr = dr0 + (dr1 - dr0) * i / N_DUONG;
+    for (let k = 0; k < 2; k++) {
+      const cr = CR_DUONG + (k ? DAI_W : -DAI_W);
+      /* +0.18 m: mat duong cao hon dat tu nhien mot lop be tong, du de khong bi
+         dia hinh dam qua o cho luoi tho. */
+      worldPosCr(-PIT + LIFT_DAT + hBoca(dr, cr, false) + 0.18, dr, cr, _vd);
+      const o = (i * 2 + k) * 3;
+      vD[o] = _vd.x; vD[o + 1] = _vd.y; vD[o + 2] = _vd.z;
+    }
+    if (i < N_DUONG) { const a = i * 2; iD.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+  }
+  const gDuong = new THREE.BufferGeometry();
+  gDuong.setAttribute('position', new THREE.BufferAttribute(vD, 3));
+  gDuong.setIndex(iD); gDuong.computeVertexNormals();
+  const duong = new THREE.Mesh(gDuong, MConc);
+  duong.receiveShadow = true; duong.castShadow = false;
+  duong.userData.khongDoBong = true;
+  pad.add(duong);
+}
 
 /* ===== CUM DONG CO RAPTOR =====
    Super Heavy xep 3 vong: 3 tam (gimbal) + 10 trong (gimbal) + 20 ngoai (co dinh).
@@ -6470,11 +6528,51 @@ box(900, .3, 14, 0, .3, 150, MConc);
 function ring(n, r, ph) {
   const o = []; for (let i = 0; i < n; i++) { const t = (ph || 0) + i / n * 6.2832; o.push([Math.cos(t) * r, Math.sin(t) * r]); } return o;
 }
-const CL_BOOST = [...ring(3, .95, .5), ...ring(10, 2.45, 0), ...ring(20, 3.85, .08)];
-const CL_SHIP = [...ring(3, .95, .5), ...ring(3, 2.75, 0)];
+/* Phan tu thu ba = LOAI LOA: 0 mat bien, 1 chan khong. Booster toan may mat
+   bien; tau co 3 may mat bien o giua va 3 RVac vong ngoai. */
+const CL_BOOST = [...ring(3, .95, .5), ...ring(10, 2.45, 0), ...ring(20, 3.85, .08)]
+  .map(p => [p[0], p[1], 0]);
+const CL_SHIP = [...ring(3, .95, .5).map(p => [p[0], p[1], 0]),
+                 ...ring(3, 2.75, 0).map(p => [p[0], p[1], 1])];
 
 const jetGeo = new THREE.ConeGeometry(1, 1, 12, 1, true);
-const bellGeo = new THREE.CylinderGeometry(.74, .46, 1.9, 12, 1, true);
+/* ===================== LOA RAPTOR =====================
+   Hai cai sai cu, ca hai deu nhin thay tu goc bam sat khoang may:
+
+   (1) DUNG NGUOC. `CylinderGeometry(.74, .46, 1.9)` co ban kinh DINH 0.74 va
+       ban kinh DAY 0.46, ma loa gan DUOI mat may va phut XUONG — tuc mieng xa
+       la dau HEP con cho gan vao may la dau RONG. Loa thuc te nguoc hoan toan:
+       that o co hong roi LOE RA toi mieng. Nhin tu duoi len thay ro.
+
+   (2) BA LOA CHAN KHONG VE Y HET LOA MAT BIEN. Ca 39 may (33 booster + 6 tau)
+       dung chung mot hinh hoc. Ma chinh lo vat ly trong cung tep da biet chung
+       khac nhau: VEH.s2.sl.Ae = 1.33 m2 so vac.Ae = 5.70 m2.
+
+   SO LAY TU DAU:
+     mieng loa mat bien 1.301 m — suy tu VEH.s2.sl.Ae = 1.33 m2, va khop voi so
+       cong bo cua Raptor 2 (duong kinh loa 1.3 m)
+     co hong 0.222 m — suy tu ty so gian no cong bo 34.34 va mieng 1.301 m
+     mieng RVac 2.40 m — so cong bo. LUU Y: VEH.s2.vac.Ae = 5.70 m2 ngu y mieng
+       2.694 m, tuc lon hon thuc te 26% ve dien tich. O day VE THEO SO THAT; con
+       sua Ae hay khong la viec cua lo vat ly, khong lam lut trong mot thay doi
+       hinh anh.
+     chieu dai: Raptor 2 dai 3.1 m va RVac dai ~4.6 m, phan loa lo ra tuong ung
+       1.90 m va 3.40 m.
+
+   BIEN DANG LA PARABOL chu khong phai hinh non: loa that loe nhanh ngay sau co
+   hong roi thu dan ve mieng, de dong khi ra gan nhu song song. Hinh non cho mot
+   cai pheu, khong ra cai loa. */
+function lamLoa(dMieng, dai) {
+  const rt = 0.111, re = dMieng / 2, N = 16, pts = [];
+  for (let i = 0; i <= N; i++) {
+    const u = i / N;
+    pts.push(new THREE.Vector2(rt + (re - rt) * Math.sqrt(u), -u * dai));
+  }
+  return new THREE.LatheGeometry(pts, 20);
+}
+const bellSL = lamLoa(1.301, 1.90);          // Raptor mat bien
+const bellVac = lamLoa(2.400, 3.40);         // Raptor chan khong (RVac)
+const BELL_DAI = [1.90, 3.40];
 const bellMat = new THREE.MeshStandardMaterial({ color: 0x30343A, roughness: .55, metalness: .85, side: THREE.DoubleSide });
 
 /* ===================== LUONG PHUT RAPTOR =====================
@@ -6571,9 +6669,12 @@ function jetMat(color, op) {
 function makeCluster(positions, isShip) {
   const g = new THREE.Group();
   const jets = [], bells = [];
-  for (const [x, z] of positions) {
-    const b = new THREE.Mesh(bellGeo, bellMat); b.position.set(x, -.95, z); g.add(b); bells.push(b);
-    const holder = new THREE.Group(); holder.position.set(x, -1.9, z); g.add(holder);
+  for (const [x, z, loai] of positions) {
+    /* Hinh loa co goc o MAT MAY (y = 0) va chay xuong -dai, nen dat thang o 0
+       chu khong phai tru nua chieu cao nhu hinh tru cu. */
+    const b = new THREE.Mesh(loai ? bellVac : bellSL, bellMat);
+    b.position.set(x, 0, z); g.add(b); bells.push(b);
+    const holder = new THREE.Group(); holder.position.set(x, -BELL_DAI[loai || 0], z); g.add(holder);
     const j = new THREE.Mesh(plumeGeo, plumeMat()); holder.add(j);
     // vong sang ngay mieng loa: kim loai bi nung do
     const gl = new THREE.Mesh(new THREE.CircleGeometry(1, 14),
@@ -6935,7 +7036,17 @@ function tileTexture() {
     }
   }
   const t = new THREE.CanvasTexture(c);
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 5);
+  /* Anh nguon la LUC GIAC DEU (dx = R*sqrt(3), dy = R*1.5), nhung `repeat(6,5)`
+     keo no ra 4.6 lan theo chieu doc: mot vien thanh 0.112 m ngang x 0.516 m
+     doc, nen ca than tau doc ra SOC DOC nhu ke giay chu khong phai to ong.
+     Dat lai cho met-tren-texel BANG NHAU hai chieu. Voi vung gach 180 do thi
+     cung quanh than la (R+0.13)*pi = 14.55 m va than cao 40 m, nen
+       rx / ry = 14.55 / 40.
+     Chon rx = 5.4 -> vien rong 0.200 m, cao 0.174 m (ty le 0.866 = luc giac
+     deu), va ca than chua 16 700 vien; cong phan mui ra xap xi 18 000 vien —
+     dung con so cong bo cho Starship. Tuc CO VIEN GACH khong phai do chon, no
+     rut ra tu so vien. */
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(5.4, 14.8);
   return t;
 }
 
@@ -6961,8 +7072,12 @@ function tileTexture() {
   const nose = new THREE.Mesh(new THREE.LatheGeometry(prof, 44), MMui);
   nose.position.y = BODY; shipObj.add(nose);
 
-  // --- Chan nhiet: cung ~112 do quanh bung, phu ca than lan mui ---
-  const TH0 = Math.PI / 2 - .31 * Math.PI, THL = .62 * Math.PI;
+  /* --- Chan nhiet: phu NUA THAN don gio (180 do), ca than lan mui ---
+     Truoc day chi 112 do (31% chu vi), nen ca bon canh gio moc ra tu thep guong
+     tran va dien tich gach chi 361 m2 — khong the chua noi 18 000 vien. Chan
+     nhiet that phu mat don gio, va hai canh gio sau doi nhau 180 do nam DUNG o
+     bien vung gach. */
+  const TH0 = 0, THL = Math.PI;
   const sh1 = new THREE.Mesh(
     new THREE.CylinderGeometry(R + .13, R + .13, BODY, 44, 1, true, TH0, THL), MTile);
   sh1.position.y = BODY / 2; shipObj.add(sh1);
