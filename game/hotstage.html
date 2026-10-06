@@ -2286,8 +2286,13 @@ body{
     flaps: [
       { name: 'FL', th:  110 * Math.PI / 180, y: 36.5, fore: 1, right:  1 },
       { name: 'FR', th: -110 * Math.PI / 180, y: 36.5, fore: 1, right: -1 },
-      { name: 'AL', th:  100 * Math.PI / 180, y:  6.0, fore: -1, right:  1 },
-      { name: 'AR', th: -100 * Math.PI / 180, y:  6.0, fore: -1, right: -1 },
+      /* ±90 chu khong ±100: hai canh SAU doi nhau dung 180 do — nguon
+         Ringwatchers, doi chieu anh, va V2/V3 khong doi cho nay. O 100 do thi
+         chung khong doi nhau nua, va canh tay don lan sin(th)*4.5 = 4.43 m thay
+         vi 4.50. Doi o CA HAI noi (day va hang so AFT cua lop ve) de hinh va lo
+         khong noi hai chuyen khac nhau. */
+      { name: 'AL', th:   90 * Math.PI / 180, y:  6.0, fore: -1, right:  1 },
+      { name: 'AR', th:  -90 * Math.PI / 180, y:  6.0, fore: -1, right: -1 },
     ],
   };
   /* ===================== NHIET TAI NHAP =====================
@@ -7212,7 +7217,16 @@ function tileTexture() {
   const MTileFlat = new THREE.MeshStandardMaterial({ color: 0x171A1E, roughness: .95, metalness: .04 });
   hotMats.push(MTile, MTileFlat);
 
-  const R = 4.5, BODY = 40, NOSE = 12.1;        // tong 52.1 m — dung Block 2
+  /* Tong 52.1 m, duong kinh 9 m — so SpaceX cong bo (spacex.com/vehicles/starship).
+     Ban dang bay la V3 (Block 3), SpaceX ra mat 12/5/2026, Ship 39 bay Flight 12
+     ngay 22/5/2026. V3 KHONG doi hinh canh gio: trong danh sach thay doi chinh
+     thuc, phan canh chi co co cau be canh SAU (tu hai xy-lanh moi canh thanh mot
+     xy-lanh ba mo-to) — khong nhin thay duoc tu ngoai. Hinh va vi tri canh truoc
+     la thay doi cua V2 (lan dau tren Ship 33, Flight 7, 1/2025) va V3 giu nguyen.
+     NOSE 12.1: Ringwatchers do tren anh ra "khoang 14 m" — day la cho LECH da
+     biet, chua sua vi doi chieu mui keo theo vi tri canh truoc, chot bat va vung
+     gach, can mot luot rieng. */
+  const R = 4.5, BODY = 40, NOSE = 12.1;        // tong 52.1 m
   const S_PIN = SHIP_PIN_Y, S_PIN_R = SHIP_PIN_R;
   const PIN_AZ = SHIP_PIN_AZ;                  // cung phuong vi voi flap truoc
   const body = new THREE.Mesh(new THREE.CylinderGeometry(R, R, BODY, 44), MThanS);
@@ -7307,15 +7321,62 @@ function tileTexture() {
        doan 0.03*be day (do duoc: khe con 25 mm thay vi 50). Nhan vi tri len
        cung he so thi mat trong cua vo plasma trung dung mat trong cua canh. */
     glow.scale.setScalar(1.06); glow.position.z = dz * 1.06; pv.add(glow);
-    /* OP BAN LE: hop bao truc. Phai nam HOAN TOAN ngoai x = 0 va cung phia z
-       voi canh, neu khong chinh no lai la cai lan vao vo. */
-    const fair = new THREE.Mesh(new THREE.BoxGeometry(1.2, geo.boundingBox ? 1 : 11.4, 1.9), MTileFlat);
-    fair.scale.y = fore ? .78 : 1;
-    fair.position.set(.6, 0, dir * .95); pv.add(fair);
+    /* ===== OP BAN LE ("static aero") =====
+       Truoc day la mot HOP CHU NHAT 1.2 x 11.4 x 1.9 m dan o goc moi canh — nhin
+       ra ngay la mot cai hop, va rong 1.9 m tiep tuyen tuc chiem 24 do chu vi.
+       Tra lai thi vat that la mot TAM DAI, HEP, THUON chay doc duong ban le, bac
+       cau khe ho giua vo va goc canh — mot cai song mong, khong phai khoi hop.
+       Co mot thuoc do rat chac de lay ti le: ban V2/V3 chi con DUNG MOT COT GACH
+       LUC GIAC theo chieu ngang (ban V1 co bon cot) — Ringwatchers, doi chieu
+       anh cu ly gan. Gach o day rong 0.200 m (xem tileTexture), nen op rong
+       khoang 0.25 m chu khong phai 1.9 m: tao dang dung rong gap gan tam lan.
+       Hinh: thuon ca hai dau, nho ra ~0.45 m khoi vo. */
+    /* Be rong 0.38 m: ban Block 2/V3 chi con DUNG MOT COT GACH luc giac theo
+       chieu ngang (Block 1 co bon cot), va buoc gach Starship nam trong khoang
+       0.3-0.47 m — nen op rong 0.3-0.45 m. Lay giua dai.
+       TIET DIEN LA NUA ELIP, khong phai phien vuong: nguon ta "mat ngoai cong
+       lien tuc roi vuot dan chim vao vo mui, mat cat kieu giot nuoc / vai bo
+       tron, khong co canh vuong, khong co mat phang dung dung". Bat bevel de ca
+       hai dau cung bo tron chu khong cat phang. */
+    const aeroW = .38, aeroR = .50;
+    const aeroL = (fore ? .78 : 1) * 11.4;
+    const asp = new THREE.Shape();
+    asp.moveTo(0, 0);
+    for (let i = 1; i <= 12; i++) {
+      const al = i / 12 * Math.PI;
+      asp.lineTo(aeroR * Math.sin(al), dir * aeroW * (1 - Math.cos(al)) / 2);
+    }
+    asp.closePath();
+    const aeroG = new THREE.ExtrudeGeometry(asp, { depth: aeroL,
+      bevelEnabled: true, bevelThickness: .22, bevelSize: .10, bevelSegments: 3 });
+    aeroG.translate(0, 0, -aeroL / 2);
+    aeroG.rotateX(Math.PI / 2);                    // dun doc THAN, khong doc ban kinh
+    const fair = new THREE.Mesh(aeroG, MTileFlat);
+    /* BU LAI BEVEL. `bevelSize` no hinh ra MOI PHIA trong mat phang hinh, ke ca
+       NGUOC vao trong qua x = 0 va qua phia z sai dau — do duoc: op lan vao vo
+       91 mm. Day ca khoi ra dung bang bevelSize theo ca hai truc thi diem trong
+       cung tro ve 0. */
+    fair.position.set(.10, 0, dir * .10);
+    pv.add(fair);
+    /* BA DIEM BAN LE nho ra khoi vo (tren - giua - duoi). Ban V1 la nhung mieng
+       chu nhat day xuyen qua lo tren vo — chinh thu do moi giong "khoi hop";
+       V2/V3 chi con dau mut thanh chong lo ra, lo tren vo nho hon han. */
+    for (const fy of [-.40, 0, .40]) {
+      const kn = new THREE.Mesh(new THREE.BoxGeometry(.22, aeroL * .055, .26), MSteelD);
+      kn.position.set(.12, fy * aeroL, dir * .13);
+      pv.add(kn);
+    }
     shipObj.add(mount);
     shipFlaps.push({ pv, fore, dir });
   }
-  const AFT = 100 * DEG, FWD = 110 * DEG;
+  /* PHUONG VI. Hai cap khong con thang hang nhau — day la net nhan dang cua ban
+     V2/V3, Ringwatchers goi thang la "creating a weird offset appearance":
+       canh SAU  : van 180 do doi nhau, tuc ±90 do so voi duong tam bung.
+                   Truoc day de 100 do — lech 10 do, va 100 do thi hai canh sau
+                   khong con doi nhau dung 180.
+       canh TRUOC: ~140 do so voi nhau do vong qua phia KHUAT GIO, tuc ±110 do so
+                   voi duong tam bung — da dung san, giu nguyen. */
+  const AFT = 90 * DEG, FWD = 110 * DEG;
   /* 4.55 = mat vo 4.5 cong 0.05 m ho, du de khong tranh chap chieu sau ma khong
      nhin ra duoc khe. */
   mkFlap(GA, 5.8, AFT, false, 4.55, .85);

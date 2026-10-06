@@ -102,8 +102,13 @@
     flaps: [
       { name: 'FL', th:  110 * Math.PI / 180, y: 36.5, fore: 1, right:  1 },
       { name: 'FR', th: -110 * Math.PI / 180, y: 36.5, fore: 1, right: -1 },
-      { name: 'AL', th:  100 * Math.PI / 180, y:  6.0, fore: -1, right:  1 },
-      { name: 'AR', th: -100 * Math.PI / 180, y:  6.0, fore: -1, right: -1 },
+      /* ±90 chu khong ±100: hai canh SAU doi nhau dung 180 do — nguon
+         Ringwatchers, doi chieu anh, va V2/V3 khong doi cho nay. O 100 do thi
+         chung khong doi nhau nua, va canh tay don lan sin(th)*4.5 = 4.43 m thay
+         vi 4.50. Doi o CA HAI noi (day va hang so AFT cua lop ve) de hinh va lo
+         khong noi hai chuyen khac nhau. */
+      { name: 'AL', th:   90 * Math.PI / 180, y:  6.0, fore: -1, right:  1 },
+      { name: 'AR', th:  -90 * Math.PI / 180, y:  6.0, fore: -1, right: -1 },
     ],
   };
   /* ===================== NHIET TAI NHAP =====================
