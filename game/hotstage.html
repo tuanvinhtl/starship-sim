@@ -7264,34 +7264,64 @@ function tileTexture() {
     g.translate(0, 0, -th / 2);                  // KHONG rotateX: day cung phai nam DOC THAN
     return g;
   }
-  const GA = flapGeo(11.0, 7.2, 4.2, 0.9, .85);  // sau — lon hon
-  const GF = flapGeo(8.6, 5.6, 3.6, 0.7, .75);   // truoc
+  /* ===== CANH GIO: TRUC BAN LE PHAI NAM TREN MAT VO =====
+     Loi cu: truc ban le dat o ban kinh 3.6 (canh sau) va 3.5 (canh truoc) trong
+     khi than tau ban kinh 4.5 — tuc goc canh VUI SAU TRONG VO 0.9-1.0 m ngay ca
+     luc chua xoay, va khi gap thi phan vui do quet xuyen qua than.
+     Dieu kien hinh hoc chinh xac: canh quay quanh truc DUNG tai be, nen ban kinh
+     cua mot diem la  R_be + x*cos(th) + z*sin(th)  (x = huong ra ngoai, z = be
+     day theo phuong tiep tuyen). Muon khong bao gio chui vao vo thi can CA HAI:
+       (a) R_be >= 4.5 — truc nam tren mat vo
+       (b) z cung dau voi chieu xoay — tuc MAT TRONG cua canh trung truc ban le,
+           khong phai mat phang GIUA canh
+     Thieu (b) thi nua be day van lan vao: do duoc o goc gap lon nhat (tuck =
+     1.32 rad = 75.6 do) thi diem te nhat nam sau trong vo 1.31 m (canh sau) va
+     1.36 m (canh truoc). Co ca hai thi ho vo +0.05 m o MOI goc xoay.
+     Cat bot phan goc vui de DAU NGON GIU NGUYEN ban kinh (10.80 va 9.10 m) —
+     duong bien ngoai cua canh khong doi mot li, chi bo di phan xua nay nam
+     trong thung. */
+  const GA = flapGeo(10.33, 6.25, 3.646, 0.781, .85);  // sau — lon hon
+  const GF = flapGeo(7.79, 4.55, 2.925, 0.569, .75);   // truoc
 
   /* BAN LE LA DUONG DOC THEO THAN. Canh quet quanh chu vi vo: gap thi op vao
      than, mo thi dung vuong goc ra ngoai. Truoc day tao cho no xoay quanh truc
      TIEP TUYEN — tuc lat toi-lui theo chieu doc — sai dung 90 do.
        mount.rotation.y = -zAng  -> +X cuc bo chi ra ngoai theo ban kinh
        pv.rotation.y             -> chinh la ban le, quay quanh truc than */
-  function mkFlap(geo, y, zAng, fore, rad) {
+  function mkFlap(geo, y, zAng, fore, rad, th) {
     const mount = new THREE.Group();
     mount.position.set(Math.cos(zAng) * rad, y, Math.sin(zAng) * rad);
     mount.rotation.y = -zAng;
     const pv = new THREE.Group(); mount.add(pv);
-    pv.add(new THREE.Mesh(geo, MFlap));
+    const dir = -Math.sign(zAng);
+    /* Day canh ve DUNG phia ma no xoay toi, de MAT TRONG trung truc ban le.
+       flapGeo da can be day quanh z = 0, nen day them dir*th/2 la mat trong ve
+       dung z = 0 — tu do z*sin(th) >= 0 voi moi goc, tuc khong bao gio am. */
+    const dz = dir * th / 2;
+    const canh = new THREE.Mesh(geo, MFlap); canh.position.z = dz; pv.add(canh);
     /* Vo plasma rieng cua tung canh: shader so phap tuyen the gioi nen canh
        xoay the nao thi mep don gio van la mep sang. */
     const glow = new THREE.Mesh(geo, plasmaMat);
-    glow.scale.setScalar(1.06); pv.add(glow);
-    const fair = new THREE.Mesh(new THREE.BoxGeometry(1.5, geo.boundingBox ? 1 : 11.4, 1.9), MTileFlat);
-    fair.scale.y = fore ? .78 : 1; fair.position.x = .3; pv.add(fair);   // op ban le
+    /* Nhan 1.06 vao CA vi tri: lop plasma duoc phong to 1.06 quanh goc cua chinh
+       no, nen neu chi dat o dz thi mat trong cua no thut xuong duoi z = 0 mot
+       doan 0.03*be day (do duoc: khe con 25 mm thay vi 50). Nhan vi tri len
+       cung he so thi mat trong cua vo plasma trung dung mat trong cua canh. */
+    glow.scale.setScalar(1.06); glow.position.z = dz * 1.06; pv.add(glow);
+    /* OP BAN LE: hop bao truc. Phai nam HOAN TOAN ngoai x = 0 va cung phia z
+       voi canh, neu khong chinh no lai la cai lan vao vo. */
+    const fair = new THREE.Mesh(new THREE.BoxGeometry(1.2, geo.boundingBox ? 1 : 11.4, 1.9), MTileFlat);
+    fair.scale.y = fore ? .78 : 1;
+    fair.position.set(.6, 0, dir * .95); pv.add(fair);
     shipObj.add(mount);
-    shipFlaps.push({ pv, fore, dir: -Math.sign(zAng) });
+    shipFlaps.push({ pv, fore, dir });
   }
   const AFT = 100 * DEG, FWD = 110 * DEG;
-  mkFlap(GA, 5.8, AFT, false, R - .9);
-  mkFlap(GA, 5.8, -AFT, false, R - .9);
-  mkFlap(GF, 41.0, FWD, true, 3.5);              // gan HAN LEN MUI, khong phai duoi than
-  mkFlap(GF, 41.0, -FWD, true, 3.5);
+  /* 4.55 = mat vo 4.5 cong 0.05 m ho, du de khong tranh chap chieu sau ma khong
+     nhin ra duoc khe. */
+  mkFlap(GA, 5.8, AFT, false, 4.55, .85);
+  mkFlap(GA, 5.8, -AFT, false, 4.55, .85);
+  mkFlap(GF, 41.0, FWD, true, 4.55, .75);        // gan HAN LEN MUI, khong phai duoi than
+  mkFlap(GF, 41.0, -FWD, true, 4.55, .75);
 
   /* --- HAI CHOT NANG. Day moi la cho tau thuc su ty vao canh tay dua: hai
      khoi thep tron nho o than +X va -X, ngay duoi cap flap truoc. Canh tay
