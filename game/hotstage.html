@@ -11681,8 +11681,26 @@ function frame(now) {
       const spread = 0.95 - 0.90 * e;                     // ~54 do <-> ~3 do
       fl.pv.rotation.y = fl.dir * (1.32 * tuck + spread * (1 - tuck));
     }
-    // voi RCS cua tau: ngau luc mui/duoi, phun theo xung
-    const fire = srt && srt.eff === 'RCS' && Math.abs(srt.rcsCmd) > 0.05;
+    /* voi RCS cua tau: ngau luc mui/duoi, phun theo xung.
+       KHONG duoc gac theo `srt.eff`. `eff` la mot O DUY NHAT dung cho BANG SO,
+       ghi "co cau nao dang tro tai" — allocate() dat no thanh 'GIMBAL' khi luc
+       day > 1 kN, 'FLAP' khi canh gio dang lam viec, va chi dat 'RCS' khi
+       `!usedFlap && T <= 1e3`. Nhung khoi RCS tao mo-men chay DOC LAP voi hai
+       thu kia: no phut va tru nhien lieu chi can `vlen(res) > 1e4`. Nen suot ca
+       doan roi bung — luc canh gio tro phan lon tai va RCS bu phan con lai —
+       nhan la 'FLAP' va tia RCS KHONG BAO GIO duoc ve, du khi dang thoat ra.
+       Do duoc tren 6 chuyen (3 seed x calm/gusty, dung vong lap game, dt 0.02):
+       2 763 kg khi RCS tieu trong luc co lenh, chi 686 kg (24,8%) duoc ve. Chia
+       theo nhan: 1 963 kg bi 'FLAP' chiem cho, 36 kg bi 'GIMBAL', 79 kg la phan
+       duoi nguong 0,05. Bo chot `eff` di: 2 530 kg (91,5%) duoc ve.
+       Lenh `rcsCmd` moi la tin hieu dung — no CHINH LA muc RCS dang dung, va no
+       da nam trong dieu kien nay roi. Giu nguong 0,05 vi duoi do la lenh ve
+       trim muc phan nghin, ve ra chi thanh nhieu hinh (bo han thi tia sang 100%
+       thoi gian thay vi 57%).
+       Booster KHONG co lo nay: chuoi if/else-if cua no dat `rcsCmd = 0` o dau
+       roi chi gan khac 0 trong dung nhanh `eff = 'RCS'`, nen hai thu tuong
+       duong. Chot o dong tren cua booster la thua chu khong sai. */
+    const fire = srt && Math.abs(srt.rcsCmd) > 0.05;
     const amt = srt ? Math.min(1, Math.abs(srt.rcsCmd)) : 0;
     /* DAY NGANG khi can bang sat thap (rcsTb = luc trong he than / 73 kN): voi o
        PHIA NGUOC huong luc phut, CA cum mui lan cum duoi; cum mui phut nhe hon
