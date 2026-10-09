@@ -4851,7 +4851,37 @@ const canvas = $('scene');
 const renderer = new THREE.WebGLRenderer({
   canvas, antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance'
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+/* ===== TI LE DIEM ANH: chan theo SO DIEM ANH, khong theo he so =====
+   Do tren may nay, canh tren be phong, cua so 1920x1080, hau ky day du:
+     2,074 Mpix -> 8,3 ms  |  4,666 -> 15,4 ms  |  8,294 -> 26,0 ms
+   Khop tuyen tinh: 2,85 ms moi Mpix + 2,4 ms KHONG phu thuoc so diem anh. Do
+   rieng phan 2,4 ms do: pass bong 1,0 ms (tat shadowMap.autoUpdate roi do lai),
+   con lai la xu ly dinh va dong lenh ve. Phan CPU dung lenh ve do duoc 2,3-3,1
+   ms va KHONG doi theo ti le diem anh — no chay chen voi GPU.
+   Tuc khung hinh nay bi chan boi DIEM ANH, khong boi so lenh ve hay tam giac.
+
+   Nguoc tu muc 60 fps:  (16,67 - 2,4) / 2,85 = 5,0 Mpix.
+
+   De nguyen devicePixelRatio = 2 o cua so 1920x1080 la 8,29 Mpix, tuc 26,0 ms
+   = 38 fps — nam ngay tren nguong 26 fps ma watchFps dung de TU HA chat luong.
+   Them bat cu chi tiet gi nua la nguoi choi bi tut xuong nac xau.
+
+   Chan theo DIEN TICH chu khong theo he so, vi cai dat tien la so diem anh:
+   man 1280x800 o he so 2 moi la 4,1 Mpix — van trong ngan sach, khong can ha. */
+const PIX_TRAN = 5.0e6;
+let prChon = 0;        // > 0: nguoi choi tu dat trong bang chinh (phim O)
+let prHaDan = false;   // thang tu ha chat luong da ha do phan giai
+function tiLeDiemAnh() {
+  if (prChon > 0) return prChon;                 // chon tay thi khong kep theo dpr:
+  const w = innerWidth || 1920, h = innerHeight || 1080;   // tren 1 la sieu lay mau, co that
+  return Math.max(1, Math.min(devicePixelRatio, Math.sqrt(PIX_TRAN / Math.max(1, w * h))));
+}
+function datTiLe() {
+  let r = tiLeDiemAnh();
+  if (prHaDan) r = Math.min(1, r);
+  if (Math.abs(renderer.getPixelRatio() - r) > 1e-3) renderer.setPixelRatio(r);
+}
+datTiLe();
 renderer.setClearColor(0x05070B, 1);
 const scene = new THREE.Scene();
 /* near = 0,05 chu khong phai 1: bat mem xay ra trong khoang 0–0,3 m, de 1 m thi
@@ -5763,13 +5793,120 @@ function thepThan(caoM) {
   return m;
 }
 const MThanB = thepThan(69), MThanS = thepThan(40), MMui = thepThan(12.1);
+/* Moi thu hai ham nay dung ra deu la thep BAT DONG cua be phong — danh dau de
+   khoi `gopHinh` o duoi gom lai thanh mot mesh moi vat lieu. */
 function box(w, h, d, x, y, z, m, ry, par) {
   const e = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
-  e.position.set(x, y, z); if (ry) e.rotation.y = ry; (par || pad).add(e); return e;
+  e.position.set(x, y, z); if (ry) e.rotation.y = ry; (par || pad).add(e);
+  e.userData.gop = true; return e;
 }
 function cyl(r, h, x, y, z, m, seg, par) {
   const e = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg || 20), m);
-  e.position.set(x, y + h / 2, z); (par || pad).add(e); return e;
+  e.position.set(x, y + h / 2, z); (par || pad).add(e);
+  e.userData.gop = true; return e;
+}
+
+/* ===================== GOP HINH TINH =====================
+   Do tren canh nay (cua so 1920x1080, may quay tren be, ke ca pass bong):
+   1 564 lenh ve cho 678 876 tam giac — nhung 726 lenh trong do la HOP 12 tam
+   giac va 400 lenh la hinh tru 24 tam giac. Tuc 1 126 lenh (72%) chi mang
+   18 312 tam giac = 3,4% hinh hoc. Rieng thap phong: 535 lenh / 7 824 tam giac;
+   rieng 180 voi phun cua tam lam mat: 360 lenh / 4 320 tam giac.
+
+   PHAI NOI RO TRAN TREN, vi de nham la tieu cong vo ich: phan khung hinh KHONG
+   phu thuoc so diem anh do duoc chi 2,04 ms (ha ti le diem anh ve 0,25 roi do),
+   trong do pass bong 1,0 ms. Phan CPU dung lenh ve 2,3-3,1 ms, chay chen voi
+   GPU. Nen gop het 1 000 lenh ve lam duoc nhieu nhat la ~2 ms tren 26 ms —
+   KHONG phai thu "tra tien cho moi viec con lai". Van lam, vi gia phai tra la
+   so khong: khong mot diem anh nao doi.
+
+   r150 ban UMD KHONG co BufferGeometryUtils — no nam trong examples/jsm, ma keo
+   module ngoai vao se pha mo hinh "mot file HTML tu chua". Nen viet tay o day. */
+function noHinh(gs) {
+  const TEN = ['position', 'normal', 'uv'];
+  let nv = 0, ni = 0;
+  for (const g of gs) {
+    nv += g.attributes.position.count;
+    ni += g.index ? g.index.count : g.attributes.position.count;
+  }
+  const out = new THREE.BufferGeometry();
+  for (const t of TEN) {
+    const sz = gs[0].attributes[t].itemSize;
+    const a = new Float32Array(nv * sz);
+    let o = 0;
+    for (const g of gs) {
+      const src = g.attributes[t];
+      a.set(src.array.subarray(0, src.count * sz), o);
+      o += src.count * sz;
+    }
+    out.setAttribute(t, new THREE.BufferAttribute(a, sz));
+  }
+  /* GIU chi so thay vi toNonIndexed(): mot hop la 24 dinh / 36 chi so, gian ra
+     thanh 36 dinh la nhan 1,5 so lan goi shader dinh — khong co ly do tra gia
+     do chi de code ngan hon mot dong. */
+  const ix = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+  let oi = 0, ov = 0;
+  for (const g of gs) {
+    const c = g.attributes.position.count;
+    if (g.index) { const sI = g.index.array; for (let i = 0; i < sI.length; i++) ix[oi++] = sI[i] + ov; }
+    else for (let i = 0; i < c; i++) ix[oi++] = i + ov;
+    ov += c;
+  }
+  out.setIndex(new THREE.BufferAttribute(ix, 1));
+  out.computeBoundingSphere();
+  return out;
+}
+
+/* Gop `ds` — nhung mesh BAT DONG tuong doi voi `cha` — thanh mot mesh moi vat
+   lieu, toa do nuong thang vao hinh. Ma tran lay bang nghich dao matrixWorld
+   cua `cha` nhan matrixWorld cua mesh, nen sau bao nhieu tang nhom cung dung,
+   va phan dich goc troi cua `pad` tu triet tieu.
+   BA DIEU KIEN de khong lam hong gi: hinh phai co du position+normal+uv
+   (duong cong vu chang han chi co position — bo qua), khong duoc la hinh noi
+   xen ke, va ma tran khong duoc lat chieu (det < 0 dao chieu quay mat, nhin ra
+   lo thung). Co do va thu tu ve phai TRUNG nhau moi gop chung mot mesh —
+   chung nam trong khoa phan nhom.
+
+   KHONG chan theo `geometry.groups`: lan dau tao viet the va phep gop khong gop
+   duoc gi ca, vi BoxGeometry LUON co 6 nhom — mot cho moi mat, de con dung voi
+   mang vat lieu. Ma three chi doc `groups` khi vat lieu LA MANG; con mot vat
+   lieu don thi no ve nguyen ca dai chi so, nhom bi bo qua. Mang vat lieu da bi
+   loai o dong tren, nen o day nhom khong con y nghia gi. */
+function gopHinh(ds, cha) {
+  cha.updateWorldMatrix(true, true);
+  const ngh = new THREE.Matrix4().copy(cha.matrixWorld).invert();
+  const nhom = new Map();
+  for (const o of ds) {
+    const g = o.geometry, m = o.material;
+    if (!o.isMesh || o.isInstancedMesh || !g || !m || Array.isArray(m)) continue;
+    const at = g.attributes;
+    if (!at.position || !at.normal || !at.uv) continue;
+    if (at.position.isInterleavedBufferAttribute) continue;
+    if (g.morphAttributes && Object.keys(g.morphAttributes).length) continue;
+    const M = new THREE.Matrix4().multiplyMatrices(ngh, o.matrixWorld);
+    if (M.determinant() <= 0) continue;
+    const k = m.id + '|' + (o.castShadow ? 1 : 0) + (o.receiveShadow ? 1 : 0)
+            + '|' + o.renderOrder + '|' + (o.userData.khongDoBong ? 1 : 0);
+    let b = nhom.get(k);
+    if (!b) nhom.set(k, b = { m, mau: o, gs: [], cu: [] });
+    const gc = g.clone(); gc.applyMatrix4(M);
+    b.gs.push(gc); b.cu.push(o);
+  }
+  const ra = [];
+  for (const b of nhom.values()) {
+    if (b.gs.length < 2) { for (const g of b.gs) g.dispose(); continue; }
+    /* KHONG dispose hinh goc: `nzG`, `RAM_G`... duoc dung chung cho nhieu mesh,
+       va phep gop nay chay luc DUNG CANH — truoc `warmup()`, tuc truoc khi co
+       thu gi len GPU. Bo mesh ra khoi cay la du, khong ro ri gi. */
+    for (const o of b.cu) if (o.parent) o.parent.remove(o);
+    const mesh = new THREE.Mesh(noHinh(b.gs), b.m);
+    for (const g of b.gs) g.dispose();
+    mesh.castShadow = b.mau.castShadow; mesh.receiveShadow = b.mau.receiveShadow;
+    mesh.renderOrder = b.mau.renderOrder;
+    if (b.mau.userData.khongDoBong) mesh.userData.khongDoBong = true;
+    cha.add(mesh); ra.push(mesh);
+  }
+  return ra;
 }
 /* ===== BE PHONG =====
    Sua mot loi goc: truoc day day ten lua nam o y = 0 = MAT DAT, con ban phong
@@ -5808,17 +5945,18 @@ const NOZ_Y = PY(2.05);                 // mieng voi
   const nzG = new THREE.CylinderGeometry(DEL_ND / 2 + .06, DEL_ND / 2, .5, 6);
   for (const nz of NOZ) {
     const m = new THREE.Mesh(nzG, MDark);
-    m.position.set(nz[0], NOZ_Y - .27, nz[1]); pad.add(m);
+    m.position.set(nz[0], NOZ_Y - .27, nz[1]); m.userData.gop = true; pad.add(m);
   }
   // ong gop trong ho + binh chua ap luc tren mat dat
   for (const sg of [-1, 1]) {
     const pipe = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1.5, 44, 12), MSteel);
-    pipe.rotation.z = Math.PI / 2; pipe.position.set(0, PY(3.2), sg * 22); pad.add(pipe);
+    pipe.rotation.z = Math.PI / 2; pipe.position.set(0, PY(3.2), sg * 22);
+    pipe.userData.gop = true; pad.add(pipe);
     for (const dx of [-16, 0, 16]) {
       const t = new THREE.Mesh(new THREE.CylinderGeometry(4.2, 4.2, 17, 16), MSteel);
-      t.position.set(dx, PY(8.5), sg * 42); pad.add(t);
+      t.position.set(dx, PY(8.5), sg * 42); t.userData.gop = true; pad.add(t);
       const cap = new THREE.Mesh(new THREE.SphereGeometry(4.2, 16, 10), MSteel);
-      cap.position.set(dx, PY(17), sg * 42); pad.add(cap);
+      cap.position.set(dx, PY(17), sg * 42); cap.userData.gop = true; pad.add(cap);
     }
   }
 }
@@ -6029,11 +6167,11 @@ for (let i = 0; i < 6; i++) {
   ringG.rotateX(-Math.PI / 2);
   for (const [y, flip] of [[0, 0], [-OLM_H, 1]]) {
     const g = ringG.clone(); if (flip) g.rotateX(Math.PI);
-    const m = new THREE.Mesh(g, MSteelD); m.position.y = y; pad.add(m);
+    const m = new THREE.Mesh(g, MSteelD); m.position.y = y; m.userData.gop = true; pad.add(m);
   }
   for (const [r, mat] of [[OLM_RO, MSteelD], [OLM_RI, MDark]]) {
     const sh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, OLM_H, 40, 1, true), mat);
-    sh.position.y = -OLM_H / 2; pad.add(sh);
+    sh.position.y = -OLM_H / 2; sh.userData.gop = true; pad.add(sh);
   }
   for (let i = 0; i < 12; i++) {        // gian giang duoi vanh
     const t = i / 12 * 6.2832;
@@ -6111,7 +6249,8 @@ for (const [th, rr] of [[STK_TH_B, 5.4], [STK_TH_S, 4.9]]) {
     box(1.1, STK_STAND_H, 1.1, sx + Math.cos(a) * rr, PY(.8), sz + Math.sin(a) * rr, MSteelD, -a);
   }
   const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, .55, 8, 28), MSteelD);
-  ring.rotateX(-Math.PI / 2); ring.position.set(sx, PY(.8 + STK_STAND_H), sz); pad.add(ring);
+  ring.rotateX(-Math.PI / 2); ring.position.set(sx, PY(.8 + STK_STAND_H), sz);
+  ring.userData.gop = true; pad.add(ring);
 }
 
 /* Thu hoi co cau: 0 = dang giu, 1 = da nha han. Kep quay vao trong va tut
@@ -6221,6 +6360,7 @@ function makeTower(host, o) {
   }
 
   const arms = [];
+  const dong = new Set();          // nhung mesh bi dat lai moi khung — khong gop
   for (const s of [-1, 1]) {
     const pv = new THREE.Group(); pv.position.set(s * HX, 0, 0); car.add(pv);
     /* Canh tay THON DAN ra dau mut, dung ba doan chu khong mot hop dai — hop
@@ -6268,8 +6408,24 @@ function makeTower(host, o) {
     const anchor = new THREE.Vector3(s * (HX + 5.4), -1.3, -2.2);
     const ram = new THREE.Mesh(RAM_G, MSteelD); car.add(ram);
     const rod = new THREE.Mesh(ROD_G, MSteel); car.add(rod);
+    dong.add(ram); dong.add(rod);
     arms.push({ pv, s, ram, rod, anchor });
   }
+
+  /* GOP HINH TINH. Thap nay la cho dat nhat ca canh ve mat so lenh ve: do duoc
+     535 lenh (ke ca pass bong) cho 7 824 tam giac — 34% lenh ve toan khung hinh
+     cho 1,2% hinh hoc.
+     Ba HON CUNG, dung bang ba thu that su chuyen dong rieng:
+       · `g`   — cot, gian giang, ray, thanh rang, dinh thap, puly: bat dong han.
+       · `car` — xe truot: chay doc cot va quay quanh cot, nhung TRONG xe thi
+                 sat-xi, tam ap ray, banh va puly khong he xe dich voi nhau.
+       · `pv`  — tung canh tay: xoay quanh ban le, nhung ca tay la mot khoi.
+     Hai xy-lanh thi KHONG gop: twRig() dat lai vi tri, huong va chieu dai cua
+     chung moi khung hinh — chung nam trong `dong`. */
+  gopHinh(g.children.filter(c => c.isMesh), g);
+  gopHinh(car.children.filter(c => c.isMesh && !dong.has(c)), car);
+  for (const a of arms) gopHinh(a.pv.children.filter(c => c.isMesh), a.pv);
+
   const tw = { grp: g, car, arms, catchAlt: CA, h: H, hx: HX, armLen: AL,
                ang: TW_OPEN, yaw: 0, slide: CA, held: false, seat: false };
   twInitDyn(tw);
@@ -6532,6 +6688,13 @@ for (let i = 0; i < 8; i++) { const t = (200 + 140 * i / 7) * DEG; cyl(4.6, 27, 
   const ct = new THREE.Mesh(new THREE.CylinderGeometry(.13, .09, 3.05, 8), MSteelD);
   ct.position.set(0, dinh + 1.52, -24); towerPad.grp.add(ct);
 }
+/* GOP THEP TINH CUA BE PHONG. Phai dat SAU trai bon va cot chong set, va chi
+   gom thu co dau `gop` — nen 180 loi tia (`cores`, bat tat theo luu luong),
+   20 kep, 20 cum ngat nhanh, BQD, dia hinh, co va duong deu nam ngoai.
+   Gom duoc: san be tong, ba lop tam thep lam mat + 16 gan, 180 voi phun, hai
+   ong gop, 6 binh chua + 6 nap, 6 chan cot OLM + 24 gian giang, vanh ban phong
+   + hai vo + 12 giang duoi, hai gia do xep chong + 16 cot + 2 vanh, 8 trai bon. */
+gopHinh(pad.children.filter(o => o.userData.gop), pad);
 /* ===== DUONG CONG VU (Boca Chica Blvd / TX-4) =====
    Truoc day la mot tam `box(900, .3, 14, 0, .3, 150)` — toa do y THO 0.3 trong
    khi trai bon va cot chong set ngay ben canh deu dung PY(0). Tuc dai be tong
@@ -10254,7 +10417,7 @@ function watchFps(raw) {
     FX.bat = false;
     logLine('Vẫn nặng — tắt quầng sáng và bóng khe', 'bad');
   } else {
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 1)); resize();
+    prHaDan = true; resize();                // resize() tu goi datTiLe()
     logLine('Vẫn nặng — hạ độ phân giải', 'bad');
   }
 }
@@ -10623,6 +10786,7 @@ const MSAA_MAX = (() => {
   try { return Math.max(0, renderer.capabilities.maxSamples | 0); } catch (_) { return 2; }
 })();
 function resize() {
+  datTiLe();
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   const d = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -10663,6 +10827,16 @@ const TUNE = (() => {
                                    v => { const n = Math.min(MSAA_MAX, Math.round(v / 2) * 2);
                                           if (n === FX.msaa) return;
                                           FX.msaa = n; lowFX = false; resize(); }],
+    /* TI LE DIEM ANH — num DAT NHAT trong bang. Do tren may tao, 1920x1080:
+       he so 1 -> 8,3 ms; 1,5 -> 15,4; 2 -> 26,0. Vi tri ban dau KHONG phai mot
+       so chon bua: no la gia tri tu tinh tu ngan sach 5,0 Mpix (xem khoi
+       PIX_TRAN), bang 1,55 o cua so 1080p. Keo con truot nay la chuyen sang
+       tay, va tu do thoi theo kich thuoc cua so.
+       Giong num khu rang cua, no CAP LAI bo dem chu khong chi doi mot so, nen
+       phai chan lai khi gia tri chua that su doi. */
+    ['Tỉ lệ điểm ảnh', .75, 2, .05, () => renderer.getPixelRatio(),
+                                    v => { if (Math.abs(renderer.getPixelRatio() - v) < .024) return;
+                                           prChon = v; prHaDan = false; resize(); }],
     ['envMap',          0, 2.5, .05, () => vatLieu()[0] ? vatLieu()[0].envMapIntensity : 1,
                                      v => vatLieu().forEach(m => { m.envMapIntensity = v; m.needsUpdate = true; })],
     ['Ngưỡng loé',     .3, 2.5, .05, () => FX.nguong.value, v => FX.nguong.value = v],
