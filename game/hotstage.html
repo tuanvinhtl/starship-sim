@@ -8135,6 +8135,149 @@ const satMeshes = [];
    bay, tam pin 34 x 12 m. He cuc bo: +Y ra xa Trai Dat, +X theo chieu bay,
    +Z doc gian truss. Cong cap quay XUONG (-Y) o do sau 11 m — lay DUNG
    D.STN.port ma lo vat ly dung, de hinh va so khong noi hai chuyen khac nhau. */
+/* ===================== BEN CHUA — CON STARSHIP THU HAI =====================
+   KHONG clone `shipObj`. No cong hon 40 vat the dong — plasma tai nhap, cum
+   luong phut 6 loa, 8 voi RCS, bon canh gio co servo, hai canh cua khoang hang,
+   vet khi dong, vanh hot-stage — ma ben chua khong dung MOT THU NAO: no treo
+   mot cho hang ngay, khong dong co, khong khi dong, khong tai nhap. Clone xong
+   la gap doi so lenh ve cua ca con tau de lay dung cai vo.
+   Nen dung rieng mot ban VO, va dung DUNG hang so hinh hoc cua ban chinh (R
+   4,5 · than 40 · mui 12,1 = 52,1 m) de hai con khong noi hai chuyen khac nhau.
+
+   TU THE: treo MUI CHUC XUONG TRAI DAT. Khong phai chon cho dep — do la the
+   can bang BEN cua gradient trong luc. Do duoc tren chinh hinh hoc nay: quan
+   tinh ngang 4,34e7 kg.m2 lon hon quan tinh quanh truc doc 2,06e6, nen truc dai
+   la truc quan tinh NHO NHAT va the nam doc phuong R la cuc tieu the nang —
+   ben khong ton mot gam khi nao de giu tu the suot nhieu tuan. Va no khop voi
+   hanh lang R-bar ma dock.js da dung: tau cho len tu DUOI, mui chi LEN, hai mui
+   gap nhau. Chinh cho do lam mot huong day lang duy nhat phuc vu duoc ca hai
+   tau — xem khoi TIEP NHIEN LIEU trong flight.js. */
+const benObj = new THREE.Group(); benObj.visible = false; scene.add(benObj);
+const BEN = (() => {
+  const R = 4.5, BODY = 40, NOSE = 12.1;
+  /* Than + mui: cung cong thuc ogive voi ban chinh. */
+  const than = new THREE.Mesh(new THREE.CylinderGeometry(R, R, BODY, 36), MThanS);
+  than.position.y = BODY / 2; benObj.add(than);
+  const prof = [];
+  for (let i = 0; i <= 16; i++) {
+    const u = i / 16;
+    const rr = R * Math.sqrt(Math.max(0, 1 - u * u * .985));
+    prof.push(new THREE.Vector2(i === 16 ? 0 : Math.max(.06, rr), u * NOSE));
+  }
+  const mui = new THREE.Mesh(new THREE.LatheGeometry(prof, 36), MMui);
+  mui.position.y = BODY; benObj.add(mui);
+  /* Gach chan nhiet nua than don gio — ben chua KHONG tai nhap, nhung no la mot
+     con Starship that nen vo van nhu vay; bo gach di thi tren hinh ra mot cai
+     ong thep tron khong ai nhan ra. Vat lieu rieng, KHONG day vao hotMats: ben
+     khong bao gio nong len. */
+  const MG = new THREE.MeshStandardMaterial({ map: tileTexture(), color: 0x2A2D31,
+                                              roughness: .92, metalness: .05 });
+  const g1 = new THREE.Mesh(new THREE.CylinderGeometry(R + .13, R + .13, BODY, 36, 1, true, 0, Math.PI), MG);
+  g1.position.y = BODY / 2; benObj.add(g1);
+  const g2 = new THREE.Mesh(new THREE.LatheGeometry(prof.map(v => new THREE.Vector2(v.x + .13, v.y)), 36, 0, Math.PI), MG);
+  g2.position.y = BODY; benObj.add(g2);
+  /* Bon canh gio o THE GAP (ben khong lai bang khi dong nen khong xoe). Hinh
+     thang vuot xuoi, cung ty le voi ban chinh. */
+  const MF = new THREE.MeshStandardMaterial({ color: 0x2F343B, roughness: .72, metalness: .45 });
+  const flapGeo = (dai, rong) => {
+    const sh = new THREE.Shape();
+    sh.moveTo(0, 0); sh.lineTo(rong, 0); sh.lineTo(rong * .62, dai); sh.lineTo(0, dai); sh.closePath();
+    return new THREE.ExtrudeGeometry(sh, { depth: .7, bevelEnabled: false });
+  };
+  for (const [y, az, dai, rong] of [[10.33, 110 * DEG, 6.25, 3.65], [10.33, -110 * DEG, 6.25, 3.65],
+                                    [7.79,   70 * DEG, 4.55, 2.93], [7.79,  -70 * DEG, 4.55, 2.93]]) {
+    const pv = new THREE.Group();
+    pv.position.set(Math.cos(az) * R, BODY - y, Math.sin(az) * R);
+    pv.rotation.y = -az + Math.PI / 2;
+    const m = new THREE.Mesh(flapGeo(dai, rong), MF);
+    m.rotation.x = -Math.PI / 2; m.position.z = -.35;
+    pv.add(m); benObj.add(pv);
+  }
+  /* CONG NAP o chop mui — la O NHAN (drogue) LOM VAO, khong phai dau nho ra.
+     Ly do: tau cua nguoi choi DA CO san mot vanh cap ban kinh 1,35 m dat o
+     y = 52,1 (dung cho nhiem vu ISS), va vanh do NHO RA 0,275 m qua chop mui.
+     Do duoc khi da bat mem: hai chop mui cach nhau DUNG 0,000 m. Nen neu ben
+     cung co dau nho ra thi hai cum dam xuyen vao nhau 0,55 m. Cho ben lom vao
+     thanh o nhan de vanh cua tau tut vao — va do cung la kieu "concentric
+     probe-and-drogue" ma ban mo ta ky thuat cua cum cap neu ra.
+     Toan bo cum phai nam DUOI 51,9 de con 0,2 m o cho vanh cua tau. */
+  const cong = new THREE.Group(); cong.position.y = BODY + NOSE - .55; benObj.add(cong);
+  const vanhNgoai = new THREE.Mesh(new THREE.CylinderGeometry(1.52, 1.52, .5, 20, 1, true), MSteel);
+  vanhNgoai.material = vanhNgoai.material.clone(); vanhNgoai.material.side = THREE.DoubleSide;
+  cong.add(vanhNgoai);
+  const day = new THREE.Mesh(new THREE.CylinderGeometry(1.52, 1.52, .12, 20), MDark);
+  day.position.y = -.25; cong.add(day);        // day o nhan
+  for (let i = 0; i < 4; i++) {                // bon chot bat, om vao trong
+    const a = i / 4 * 6.2832 + .7854;
+    const c = new THREE.Mesh(new THREE.BoxGeometry(.3, .44, .2), MSteel);
+    c.position.set(Math.cos(a) * 1.45, .1, Math.sin(a) * 1.45);
+    c.rotation.y = -a; cong.add(c);
+  }
+  /* SUONG BON dang theo muc nap — cung khuon boostFrost: hinh tru goc o day,
+     scale.y la chieu cao that bang met. Bon chinh dai 27,64 m (do tu the tich
+     1758,5 m3 chia tiet dien 63,62 m2), nam tu day than len. */
+  const sg = new THREE.CylinderGeometry(R + .07, R + .07, 1, 36, 1, true);
+  sg.translate(0, .5, 0);
+  const suong = new THREE.Mesh(sg, new THREE.MeshStandardMaterial({
+    color: 0xEEF6FF, roughness: .95, metalness: 0, transparent: true, opacity: .55, depthWrite: false }));
+  suong.position.y = .4; suong.scale.y = .001; benObj.add(suong);
+  return { cong, suong, R, BODY, NOSE, DAI_BON: 27.64 };
+})();
+
+/* ===== HAI DUONG ONG NOI VA TIA DAY LANG =====
+   Ong: duong kinh THAT tu phep giai thuy luc — LOX 150 mm, CH4 107 mm (xem
+   khoi ONG trong flight.js). O 104,2 m giua hai diem trang thai, doan ho giua
+   hai chop mui chi con ~0,7 m nen ong nhin ra hai khuc ngan — dung the.
+   TIA DAY LANG: luc that la 445-1114 N, tuc 4,1% muc voi RCS. Chu thich o
+   issStep da ghi lai rang 3% "vua du cham nguong hien tia" va nhin nhu tau tu
+   troi ra — nghia la ve DUNG 4,1% thi nguoi choi KHONG THAY GI. Nen o day do
+   mo tia duoc SAN len muc nhin thay duoc, con LUC trong vat ly van la 445-1114
+   N. Day la mot cho co y phong dai, ghi ra de khong ai tuong la do duoc. */
+const TNLFX = (() => {
+  const g = new THREE.Group(); g.visible = false; scene.add(g);
+  /* KHONG VE ONG BEN NGOAI. Lan dau tao ve hai ong 150 va 107 mm chay giua hai
+     than, roi phep do tu bac bo no: khi da bat mem thi hai chop mui cach nhau
+     DUNG 0,000 m — hai cong cap khit, va nhien lieu chay BEN TRONG cum cong.
+     Chieu dai ong tinh ra bi kep xuong muc toi thieu 0,2 m, tuc gan nhu khong
+     thay. Ong ngoai la thu tao bia ra.
+     Thu NHIN THAY DUOC va co that o khop cap la SUONG: dong lanh sau 90 K chay
+     qua lam lanh cum cong, hoi am quanh do dong thanh bang. Ve mot ong suong
+     ngan om lay khop, dam dan theo thoi gian dang chay. */
+  const suongKhop = new THREE.Mesh(
+    new THREE.CylinderGeometry(1.62, 1.62, 2.6, 20, 1, true),
+    new THREE.MeshStandardMaterial({ color: 0xE8F4FF, roughness: .96, metalness: 0,
+                                     transparent: true, opacity: .5, depthWrite: false,
+                                     side: THREE.DoubleSide }));
+  g.add(suongKhop);
+  /* TIA DAY LANG — MOT cum duy nhat, o DAY BEN CHUA, phut RA XA TRAI DAT.
+     Lan dau tao ve hai cum (mot o day moi than) phut VE PHIA Trai Dat. Nhin anh
+     chup ra ngay hai cai sai:
+       · SAI CHIEU. Can gia toc cho ca cum huong VE Trai Dat (-R) de "trong luc
+         hieu dung" tren chat long huong +R: khi do long cua tau cho don len mui
+         no (ra cong), con long moi vao ben don ve day ben (tren cum dong co).
+         Ma muon day cum ve -R thi tia phai phut +R, tuc RA XA Trai Dat.
+       · SAI CHO. Voi tau cho, huong +R chinh la huong dang co BEN CHUA dung —
+         tia se thoi thang vao than no. Chi co day BEN CHUA (dau tren cua ca
+         cum, vi ben treo mui chuc xuong) moi nhin ra khoang trong theo +R.
+     Nen: mot cum o day ben, phut +R. Ca cum 104 m duoc day ve phia Trai Dat.
+
+     DO LON: luc that 445-1114 N (ham cua khoi chong, xem settleNeed). Mot voi
+     khi nong co luc ay cho mot tia nhin thay duoc dai vai met trong chan khong.
+     Lay 7 m x 1,0 m — KHONG phai so do duoc, la uoc cho hop ty le voi cum 104 m;
+     con LUC trong vat ly thi van la so suy ra. Ghi ro de khong ai nham. */
+  const tia = (() => {
+    const t = new THREE.Group();
+    const c = new THREE.Mesh(new THREE.ConeGeometry(1.0, 7.0, 14, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xBFE4FF, transparent: true, opacity: .55,
+                                    blending: THREE.AdditiveBlending, depthWrite: false,
+                                    side: THREE.DoubleSide }));
+    c.position.y = -3.5; c.rotation.x = Math.PI;   // non mo ve -Y cuc bo cua nhom
+    t.add(c); t.visible = false; scene.add(t);
+    return t;
+  })();
+  return { g, suongKhop, tia };
+})();
+
 const issObj = new THREE.Group(); issObj.visible = false; scene.add(issObj);
 {
   const MHull = new THREE.MeshStandardMaterial({ color: 0xD8DCE0, roughness: .6, metalness: .35 });
@@ -8875,7 +9018,12 @@ function setPhase(text, cls) { const p = $('phase'); p.textContent = text; p.cla
 const inReturn = () => phase === 'RETURN';
 const inShip = () => phase === 'SHIPRET';
 /* Hai pha nay camera phai bam TAU chu khong bam booster (booster da cham va dong bang). */
-const shipCam = () => phase === 'DEPLOY' || phase === 'DEORBIT' || phase === 'ISS' || phase === 'ABORT';
+/* Nhung pha ma KHUNG NHIN va PHEP DAT bam theo TAU chu khong theo booster.
+   Thieu mot pha o day thi tau van bay dung trong vat ly nhung tren hinh no bi
+   ve o tu the xep chong tren dinh booster, ngay tren be phong — da dinh dung
+   the voi hai pha tiep nhien lieu. */
+const shipCam = () => phase === 'DEPLOY' || phase === 'DEORBIT' || phase === 'ISS' || phase === 'ABORT'
+                   || phase === 'TNLBEN' || phase === 'TNLCHO';
 
 function reset() {
   st = F.makeState(); bo = null; shr = null;
@@ -9183,11 +9331,22 @@ function setPayUI() {
                              : w.wait / 3600 > tran * .5 ? 'var(--caution)' : 'var(--steel)';
     return;
   }
+  if (missionType === 'tiepnhienlieu') {
+    /* Khoang hang TRONG o ca hai ban: nhien lieu nam trong BON CHINH chu khong
+       trong khoang. Do duoc: cho nhien lieu trong khoang hang la LO RONG —
+       moi tan hang lam giam 0,206 t giao duoc, vi no di theo tau suot ca chang
+       len VA ca cu dot chuyen quy dao. */
+    $('payTgt').textContent = TNL && TNL.ben
+      ? `Tàu chở — bồn chính, khoang trống`
+      : `Bến chứa — bản chuẩn, khoang trống`;
+    return;
+  }
   $('payTgt').textContent = payloadSats === 0 ? 'Không chở'
     : `${payloadSats} vệ tinh · ${(payloadSats * 0.8).toFixed(0)} t`;
 }
 $('payBtn').onclick = () => {
   if (phase !== 'PRE') return;
+  if (missionType === 'tiepnhienlieu') return;   // khoang luon trong, khong co gi de doi
   if (missionType === 'iss') crewIdx = (crewIdx + 1) % CREW_OPTS.length;
   else payloadSats = PAY_OPTS[(PAY_OPTS.indexOf(payloadSats) + 1) % PAY_OPTS.length];
   setPayUI();
@@ -11002,6 +11161,8 @@ function watchFps(raw) {
 }
 
 const _pinA = new THREE.Vector3(), _pinB = new THREE.Vector3();
+const _tnlA = new THREE.Vector3(), _tnlB = new THREE.Vector3(),
+      _tnlC = new THREE.Vector3(), _tnlD = new THREE.Vector3();
 let peakTb = 0, peakTl = 0, peakTh = 0, peakYaw = 0;   // dinh nhiet + lech phuong, cho ban ghi
 let fxHeat = 0, fxSlot = 0, shipTb = 0;   // nhiet do tam chan, dung cho do ruc cua vo       // nhiet luong va do "rit" hien tai, dung chung cho hinh va tieng
 
@@ -12020,9 +12181,68 @@ function frame(now) {
     issObj.rotation.z = -Math.atan2(iss.stn.x, iss.stn.y);   // +Y cuc bo ra xa Trai Dat
     issObj.visible = true;
   } else issObj.visible = false;
+  /* ===== BEN CHUA: cung phep dat nhu tram ISS =====
+     Dat TUONG DOI VOI TAU bang dung hieu vec-to vat ly, voi dung ly do da ghi o
+     khoi tram ngay tren: worldPosCr chieu len mat cau nen hai ban kinh khac nhau
+     khong con la phep doi hinh cung, va hai cong bao cham nhau ma tren hinh van
+     ho may met. */
+  if (TNL && TNL.ben) {
+    benObj.position.set(shipObj.position.x + (TNL.ben.x - st.x),
+                        shipObj.position.y + (TNL.ben.y - st.y),
+                        shipObj.position.z);
+    /* +Math.PI so voi tram: tram cho +Y cuc bo RA XA Trai Dat, con ben chua
+       treo MUI CHUC XUONG nen +Y cuc bo (tu day than len mui) phai chi VAO
+       Trai Dat. Day la the can bang ben cua gradient trong luc — xem khoi BEN. */
+    benObj.rotation.z = -Math.atan2(TNL.ben.x, TNL.ben.y) + Math.PI;
+    benObj.visible = true;
+    /* Suong bon dang theo muc nap: chieu cao cot long = ty le nap x dai bon. */
+    const nap = Math.max(0, Math.min(1, TNL.ben.prop2 / (F.VEH.s2.prop - F.VEH.s2.header)));
+    BEN.suong.scale.y = Math.max(.001, nap * BEN.DAI_BON);
+    BEN.suong.visible = nap > .01;
+  } else benObj.visible = false;
   /* Trong pha ISS tu the tau do lo ghep noi quyet dinh (st.th), khong phai vec-to
      luc day: dang tiep can thi mui phai chi len doc truc hanh lang. */
   if (phase === 'ISS' && iss && st.th !== undefined) shipObj.rotation.z = -st.th;
+  /* Y het cho pha tau cho: tu the do lo ghep noi quyet dinh. */
+  if (phase === 'TNLCHO' && tnl && st.th !== undefined) shipObj.rotation.z = -st.th;
+
+  /* ===== HAI DUONG ONG + TIA DAY LANG, chi khi dang truyen =====
+     PHAI DAT SAU hai dong `shipObj.rotation.z = -st.th` ngay tren. Lan dau tao
+     de khoi nay TRUOC chung, va no doc tu the cua KHUNG TRUOC: do ra ong dai
+     73,68 m trong khi hai chop mui cham nhau — dung bang 104,2/sqrt(2), tuc hai
+     tu the lech nhau 90 do. Cung lop loi ma chu thich o dau dock.js da ghi
+     ("luat dan phai doc trang thai dau buoc"), chi khac la o day no o lop VE. */
+  if (TNL && TNL.dangTruyen && benObj.visible) {
+    /* Hai chop mui: tau cho mui chi LEN (+Y cuc bo), ben mui chi XUONG. Lay
+       diem mui that bang cach dua (0, 52.1, 0) qua ma tran cua tung vat the. */
+    shipObj.updateWorldMatrix(true, false); benObj.updateWorldMatrix(true, false);
+    const a = _tnlA.set(0, SHIP_BODY_LEN, 0).applyMatrix4(shipObj.matrixWorld);
+    const b = _tnlB.set(0, SHIP_BODY_LEN, 0).applyMatrix4(benObj.matrixWorld);
+    const truc = _tnlC.copy(b).sub(a);
+    const L = truc.length();
+    TNLFX.g.position.copy(a).add(_tnlD.copy(truc).multiplyScalar(.5));
+    TNLFX.g.quaternion.setFromUnitVectors(_UPY, truc.normalize());
+    /* Suong dam dan trong 20 giay dau roi giu — dong lanh phai chay mot luc moi
+       dong duoc bang. L do duoc de doi chieu: khi cap dung thi no ~0. */
+    TNLFX.suongKhop.material.opacity = .18 + .42 * Math.min(1, (TNL.dangTruyen.t || 0) / 20);
+    TNLFX.g.visible = L < 3;        // cap lech qua thi dung ve suong khop
+    TNLFX.khoKhop = L;
+    /* Tia day lang o DAY BEN CHUA, phut RA XA Trai Dat. Day ben la goc cuc bo
+       cua benObj; huong ra xa Trai Dat tai do chinh la -Y cuc bo cua ben (ben
+       treo mui chuc xuong nen +Y cua no chi VAO Trai Dat). Nhom `tia` ve non
+       theo -Y nen chi can dat quaternion cua ben la dung chieu. */
+    benObj.updateWorldMatrix(true, false);
+    const t = TNLFX.tia;
+    t.position.set(0, 0, 0).applyMatrix4(benObj.matrixWorld);
+    t.quaternion.setFromRotationMatrix(benObj.matrixWorld);
+    t.visible = true;
+    /* Nhip phut cho thay no dang LAM VIEC chu khong dung im. */
+    t.scale.setScalar(1).setY(.72 + .28 * Math.pow(Math.max(0, Math.sin(now * .05)), .5));
+  } else {
+    TNLFX.g.visible = false;
+    TNLFX.tia.visible = false;
+  }
+
   /* Hai canh truot NGUOC nhau, moi canh dung mot nua cung — the la khe ho het.
      Mot canh di 1.15 rad nhu truoc thi hoac de len vung gach hoac de len cum RCS. */
   if (bayDoorL) { bayDoorL.rotation.y = -bayOpen * BAY_ARC / 2;
