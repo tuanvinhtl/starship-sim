@@ -1179,6 +1179,24 @@
        toi thieu 0.4), dot can sach roi ket o do — 18000 s mo phong khong bao
        gio cham dat. */
     if (b.prop <= 0) { c.throttle = 0; c.nEng = 0; }
+    /* SAN GA CUA DONG CO. `eng.tmin = 0.40` da nam trong dinh nghia phuong tien
+       tu dau (VEH.s1.eng) va duoc ton trong tren duong LEN — selectSetting ket
+       bang `Math.max(VEH.s1.eng.tmin, ...)`. Nhung duong VE thi di thang qua
+       clusterThrust, ma ham do KHONG co san nao: no chi nhan tuyen tinh. Nen o
+       pha ha canh nguoi choi vat ga xuong 4% cung duoc, va chinh do la thu bien
+       "khong the treo" thanh "treo de nhu choi": do duoc, giu do cao can ga
+       47,6% voi 3 may, 11,0% voi 13 may, 4,3% voi 33 may — hai so cuoi khong
+       mot dong co that nao lam duoc.
+       Raptor that: dai ga 40-100% (bang thong so cua Raptor tren Wikipedia).
+       Musk 2019: ha xuong ~50% la "kho nhung lam duoc", 25% thi "cuc kho".
+       Nen 0,40 khong phai so tao chon — no da o trong ma tu truoc.
+       GA 0 VAN DUOC: do la TAT MAY, khong phai ga thap. Cai khong ton tai la
+       dai (0; tmin) — may chay ma chay ri rich. Do chinh la ly do SpaceX ha
+       bang hoverslam chu khong treo: voi san 40%, 13 may o muc thap nhat da cho
+       3,6 g huong len, khong co cach nao giu lo lung.
+       Day cung sua mot cho bo TU DONG tu vi pham: pha ENTRY tra ga 0,25 khi tu
+       the chua thang. Da cham lai bang tools/boosteval.js sweep sau khi sua. */
+    if (c.throttle > 0 && c.throttle < VEH.s1.eng.tmin) c.throttle = VEH.s1.eng.tmin;
     b.throttle = c.throttle; b.nEng = c.nEng; b.pitch = c.pitch;
 
     const fr = bFrame(b), Aq = atmosphere(fr.alt);
