@@ -111,6 +111,9 @@ function chienDich(phaDau, trace) {
     while (tk.t < tArr) { const dt = Math.min(1, tArr - tk.t); D.step(d, dt); F.boilStep(ben, dt); }
     if (!D.burn(F, tk, h.dv2).ok) return { ok: false, vi: 'thieu nhien lieu tron quy dao tren', chuyen: nChuyen };
     // --- tiep can + bat mem ---
+    { const tc = D.tel(d);
+      log(`toi noi: duoi ben ${(-tc.R).toFixed(0)} m, lech doc ${tc.V.toFixed(0)} m, `
+        + `troi ${Math.hypot(tc.dR, tc.dV).toFixed(3)} m/s, RCS ${tk.rcs.toFixed(0)} kg`); }
     d.phase = 'APPROACH';
     let n = 0;
     while (n < 3e7 && d.phase !== 'DOCKED' && d.tries < 6) { D.step(d, DT); F.boilStep(ben, DT); n++; }

@@ -126,7 +126,17 @@
      cho la ca ke hoach quay ve lech 5 t ma khong ai thay.
      `s.tanker` la co tren trang thai, dat luc phong. */
   const dry2 = s => (s && s.tanker) ? VEH.s2.dryT : VEH.s2.dry;
-  const m2 = s => dry2(s) + PAYLOAD + s.prop2 + (s.head || 0);
+  /* KHOI LUONG HANG PHAI NAM TREN TRANG THAI, khong doc bien toan cuc PAYLOAD.
+     Ly do: chien dich tiep nhien lieu co mot con tau SONG TREN QUY DAO qua
+     NHIEU LAN PHONG, va moi lan phong sau lai goi setPayload() cho chinh no.
+     Doc bien toan cuc thi khoi luong cua ben chua doi theo tai cua chuyen dang
+     bay — da dinh that: ben bi cong them 28 t nen nhu cau TLI nhay tu 201,9
+     len 238,4 t giua chien dich.
+     `s.pay` chot luc makeState(); muon doi giua chuyen (tha ve tinh, giao hang
+     cho tram) thi ghi thang vao s.pay. Thieu truong thi lui ve PAYLOAD de moi
+     duong cu chay y nguyen. */
+  const pay2 = s => (s && s.pay !== undefined) ? s.pay : PAYLOAD;
+  const m2 = s => dry2(s) + pay2(s) + s.prop2 + (s.head || 0);
 
   function clusterThrust(e, throttle, pAmb, nLive) {
     const n = (nLive === undefined) ? e.n : nLive;
@@ -163,7 +173,7 @@
   function makeState(opt) {
     const tk = !!(opt && opt.tanker);
     return {
-      t: 0, x: 0, y: RE, vx: 0, vy: 0, stage: 1, tanker: tk,
+      t: 0, x: 0, y: RE, vx: 0, vy: 0, stage: 1, tanker: tk, pay: PAYLOAD,
       prop1: VEH.s1.prop, prop2: VEH.s2.prop - VEH.s2.header, head: VEH.s2.header,
       m: VEH.s1.dry + VEH.s1.prop + (tk ? VEH.s2.dryT : VEH.s2.dry) + VEH.s2.prop + PAYLOAD,
       nSL: VEH.s2.sl.n, nVac: VEH.s2.vac.n, throttle: 1, alive: true,
@@ -470,7 +480,7 @@
         s.prop1 = Math.max(0, s.prop1 - (dm - d2));
       } else s.prop1 = Math.max(0, s.prop1 - dm);
     } else s.prop2 = Math.max(0, s.prop2 - dm);
-    s.m = Math.max(dry2(s) + PAYLOAD + (s.head || 0), s.m - dm);
+    s.m = Math.max(dry2(s) + pay2(s) + (s.head || 0), s.m - dm);
     s.t += dt;
 
     const newAlt = Math.hypot(s.x, s.y) - RE, newSpeed = Math.hypot(s.vx, s.vy);
@@ -1805,7 +1815,7 @@
       impact: sh.pi || 0, hBurn: sh.hBurn || 0, toBurn: (f.alt - CATCH_ALT) - (sh.hBurn || 0) - 420 };
   }
 
-  return { G0, RE, MU, VEH, AREA, dry2, m2, atmosphere, cdOfMach, makeState, step,
+  return { G0, RE, MU, VEH, AREA, dry2, m2, pay2, atmosphere, cdOfMach, makeState, step,
            WEATHER, WX_KEYS, setWeather, getWeather, randomWeather, windAt, airPitch,
            setBoosterTarget, getBoosterTarget, setShipTargetDr, getShipTargetDr,
            telemetry, selectSetting, clusterThrust, s2Thrust, thrustDir,

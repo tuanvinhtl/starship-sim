@@ -689,7 +689,17 @@ body{
      cho la ca ke hoach quay ve lech 5 t ma khong ai thay.
      `s.tanker` la co tren trang thai, dat luc phong. */
   const dry2 = s => (s && s.tanker) ? VEH.s2.dryT : VEH.s2.dry;
-  const m2 = s => dry2(s) + PAYLOAD + s.prop2 + (s.head || 0);
+  /* KHOI LUONG HANG PHAI NAM TREN TRANG THAI, khong doc bien toan cuc PAYLOAD.
+     Ly do: chien dich tiep nhien lieu co mot con tau SONG TREN QUY DAO qua
+     NHIEU LAN PHONG, va moi lan phong sau lai goi setPayload() cho chinh no.
+     Doc bien toan cuc thi khoi luong cua ben chua doi theo tai cua chuyen dang
+     bay — da dinh that: ben bi cong them 28 t nen nhu cau TLI nhay tu 201,9
+     len 238,4 t giua chien dich.
+     `s.pay` chot luc makeState(); muon doi giua chuyen (tha ve tinh, giao hang
+     cho tram) thi ghi thang vao s.pay. Thieu truong thi lui ve PAYLOAD de moi
+     duong cu chay y nguyen. */
+  const pay2 = s => (s && s.pay !== undefined) ? s.pay : PAYLOAD;
+  const m2 = s => dry2(s) + pay2(s) + s.prop2 + (s.head || 0);
 
   function clusterThrust(e, throttle, pAmb, nLive) {
     const n = (nLive === undefined) ? e.n : nLive;
@@ -726,7 +736,7 @@ body{
   function makeState(opt) {
     const tk = !!(opt && opt.tanker);
     return {
-      t: 0, x: 0, y: RE, vx: 0, vy: 0, stage: 1, tanker: tk,
+      t: 0, x: 0, y: RE, vx: 0, vy: 0, stage: 1, tanker: tk, pay: PAYLOAD,
       prop1: VEH.s1.prop, prop2: VEH.s2.prop - VEH.s2.header, head: VEH.s2.header,
       m: VEH.s1.dry + VEH.s1.prop + (tk ? VEH.s2.dryT : VEH.s2.dry) + VEH.s2.prop + PAYLOAD,
       nSL: VEH.s2.sl.n, nVac: VEH.s2.vac.n, throttle: 1, alive: true,
@@ -1033,7 +1043,7 @@ body{
         s.prop1 = Math.max(0, s.prop1 - (dm - d2));
       } else s.prop1 = Math.max(0, s.prop1 - dm);
     } else s.prop2 = Math.max(0, s.prop2 - dm);
-    s.m = Math.max(dry2(s) + PAYLOAD + (s.head || 0), s.m - dm);
+    s.m = Math.max(dry2(s) + pay2(s) + (s.head || 0), s.m - dm);
     s.t += dt;
 
     const newAlt = Math.hypot(s.x, s.y) - RE, newSpeed = Math.hypot(s.vx, s.vy);
@@ -2368,7 +2378,7 @@ body{
       impact: sh.pi || 0, hBurn: sh.hBurn || 0, toBurn: (f.alt - CATCH_ALT) - (sh.hBurn || 0) - 420 };
   }
 
-  return { G0, RE, MU, VEH, AREA, dry2, m2, atmosphere, cdOfMach, makeState, step,
+  return { G0, RE, MU, VEH, AREA, dry2, m2, pay2, atmosphere, cdOfMach, makeState, step,
            WEATHER, WX_KEYS, setWeather, getWeather, randomWeather, windAt, airPitch,
            setBoosterTarget, getBoosterTarget, setShipTargetDr, getShipTargetDr,
            telemetry, selectSetting, clusterThrust, s2Thrust, thrustDir,
@@ -8694,7 +8704,7 @@ let payloadSats = 40, depN = 0, depT = 0, depShut = 0, bayOpen = 0, depDone = fa
    tu sau SECO. Bien missionType quyet dinh maybeEnd() re huong nao. */
 const ISS_ALT = 420e3;         // m — do cao tram
 const ISS_BELOW = 2000;        // m — quy dao dong-elip tau cho o duoi tram
-const MIS_OPTS = ['starlink', 'iss'];
+const MIS_OPTS = ['starlink', 'iss', 'tiepnhienlieu'];
 const CREW_OPTS = [             // nguoi, hang (kg). 500 kg moi nguoi ke ca khoang o.
   { crew: 4,  cargo: 5e3 },
   { crew: 7,  cargo: 10e3 },
@@ -8882,6 +8892,7 @@ function reset() {
   throttleCmd = 1; pitchCmd = 0; bEngIdx = 2; acc = 0; peakQ = 0; missionT = 0; shakeT = 0;
   vePitch = null;               // chuyen sau bat dau lai tu dung lenh, khong giu tu the cu
   shipResult = null; boostResult = null; shipTelFinal = null; shipLand = null; turbo = false;
+  TNL = null; tnl = null;         // chien dich: tnlChuyenSau() giu lai roi tra ve sau khi goi reset()
   /* Vanh hot-stage: hien lai tren booster va don ban sao dang roi. Thieu cho nay
      thi tu chuyen thu hai tro di booster khong con vanh — dung loai loi "quen
      don trang thai" ma chi lo lan choi dau khong thay. */
@@ -9129,7 +9140,12 @@ $('again').onclick = () => { reset(); launch(); };
 $('reroll').onclick = () => { if (phase === 'PRE') rollTargets(); };   // launch() tu an intro
 function setMisUI() {
   const iss_ = missionType === 'iss';
-  $('misTgt').textContent = iss_ ? 'Trạm ISS — người + hàng' : 'Starlink — thả vệ tinh';
+  const tnl_ = missionType === 'tiepnhienlieu';
+  $('misTgt').textContent = tnl_
+    ? (TNL && TNL.ben
+        ? `Tiếp nhiên liệu — chuyến ${TNL.nChuyen + 1}, bến ${(TNL.ben.prop2 / 1000).toFixed(0)} t`
+        : `Tiếp nhiên liệu — bến ${(TNL_ALT / 1000).toFixed(0)} km, cần ${TNL_CAN} chuyến`)
+    : iss_ ? 'Trạm ISS — người + hàng' : 'Starlink — thả vệ tinh';
   $('payBtn').textContent = iss_ ? 'Đổi người & hàng' : 'Đổi số vệ tinh';
   $('winRow').hidden = !iss_; $('crewRow').hidden = !iss_; $('winBtn').hidden = !iss_;
   if (iss_) {
@@ -9228,7 +9244,19 @@ function launch() {
      ban phong, roi nhac tau chong len dinh booster. Bam SPACE de bo qua. */
   /* CHOT TAI o day: khoi luong hang doi ca khoi luong luc phong lan goc hat mui,
      nen phai tao lai trang thai sau khi dat. */
-  F.setPayload(missionType === 'iss' ? issPay() : payloadSats * F.SAT.m); st = F.makeState();
+  if (missionType === 'tiepnhienlieu') {
+    if (!TNL) tnlMo();
+    /* Tai 0 cho ca hai ban: ben khong cho gi, tau cho thi nhien lieu nam trong
+       BON CHINH chu khong trong khoang hang — do duoc, cho trong khoang hang la
+       LO RONG 0,206 t giao duoc moi tan hang. */
+    F.setPayload(0);
+    st = F.makeState({ tanker: tnlLaTauCho() });
+    logLine(tnlLaTauCho()
+      ? `Chuyến ${TNL.nChuyen + 1}: TÀU CHỞ (khô ${(F.VEH.s2.dryT / 1000).toFixed(0)} t)`
+      : `Chuyến 1: BẾN CHỨA (bản chuẩn, khô ${(F.VEH.s2.dry / 1000).toFixed(0)} t)`, 'hi');
+  } else {
+    F.setPayload(missionType === 'iss' ? issPay() : payloadSats * F.SAT.m); st = F.makeState();
+  }
   phase = 'STACK'; stackT = 0; padRel = 1; padRelease(1); stackBegin();
   setPhase('Xếp chồng'); logLine('Cánh tay đũa nhấc booster lên bệ', 'hi');
   const wxNow = F.getWeather();
@@ -9311,8 +9339,24 @@ function maybeEnd() {
   if (bRes && !bRes.seated) return;
   // Booster xong roi -> chuyen sang man 3: dua Starship ve. Chi lam duoc neu
   // tau that su len duoc quy dao.
+  if (missionType === 'tiepnhienlieu') {
+    /* RE HUONG KIN cho nhiem vu nay: khong duoc roi xuong cac nhanh duoi, vi
+       chung duoc viet cho hai nhiem vu cu. */
+    if (shipResult === 'orbit' && !shr) {
+      if (!TNL || !TNL.ben) { startTnlBen(); return; }
+      if (!tnl) { startTnlCho(); return; }
+      startShipReturn(); return;
+    }
+    endGame(); return;
+  }
   if (shipResult === 'orbit' && !shr && missionType === 'iss' && !iss) { startIss(); return; }
-  if (shipResult === 'orbit' && !shr && missionType !== 'iss' && payloadSats > 0 && !depDone) { startDeploy(); return; }
+  /* `=== 'starlink'` chu khong `!== 'iss'`. Khi chi co hai nhiem vu thi hai cach
+     viet tuong duong; them nhiem vu THU BA thi "khong phai iss" bat luon no, va
+     chuyen tiep nhien lieu roi vao trinh tu THA VE TINH. Da dinh that: nguoi
+     choi khong thay gi la, nhung deployStep goi setPayload((40-5)*800) = 28 t,
+     va tu do m2() cua BEN CHUA bi cong them 28 t nen TLI doi tu 201,9 thanh
+     238,4 t — tuc ca chien dich tu nhien can them nua chuyen tau cho. */
+  if (shipResult === 'orbit' && !shr && missionType === 'starlink' && payloadSats > 0 && !depDone) { startDeploy(); return; }
   if (shipResult === 'orbit' && !shr) { startShipReturn(); return; }
   endGame();
 }
@@ -9354,6 +9398,7 @@ function deployStep(dt) {
       depT -= F.SAT.gap;
       satList.push(F.makeSat(st, depN)); depN++;
       F.setPayload(Math.max(0, (payloadSats - depN) * F.SAT.m));
+      st.pay = F.getPayload();          // hang con lai TREN CHINH tau nay
       Sfx.beep(920, .05, .10);
       if (depN % 10 === 0 || depN === payloadSats) logLine(`Đã thả ${depN}/${payloadSats} vệ tinh`, 'hi');
     }
@@ -9393,6 +9438,234 @@ function deployStep(dt) {
      APPROACH bam theo moc R-bar, nham bang ma tran chuyen trang thai CW.
      DOCKED   chuyen nguoi va hang.
      UNDOCK   day xuong, tach ra, roi giao cho pha ha quy dao san co.  */
+/* ===================== CHIEN DICH TIEP NHIEN LIEU TREN QUY DAO =====================
+   Vong choi: lan phong 1 dua TANG TREN len lam BEN CHUA va no O LAI TREN DO;
+   booster duoc thap bat, nap day, xep chong lai; lan phong 2 tro di dua ban TAU
+   CHO len, hen gap ben, ghep MUI-VOI-MUI, truyen nhien lieu bang chenh ap, roi
+   ha quy dao ve va duoc thap bat. Du 3 chuyen thi ben co du nhien lieu dot TLI.
+
+   Day la DUNG ke hoach cong khai cua SpaceX (xem khoi TIEP NHIEN LIEU trong
+   flight.js). Huong ghep thi nguon cong khai KHONG CHOT: mot ban ra soat V3
+   noi mui-voi-mui, space.com dem bon o cap doc THAN, mot bai cu hon noi canh-
+   voi-canh, va khong co tai lieu so cap nao. Chon mui-voi-mui VI VAT LY, khong
+   vi nguon: ben treo mui chuc xuong Trai Dat con tau cho len tu duoi mui chi
+   len, nen MOT huong day lang duy nhat vua don long cua tau cho ra cong cua no
+   vua don long moi vao duoi ben — dung cho cum dong co. Ghep duoi-voi-duoi
+   khong co huong nao lam duoc ca hai viec.
+
+   TRANG THAI CHIEN DICH PHAI NAM NGOAI `st`: ca reset() lan launch() deu lam
+   `st = F.makeState()`, nen ben chua khong the nam trong do. */
+const TNL_ALT = 300e3;          // do cao ben. 300 km: do duoc giao 61,8 t/chuyen,
+                                // doi cua so te nhat 2,4 ngay, tut do cao khong dang ke
+const TNL_CAN = 3;              // so chuyen tau cho du cho TLI — DO DUOC, khong dat
+let TNL = null;                 // null = chua vao chien dich nao
+
+function tnlMo() { TNL = { ben: null, nChuyen: 0, thanh: false, hBen: TNL_ALT, giao: [], ngay: 0 }; }
+const tnlCo = () => missionType === 'tiepnhienlieu' && !!TNL;
+/* Lan phong nay la TAU CHO hay la BEN? Co ben roi thi la tau cho. */
+const tnlLaTauCho = () => !!(TNL && TNL.ben);
+let tnl = null;                 // trang thai hen gap cua chuyen tau cho dang bay
+
+/* Het mot chuyen MA CHIEN DICH CHUA XONG: dung lai y nhu reset() nhung GIU
+   trang thai chien dich. Lam bang cach giu-reset-tra thay vi tach reset() ra,
+   vi reset() dai 40 dong va cham vao mot ta he thong — tach no ra la tu moi
+   mot lop loi moi de sua mot cho khong can sua. */
+function tnlChuyenSau() {
+  const giu = TNL;
+  reset();
+  TNL = giu;
+  const t = F.tliNeed(TNL.ben);
+  logLine(`— Chuyến ${TNL.nChuyen}/${TNL_CAN} xong. Bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t, `
+        + `TLI cần ${(t.need / 1000).toFixed(1)} t —`, 'hi');
+  logLine('Bấm Phóng để đưa chuyến tiếp theo lên', 'hi');
+  setMisUI();
+}
+
+/* LAN PHONG 1 — dua ben chua len do cao roi THA NO O DO. */
+function startTnlBen() {
+  const r = F.circularize(st);
+  if (r.ok) showBurn(r.dv, st.m || 210e3, 3, 1);
+  phase = 'TNLBEN'; auto = true; camMode = 3; camAuto = false; cinReset();
+  buildGrid('ship'); setCellLabels('asc'); $('catchbar').hidden = true;
+  setPhase('Đưa bến lên quỹ đạo', 'hot');
+  if (r.ok) logLine(`Tròn quỹ đạo ${r.dv.toFixed(0)} m/s — hết ${r.used.toFixed(1)} t`, 'hi');
+  else { logLine(`Thiếu nhiên liệu để tròn quỹ đạo`, 'bad'); shipResult = 'stranded'; endGame(); return; }
+  const r1 = Math.hypot(st.x, st.y), r2 = F.RE + TNL.hBen;
+  const h = D.hohmann(F, r1, r2);
+  const b = D.burn(F, st, h.dv1);
+  if (!b.ok) { logLine('Thiếu nhiên liệu để lên độ cao bến', 'bad'); shipResult = 'stranded'; endGame(); return; }
+  showBurn(h.dv1, st.m || 190e3, 1, .40);
+  TNL.tArr = st.t + h.t; TNL.dv2 = h.dv2;
+  logLine(`Đốt chuyển tiếp ${h.dv1.toFixed(1)} m/s lên bến ${(TNL.hBen / 1000).toFixed(0)} km`, 'hi');
+  logLine(`Bay lên viễn điểm mất ${(h.t / 60).toFixed(0)} phút`, 'hi');
+}
+
+function tnlBenStep(dt) {
+  F.orbitStep(st, dt);
+  missionT = st.t;
+  if (st.t < TNL.tArr) return;
+  const b = D.burn(F, st, TNL.dv2);
+  showBurn(TNL.dv2, st.m || 190e3, 1, .40);
+  if (!b.ok) { logLine('Thiếu nhiên liệu tròn quỹ đạo trên', 'bad'); shipResult = 'stranded'; endGame(); return; }
+  /* GIU CHINH DOI TUONG `st`, khong sao chep: tu day no la ben chua, va lan
+     phong sau `st` se duoc gan lai mot trang thai moi — hai thu phai roi nhau. */
+  TNL.ben = st;
+  TNL.ben.laBen = true;
+  const t = F.tliNeed(TNL.ben);
+  logLine(`Tròn quỹ đạo ${TNL.dv2.toFixed(1)} m/s — BẾN CHỨA đã vào vị trí`, 'hi');
+  logLine(`Bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t · TLI cần ${(t.need / 1000).toFixed(1)} t `
+        + `(Δv ${t.dv.toFixed(0)} m/s) → thiếu ${((t.need - TNL.ben.prop2) / 1000).toFixed(1)} t`, 'hi');
+  logLine(`Bay hơi ${F.boilDay().toFixed(2)} t/ngày — đồng hồ bắt đầu chạy`, 'bad');
+  shipResult = 'depot';
+  maybeEnd();                     // mot duong duy nhat ra khoi mot chuyen
+}
+
+/* HET MOT CHUYEN. Ba nga: du TLI thi thang; qua 8 chuyen ma khong du thi bay
+   hoi da thang, bao cuoc; con lai thi phong chuyen tiep. */
+function tnlHetChuyen() {
+  const tl = F.tliNeed(TNL.ben);
+  if (tl.du >= 0 && TNL.nChuyen > 0) {
+    TNL.thanh = true;
+    logLine(`ĐỦ NHIÊN LIỆU TLI — bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t, `
+          + `cần ${(tl.need / 1000).toFixed(1)} t, dư ${(tl.du / 1000).toFixed(1)} t`, 'hi');
+    logLine(`${TNL.nChuyen} chuyến tàu chở · ${TNL.nChuyen + 1} lần phóng · `
+          + `bay hơi mất ${((TNL.ben.boiled || 0) / 1000).toFixed(1)} t`, 'hi');
+    logLine('Đốt TLI — bến rời quỹ đạo Trái Đất', 'hi');
+    Sfx.thud(150);
+    return false;                 // de endGame() chay tiep, cham diem chien dich
+  }
+  if (TNL.nChuyen >= 8) {
+    logLine(`Tám chuyến mà bến vẫn thiếu ${(-tl.du / 1000).toFixed(1)} t — bay hơi đã thắng`, 'bad');
+    return false;
+  }
+  tnlChuyenSau();
+  return true;                    // da ve PRE, dung ket thuc game
+}
+
+/* LAN PHONG 2 TRO DI — TAU CHO: hen gap ben, ghep, truyen, ve nha.
+   Tai dung nguyen bo hen gap cua nhiem vu ISS; khac ba cho: muc tieu la mot
+   CON TAU that (D.make voi tgt + tgtShip) nen tam cap 104,2 m va co tron dong
+   luong luc bat mem; pha DOCKED thay bang pha TRUYEN; va xong thi ve nha chu
+   khong o lai. */
+function startTnlCho() {
+  const r = F.circularize(st);
+  if (r.ok) showBurn(r.dv, st.m || 210e3, 3, 1);
+  else { logLine('Thiếu nhiên liệu để tròn quỹ đạo', 'bad'); shipResult = 'stranded'; endGame(); return; }
+  phase = 'TNLCHO'; auto = true; camMode = 3; camAuto = false; cinReset();
+  buildGrid('ship'); setCellLabels('asc'); $('catchbar').hidden = true;
+  setPhase('Đuổi pha tới bến', 'hot');
+  logLine(`Tròn quỹ đạo ${r.dv.toFixed(0)} m/s — hết ${r.used.toFixed(1)} t`, 'hi');
+  tnl = D.make(F, st, { tgt: TNL.ben, tgtShip: true, alt: TNL.hBen });
+  tnl.phase = 'PHASING';
+  khiDaBao = 0;
+  const w = D.windowIn(F, st, TNL.ben, F.RE + TNL.hBen - ISS_BELOW);
+  logLine(`Bến dẫn trước ${(w.now * 57.3).toFixed(0)}° — cần ${(w.need * 57.3).toFixed(1)}°`, 'hi');
+  logLine(`Phải đuổi ${(w.wait / 3600).toFixed(1)} giờ · ${w.orbits.toFixed(1)} vòng `
+        + `(bay hơi mất ${(F.boilDay() * w.wait / 86400).toFixed(2)} t)`, w.orbits > 20 ? 'bad' : 'hi');
+  logLine('Bấm ⏩ Tua tới sự kiện nếu không muốn chờ', 'hi');
+}
+
+function tnlChoStep(dt) {
+  const tay = dockManual && (tnl.phase === 'APPROACH' || tnl.phase === 'UNDOCK');
+  const cmd = tay ? manualCmd()
+            : tnl.phase === 'UNDOCK' ? { aR: -0.02, aV: 0, tq: 0 } : null;
+  D.step(tnl, dt, cmd);
+  missionT = st.t;
+  const t = D.tel(tnl);
+  /* Muc khi RCS + duong lui khi het: dung nguyen bo cua ISS, chi khac loi nhat
+     ky. Het khi thi BO CHUYEN HANG chu khong mat tau — no con binh chinh de ve. */
+  if (tnl.phase === 'APPROACH' || tnl.phase === 'UNDOCK') {
+    const pc = t.rcsFrac * 100;
+    while (khiDaBao < KHI_MOC.length && pc <= KHI_MOC[khiDaBao]) {
+      const m = KHI_MOC[khiDaBao++];
+      logLine(`Khí RCS còn ${m}%`, m <= 25 ? 'bad' : 'hi');
+    }
+    if (pc <= 0 && tnl.phase === 'APPROACH') {
+      logLine('HẾT KHÍ RCS — không ghép được, mất cả chuyến hàng', 'bad');
+      logLine('Bỏ ghép nối, hạ quỹ đạo đưa tàu về', 'bad');
+      tnl.phase = 'DONE'; TNL.boCap = true; startDeorbit(); return;
+    }
+  }
+
+  if (tnl.phase === 'PHASING') {
+    const rTgt = F.RE + TNL.hBen - ISS_BELOW;
+    const w = D.windowIn(F, st, TNL.ben, rTgt);
+    /* CHAN DOT KHI CUA SO CHUA MO. Da dinh mot lan trong bo cham: dot som thi
+       khong bao loi gi, tau bay toi mot cho khong co ai roi duoi 4 700 km bang
+       RCS cho den can bon. */
+    if (w.wait <= dt * 2) {
+      const h = D.hohmann(F, Math.hypot(st.x, st.y), rTgt);
+      const b = D.burn(F, st, h.dv1);
+      if (!b.ok) { logLine('Thiếu nhiên liệu để chuyển quỹ đạo', 'bad'); shipResult = 'stranded'; endGame(); return; }
+      showBurn(h.dv1, st.m || 190e3, 1, .40);
+      tnl.phase = 'TRANSFER'; tnl.tArr = st.t + h.t; tnl.dv2 = h.dv2;
+      setPhase('Chuyển quỹ đạo', 'hot');
+      logLine(`Đốt chuyển tiếp ${h.dv1.toFixed(1)} m/s — hết ${b.used.toFixed(2)} t`, 'hi');
+    }
+    return;
+  }
+  if (tnl.phase === 'TRANSFER') {
+    if (st.t >= tnl.tArr) {
+      const b = D.burn(F, st, tnl.dv2);
+      showBurn(tnl.dv2, st.m || 190e3, 1, .40);
+      tnl.phase = 'COELLIP'; setPhase('Đồng quỹ đạo', 'hot');
+      logLine(`Tròn quỹ đạo ${tnl.dv2.toFixed(1)} m/s — hết ${(b.used || 0).toFixed(2)} t`, 'hi');
+      logLine(`Cách bến ${(ISS_BELOW / 1000).toFixed(0)} km bên dưới — vào hành lang R-bar`, 'hi');
+    }
+    return;
+  }
+  if (tnl.phase === 'COELLIP') { tnl.phase = 'APPROACH'; setPhase('Tiếp cận bến', 'hot'); return; }
+
+  if (tnl.phase === 'DOCKED' && !TNL.dangTruyen) {
+    /* BAT DAU TRUYEN. Du tru ha quy dao tinh o khoi luong LUC DOT THAT (kho +
+       header) chu khong o khoi luong day — tinh o khoi luong day thi bo lai
+       1,24 t moi chuyen vo co. */
+    const r = Math.hypot(st.x, st.y);
+    const dv = Math.sqrt(F.MU / r) - Math.sqrt(F.MU * (2 / r - 2 / (r + F.RE + 60e3)));
+    const giu = (F.dry2(st) + (st.head || 0)) * (Math.exp(dv / (F.VEH.s2.vac.isp * F.G0)) - 1);
+    const ss = F.settleNeed(r, D.SHIP.port, st.m + TNL.ben.m);
+    TNL.dangTruyen = { giu, coThe: Math.max(0, st.prop2 - giu), daGiao: 0, t: 0, ss };
+    setPhase('Truyền nhiên liệu', 'hot');
+    logLine(`BẮT MỀM — chạm ở ${(tnl.vKhep || 0).toFixed(3)} m/s tương đối`, 'hi');
+    logLine(`Giữ đẩy lắng ${ss.F.toFixed(0)} N về phía Trái Đất — không giữ thì bơm hút phải khí`, 'hi');
+    logLine(`Truyền ${(TNL.dangTruyen.coThe / 1000).toFixed(2)} t ở ${F.transferRate().toFixed(0)} kg/s `
+          + `— mất ${(TNL.dangTruyen.coThe / F.transferRate() / 60).toFixed(1)} phút`, 'hi');
+    logLine(`Giữ lại ${(giu / 1000).toFixed(2)} t để hạ quỹ đạo`, 'hi');
+  }
+  if (tnl.phase === 'DOCKED' && TNL.dangTruyen) {
+    const T = TNL.dangTruyen;
+    const kho = { prop2: T.coThe - T.daGiao, head: st.head, tanker: true, m: st.m };
+    const r = F.transferStep(kho, TNL.ben, dt, true);
+    T.daGiao += r.moved; T.t += dt;
+    /* Day lang an khi RCS that: luc chia cho Isp. KHONG mo hinh tac dong len quy
+       dao (0,64 m/s huong tam suot ca cu truyen, lech can/vien diem ~0,5 km) —
+       noi ro de khong ai tuong la da co. */
+    st.rcs = Math.max(0, st.rcs - T.ss.F / (D.RCS.ISP * F.G0) * dt);
+    st.prop2 = T.giu + (T.coThe - T.daGiao); st.m = F.m2(st);
+    if (r.moved <= 0) {
+      TNL.nChuyen++; TNL.giao.push(T.daGiao / 1000);
+      const tl = F.tliNeed(TNL.ben);
+      logLine(`Truyền xong ${(T.daGiao / 1000).toFixed(2)} t trong ${(T.t / 60).toFixed(1)} phút `
+            + `— hết ${(T.ss.F / (D.RCS.ISP * F.G0) * T.t).toFixed(0)} kg khí đẩy lắng`, 'hi');
+      logLine(`Bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t · TLI cần ${(tl.need / 1000).toFixed(1)} t `
+            + `→ ${tl.du >= 0 ? 'ĐỦ, dư ' + (tl.du / 1000).toFixed(1) : 'còn thiếu ' + (-tl.du / 1000).toFixed(1)} t`,
+            tl.du >= 0 ? 'hi' : 'bad');
+      TNL.dangTruyen = null;
+      tnl.phase = 'UNDOCK'; setPhase('Tách ghép', 'hot');
+      logLine('Nhả chốt — RCS đẩy lùi khỏi hành lang', 'hi');
+    }
+    return;
+  }
+  if (tnl.phase === 'UNDOCK') {
+    if (-t.R > D.tamCap() + 250) {
+      tnl.phase = 'DONE';
+      logLine('Ra khỏi hành lang — chuyển sang hạ quỹ đạo', 'hi');
+      startDeorbit();
+    }
+    return;
+  }
+}
+
 function startIss() {
   const r = F.circularize(st);
   if (r.ok) showBurn(r.dv, st.m || 210e3, 3, 1);
@@ -9437,6 +9710,7 @@ function issKhiCanh(t) {
     setCellLabels('asc');
     iss.phase = 'DONE'; issBoCap = true;
     F.setPayload(crewN() * 500 + cargoKg());   // hang chua giao, van con tren tau
+    st.pay = F.getPayload();
     startDeorbit();
   }
 }
@@ -9523,6 +9797,7 @@ function issStep(dt) {
     if (dockT >= 900) {
       iss.phase = 'UNDOCK';
       F.setPayload(crewN() * 500);          // hang o lai tram, nguoi ve cung tau
+      st.pay = F.getPayload();
       setPhase('Tách ghép', 'hot');
       logLine('Nhả chốt — lò xo đẩy tàu rời cổng', 'hi');
       logLine('RCS đẩy lùi khỏi hành lang — 250 m', 'hi');
@@ -10046,6 +10321,9 @@ function padDamaged(e) {
 
 function endGame() {
   if (phase === 'END') return;
+  /* CHIEN DICH TIEP NHIEN LIEU: het mot CHUYEN chu chua het game. tnlHetChuyen()
+     tra ve true neu da dua ve PRE cho lan phong sau. */
+  if (tnlCo() && TNL.ben && !TNL.thanh && tnlHetChuyen()) return;
   phase = 'END';
   /* Ha canh khan cap cham diem KHAC: khong ai doi mot cu huy bo phai ha dung
      vao hai canh tay thap. Chi can cham mem va nguoi con song. */
@@ -11478,7 +11756,15 @@ function frame(now) {
   }
 
   /* ---- vat ly ---- */
-  if (phase === 'ASCENT' || phase === 'RETURN' || phase === 'SHIPRET' || phase === 'DEPLOY' || phase === 'DEORBIT' || phase === 'ISS' || phase === 'ABORT') {
+  /* DONG HO BAY HOI. Chay o MOI pha mien la ben con tren quy dao — ke ca luc
+     nguoi choi dang xep chong hay dang dem nguoc cho chuyen sau. Do chinh la
+     suc ep thoi gian cua phan choi nay: dung tua thi no van tru. */
+  if (tnlCo() && TNL.ben && !TNL.thanh && sim > 0) {
+    F.boilStep(TNL.ben, sim);
+    TNL.ngay += sim / 86400;
+    if (phase !== 'TNLCHO') F.orbitStep(TNL.ben, sim);   // o TNLCHO thi D.step da buoc no
+  }
+  if (phase === 'ASCENT' || phase === 'RETURN' || phase === 'SHIPRET' || phase === 'DEPLOY' || phase === 'DEORBIT' || phase === 'ISS' || phase === 'ABORT' || phase === 'TNLBEN' || phase === 'TNLCHO') {
     acc += sim;
     // Tua: dot chay nhieu buoc mot khung hinh cho toi khi doi pha. Cac doan
     // bay quan tinh dai hang chuc phut, khong ai ngoi xem het duoc.
@@ -11604,6 +11890,8 @@ function frame(now) {
       if (phase === 'DEPLOY') deployStep(DT);
       else if (phase === 'DEORBIT') deorbitStep(DT);
       else if (phase === 'ISS' && iss) issStep(DT);
+      else if (phase === 'TNLBEN' && TNL) tnlBenStep(DT);
+      else if (phase === 'TNLCHO' && tnl) tnlChoStep(DT);
       else if (phase === 'ABORT' && abortInfo) abortStep(DT);
       acc -= DT; n++;
       /* Xem dong ho moi 8 buoc. Thua hon (32 buoc) thi mot cua so co the om
