@@ -6911,16 +6911,24 @@ function makeCluster(positions, isShip) {
    Tinh tu so CONG BO cua Raptor: ty so gian no 34.34, ap suat buong 330 bar,
    gamma 1.2 cho khi xa methalox. Suy ra Me = 4.133 va Pe = 83.65 kPa — tuc o
    mat bien loa hoi QUA GIAN NO (Pe/P0 = 0.83), dung voi mot loa mat bien.
-   Do ra duong cong that khac han:
-       do cao   luat cu   Prandtl-Meyer
-        5 km     0.467        4.1%
-       10 km     0.739       10.3%
-       20 km     0.946       22.3%
-       40 km     0.997       40.4%
-       70 km     1.000       58.1%
    Be rong tan theo tan(dnu): bien luong be di goc dnu thi ban kinh lon dan theo
    x*tan(dnu). Nen thay vi nhan voi `exp`, nhan voi tan(dnu) — o mat bien bang 0
-   (hinh khong doi so voi truoc) va tu do no mai khong bao hoa. */
+   (hinh khong doi so voi truoc) va tu do no khong bao hoa som.
+   Hai duong cong, do tu chinh bang tra o duoi:
+       do cao   pAmb       luat cu   tan(dnu)   `exp` = tan/2.48
+        0 km    101 325 Pa   0.000     0.008        0.3%
+        5 km     54 020      0.467     0.083        3.3%
+       10 km     26 440      0.739     0.213        8.6%
+       20 km      5 475      0.946     0.492       19.8%
+       40 km        277.5    0.997     1.086       43.8%
+       70 km          4.63   1.000     2.493        100%
+       85 km          0.363  1.000     4.593        100%
+      >86 km          0      1.000     4.824        100%   (kep — xem duoi)
+   Tuc luat cu dong bang tu 20 km, con cai nay con no tiep gap sau lan nua toi
+   86 km. `exp` thi van bao hoa o 70 km vi 2.48 duoc chon lam moc chuan hoa luc
+   bang con dung o do — do la mot lua chon RIENG, khong phai he qua cua phep do;
+   doi mau so thanh 4.824 se lam sang nozzle va so o soc doi trong ca dai 0-86 km,
+   nen de nguyen cho den khi co nguoi nhin man hinh cham duoc. */
 const PM_TAN = (() => {
   const G = 1.2, EPS = 34.34, PC = 330e5;
   const aR = M => (1 / M) * Math.pow((2 / (G + 1)) * (1 + (G - 1) / 2 * M * M), (G + 1) / (2 * (G - 1)));
@@ -6930,22 +6938,77 @@ const PM_TAN = (() => {
   const b = Math.sqrt((G + 1) / (G - 1));
   const nu = M => b * Math.atan(Math.sqrt((M * M - 1) / (b * b))) - Math.atan(Math.sqrt(M * M - 1));
   const Me = giai(aR, EPS, 1, 20, false), Pe = PC * pR(Me), nuE = nu(Me);
-  /* Bang tra theo log(pAmb): 28 diem tu 1e-3 Pa den 1.2e5 Pa. Tinh MOT LAN luc
+
+  /* ===== DAY BANG PHAI DUNG BANG TRAN CUA MO HINH KHI QUYEN =====
+     Ban dau tao lay day bang 1e-3 Pa, va do la MOT LOI THAT da ra toi nguoi
+     choi: luong phut TAT HAN tren 86 km trong khi dong co van chay.
+
+     Chuoi nhan qua: `atmosphere()` cua Flight dung o 86 km — dung bang tran cua
+     US Standard Atmosphere 1976 — va tu do tro len tra ve p = 0 DUNG BANG 0.
+     `pmTan(0)` kep xuong o bang, tuc lay diem day. O day bang 1e-3 Pa thi khi
+     xa phai gian no toi Mach 23,6, va goc be Prandtl-Meyer o do la 93,17 do —
+     VUOT 90 DO. Chan `Math.max(0, ...)` cua tao chi chan goc AM, khong chan
+     cho goc vuot 90 do, ma qua 90 do thi tan() DOI DAU:
+         tan(93,17 do) = -18,05
+     Hau qua do duoc tren 86 km:  L = 11 + 25*tn = -440 m,  W = -69,6,
+     L2 = -2102 m,  loang = 2,6/(2,6 + 4*tn) = -0,037,  exp = -7,28.
+     Tam quang cao bi thu nho AM voi cuong do AM tren phep tron cong — tuc
+     khong gop mot photon nao. Luong phut bien mat.
+     Do duoc hau qua tren duong bay:
+       · BOOSTER: dot boostback bat o 85,5 km — THAY DUOC 0,4 s — roi vuot
+         86 km va TAT suot 23,4 s con lai cua cu dot, 13 may ga day, leo tu
+         86 len 106 km.
+       · TAU:     tach tang o 68,8 km, thay duoc 15,5 s, vuot 86 km o T+156,6 s
+         voi 6 may ga day, roi toi han SECO.
+
+     Hai chan, de khong bao gio tai dien:
+     1. DAY BANG = ap suat nho nhat ma mo hinh khi quyen SINH RA duoc (0,302 Pa,
+        ngay duoi 86 km). Duoi muc do la vung khong co du lieu, khong phai vung
+        de noi suy. Tim tran bang chia doi chu khong go tay, de neu mo hinh khi
+        quyen doi tran thi cho nay tu theo.
+        Nghia vat ly cua phep kep: tren 86 km mo hinh KHONG CON ap suat moi
+        truong nao de luong phut no ra ma do, nen hinh luong phut GIU NGUYEN o
+        gia tri 86 km (tn = 4,824: L = 151 m, W = 25 m, cot chung 643 m, loang
+        0,119 — mot vung sang rat lon va rat mo, dung nhu luong phut chan khong
+        that). Thuc te no con no tiep, nhung noi tiep la bia so.
+     2. CHAN CUNG goc be duoi 90 do. Voi gamma 1,2 thi nu_max = 208,50 do nen
+        goc be con co the dat tan 117,31 do — tuc cai bay 90 do nay nam NGAY
+        TRONG dai vat ly cua chinh mo hinh, khong phai mot gia tri bien ky quai.
+        Chan nay khong bao gio cham vao trong dai ap suat that (o day bang goc
+        be moi 78,29 do); no o day de chong lan sau. */
+  const P_SAN = (() => {
+    let co = 0, khong = 1e6;                 // co: con ap suat; khong: da bang 0
+    for (let i = 0; i < 60; i++) {
+      const m = (co + khong) / 2;
+      if (F.atmosphere(m).p > 0) co = m; else khong = m;
+    }
+    return F.atmosphere(co).p;
+  })();
+  const CHAN = 89 * Math.PI / 180;
+
+  /* Bang tra theo log(pAmb): 28 diem tu P_SAN den 1.2e5 Pa. Tinh MOT LAN luc
      tai trang — giai Mach bang chia doi moi khung thi qua dat. */
-  const N = 28, lo = Math.log(1e-3), hi = Math.log(1.2e5), t = new Float32Array(N);
+  const N = 28, lo = Math.log(P_SAN), hi = Math.log(1.2e5), t = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     const pa = Math.exp(lo + (hi - lo) * i / (N - 1));
     /* pR GIAM theo Mach (ap suat tinh tut dan khi gian no), con aR TANG — hai
        ham nguoc chieu nhau nen phep chia doi phai doi huong. Lan dau tao dua ca
        hai vao cung mot nhanh: bang tra ra toan so AM va luong phut bien mat. */
     const Mm = pa < Pe ? giai(pR, pa / PC, 1, 40, true) : Me;
-    t[i] = Math.tan(Math.max(0, nu(Mm) - nuE));
+    t[i] = Math.tan(Math.min(CHAN, Math.max(0, nu(Mm) - nuE)));
   }
-  return { t, lo, hi, N, Pe };
+  return { t, lo, hi, N, Pe, pSan: P_SAN };
 })();
-/* tan(goc be) tai ap suat pAmb — noi suy tuyen tinh tren thang log. */
+/* tan(goc be) tai ap suat pAmb — noi suy tuyen tinh tren thang log.
+   pAmb = 0 (tren tran mo hinh khi quyen) kep vao day bang, xem PM_TAN.
+   Phep so sanh viet la `pAmb > PM_TAN.pSan` chu khong phai Math.max, de NaN
+   cung roi vao day bang: Math.max(x, NaN) la NaN, va mot NaN o day se chay
+   thang vao scale cua tam quang cao roi lam ca cum luong phut bien mat — dung
+   lop loi vua phai sua. Ap suat khong phai so duong thi nghia la "khong co du
+   lieu moi truong", y het tren tran. */
 function pmTan(pAmb) {
-  const x = (Math.log(Math.max(1e-3, pAmb)) - PM_TAN.lo) / (PM_TAN.hi - PM_TAN.lo) * (PM_TAN.N - 1);
+  const pa = pAmb > PM_TAN.pSan ? pAmb : PM_TAN.pSan;
+  const x = (Math.log(pa) - PM_TAN.lo) / (PM_TAN.hi - PM_TAN.lo) * (PM_TAN.N - 1);
   if (x <= 0) return PM_TAN.t[0];
   if (x >= PM_TAN.N - 1) return PM_TAN.t[PM_TAN.N - 1];
   const i = x | 0, f = x - i;
