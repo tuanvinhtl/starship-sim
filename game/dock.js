@@ -124,15 +124,29 @@
      Tu moc cuoi tro di thi KHEP LIEN TUC cham, vi doan do qua ngan de mot cu
      nham CW co y nghia. */
   /* DIEM CAP: bao nhieu met duoi TAM tram thi hai cong cham nhau. */
-  const DOCK_R = STN.port + SHIP.port;          // 11 + 52,1 = 63,1 m
+  /* `let` chu khong `const`: cung bo nay dung cho CA HAI loai muc tieu.
+     · cap TRAM : 11 + 52,1 = 63,1 m
+     · cap TAU  : 52,1 + 52,1 = 104,2 m — hai mui cham nhau, va vi `port` do tu
+       DIEM TRANG THAI (day than) chu khong tu trong tam, nen khoang cach giua
+       hai diem trang thai dung bang tong hai `port`.
+     Doi qua datTam() de WP/FINAL cap lai theo — chung bam DOCK_R, dong tren da
+     ghi lai lan tao doi cong cap ma quen doi moc tiep can. */
+  let DOCK_R = STN.port + SHIP.port;
 
   /* Hai chang tho dau (1200, 600) la de di tu quy dao dong-elip 2 km duoi tram
      xuong truc R-bar. Tau khong bi tha san o 300 m — no bay toi that.
      Ba moc cuoi BAM THEO DOCK_R chu khong phai so cung: lan truoc tao doi moc
      do cong cap ma quen doi moc tiep can, doan khep cuoi bi bop tu 29 m con
      7,9 m va ca ba chuyen thu deu truot vi lech ngang. */
-  const WP = [1200, 600, 300, DOCK_R + 137, DOCK_R + 77, DOCK_R + 32];
-  const FINAL = DOCK_R + 32;   // m: tu day khep lien tuc
+  let WP = [1200, 600, 300, DOCK_R + 137, DOCK_R + 77, DOCK_R + 32];
+  let FINAL = DOCK_R + 32;     // m: tu day khep lien tuc
+  function datTam(r) {
+    DOCK_R = r;
+    WP = [1200, 600, 300, r + 137, r + 77, r + 32];
+    FINAL = r + 32;
+    return { DOCK_R, WP: WP.slice(), FINAL };
+  }
+  const tamCap = () => DOCK_R;
   const V_FINAL = 0.08;        // m/s toc do khep doan cuoi — giua 0,05 va 0,10
   const CORR = 10 * DEG;         // nua goc hanh lang tiep can tu cong tram
 
@@ -255,10 +269,16 @@
     const rS = F.RE + alt;
     const vS = Math.sqrt(F.MU / rS);
     const a0 = angOf(ship) + (opt.lead0 !== undefined ? opt.lead0 : 0.6);
-    const stn = {
+    /* `tgt` = trang thai muc tieu do NGUOI GOI dua vao (cap tau-voi-tau: chinh
+       `st` cua con tau dang o tren quy dao). Khong co thi dung mot tram gia o
+       quy dao tron nhu cu. `m` bat buoc phai co: phep tron dong luong luc bat
+       mem doc no, va mot muc tieu 212 t khac han mot tram 419 t. */
+    const stn = opt.tgt || {
       x: rS * Math.sin(a0), y: rS * Math.cos(a0),
       vx: vS * Math.cos(a0), vy: -vS * Math.sin(a0), t: 0,
     };
+    if (stn.m === undefined) stn.m = STN.m;
+    datTam(opt.tgtShip ? 2 * SHIP.port : STN.port + SHIP.port);
     /* DUNG TRUC TIEP doi tuong duoc truyen vao, KHONG sao chep. Lop game lay
        `st` lam trang thai goc cho ca HUD, telemetry va bo tinh quy dao; neu o
        day giu mot ban sao thi hai ben se lech nhau ngay sau cu dot dau tien.
@@ -268,7 +288,7 @@
     if (s.om === undefined) s.om = 0;
     if (s.rcs === undefined) s.rcs = RCS.TANK;
     return {
-      F, s, stn, alt,
+      F, s, stn, alt, tgtShip: !!opt.tgtShip,
       phase: 'PHASING',
       t: 0, gate: 0, hold: 0, dv1: 0, dv2: 0, tTrans: 0,
       captured: false, fail: null, why: null, tries: 0,
@@ -561,7 +581,20 @@
     if (d.phase !== 'UNDOCK' && t.range < 0.35) {
       const why = capCheck(t);
       if (why) { d.fail = why; d.why = why; d.tries++; d.phase = 'APPROACH'; backOff(d); }
-      else { d.captured = true; d.phase = 'DOCKED'; d.why = null; }
+      else {
+        /* TRON DONG LUONG. Truoc day doan DOCKED gan cung `d.s.vx = d.stn.vx`,
+           tuc coi muc tieu NANG VO HAN. Dung cho tram 419 t (tau 212 t lam no
+           doi 0,03 m/s, duoi nguong do), SAI cho hai tau cung co: mot cu khep
+           0,06 m/s phai thanh 0,03 m/s cho CA HAI, khong phai tau dung lai con
+           muc tieu khong he nhuc nhich.
+           Bao toan dong luong, roi tu day hai than di cung mot quy dao. */
+        const m1 = d.s.m || 200e3, m2m = d.stn.m || STN.m, M = m1 + m2m;
+        const vx = (m1 * d.s.vx + m2m * d.stn.vx) / M;
+        const vy = (m1 * d.s.vy + m2m * d.stn.vy) / M;
+        d.vKhep = Math.hypot(d.s.vx - d.stn.vx, d.s.vy - d.stn.vy);
+        d.s.vx = d.stn.vx = vx; d.s.vy = d.stn.vy = vy;
+        d.captured = true; d.phase = 'DOCKED'; d.why = null;
+      }
     }
   }
 
@@ -595,7 +628,9 @@
   }
 
   return {
-    STN, SHIP, RCS, CAP, WP, FINAL, V_FINAL, CORR, DEG, A_LEG, A_FIN,
+    STN, SHIP, RCS, CAP, V_FINAL, CORR, DEG, A_LEG, A_FIN,
+    datTam, tamCap,
+    get WP() { return WP.slice(); }, get FINAL() { return FINAL; },
     angOf, axes, rel, toWorld, hohmann, leadNeeded, leadNow, windowIn, burn,
     cwPhi, cwAim, meanRate, holdCmd,
     make, step, auto, tel, capCheck, aimPoint, axisErr, toApproach, backOff,
