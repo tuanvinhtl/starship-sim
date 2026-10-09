@@ -231,14 +231,15 @@
   function burn(F, s, dv) {
     const sp = Math.hypot(s.vx, s.vy);
     if (!sp) return { ok: false, dv: 0, used: 0 };
-    const PL = F.getPayload ? F.getPayload() : 0;
-    const m = F.VEH.s2.dry + PL + s.prop2 + (s.head || 0);
+    /* Qua F.m2 chu khong go lai cong thuc: ban TAU CHO nhe hon 5 t, go tay o
+       day la moi cu dot chuyen quy dao bi tinh nang len 5 t. */
+    const m = F.m2(s);
     const dm = m * (1 - Math.exp(-Math.abs(dv) / (F.VEH.s2.vac.isp * F.G0)));
     if (dm >= s.prop2) return { ok: false, dv, need: dm / 1000, have: s.prop2 / 1000 };
     const k = dv / sp;
     s.vx *= 1 + k; s.vy *= 1 + k;
     s.prop2 -= dm;
-    s.m = F.VEH.s2.dry + PL + s.prop2 + (s.head || 0);
+    s.m = F.m2(s);
     return { ok: true, dv, used: dm / 1000 };
   }
 

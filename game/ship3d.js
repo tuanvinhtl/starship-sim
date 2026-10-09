@@ -1241,7 +1241,7 @@
       t: 0,
       p: V(p2.x, p2.y, cz),
       v: V(p2.vx, p2.vy, -cz * 3.5e-4),
-      m: p2.m, prop: p2.prop, rcs: CFG.rcsTank,
+      m: p2.m, prop: p2.prop, rcs: CFG.rcsTank, tanker: !!p2.tanker,
       w: V(0, 0, 0), flap: [.5, .5, .5, .5], ext: .5, tuck: 0,
       phase: 'ENTRY', alive: true, outcome: null, pi: 0, hBurn: 0, flipT: 0,
       // ENTRY nham diem lat o APR.GATE + rangeBias (predictFlip, belly flop 80 do).
@@ -1462,7 +1462,7 @@
 
     const dm = d0.mdot * dt;
     sh.prop = Math.max(0, sh.prop - dm);
-    sh.m = Math.max(F.VEH.s2.dry, sh.m - dm);
+    sh.m = Math.max(sh.tanker ? F.VEH.s2.dryT : F.VEH.s2.dry, sh.m - dm);
     sh.t += dt;
     if (sh.prop <= 0) { sh.throttle = 0; sh.nEng = 0; }
     else { sh.throttle = act.throttle; sh.nEng = act.nEng; }

@@ -660,12 +660,36 @@ body{
        chi duoc an binh chinh, dot can binh chinh la tau chet chu khong muon duoc cua ha canh.
        35 t: do duoc cu ha canh ngon 19.8-33.1 t qua moi thoi tiet, moi muc tai va lech ngang
        toi 38 km (te nhat: giong + 40 ve tinh). prop la TONG ca hai thung. */
-    s2: { dry: 120e3, prop: 1500e3, header: 35e3,
+    /* dryT = BAN TAU CHO (tanker): 115 t thay vi 120 t. DAY LA MOT LUA CHON,
+       khong phai so do duoc — khong ai cong bo khoi luong kho bien the tanker.
+       Suy tu hinh hoc CUA CHINH MO HINH: khoang hang nam o 33,1-39,6 m (xem
+       BAY_OFS duoi day) tuc mot doan than 6,5 m x 9 m.
+         BO  : cua chomper chiem 1/3 chu vi x 6,5 m = 61,3 m2 thep 304L day 4 mm
+               (rho 8000) = 1,96 t vo, nhan 2,5 cho khung + ban le + co cau =
+               4,9 t; cong gia day kieu Pez cho 48 t ve tinh, lay 12,5% khoi
+               luong hang = 4,0 t.  Tong bo 8,9 t.
+         THEM: ong LOX 150 mm boc chan khong 19 m x 25 kg/m = 0,5 t; ong CH4
+               107 mm x 18 kg/m = 0,34 t; cum van + gop 1,0 t; 4 o cap + chot
+               1,5 t; dien + pin 0,7 t.  Tong them 4,0 t.
+       Rong 5 t. Doi chieu duoc bang TY GIA KHOI LUONG KHO do duoc tren chinh
+       mo hinh nay: moi tan kho bo di cho 1,468 t giao duoc them (quet dry
+       108/112/115/116/120/124 t, ben 300 km, tai 0). Nen 5 t kho = 7,3 t giao
+       them moi chuyen. KHONG doi so chuyen can: 3 chuyen van la 3 chuyen. */
+    s2: { dry: 120e3, dryT: 115e3, prop: 1500e3, header: 35e3,
           sl:  { n: 3, Fvac: 2.30e6, isp: 347, Ae: 1.33, tmin: 0.40 },
           vac: { n: 3, Fvac: 2.64e6, isp: 380, Ae: 5.70, tmin: 0.40 } },
     maxQ: 35000, maxG: 3.5,
   };
   const AREA = Math.PI * Math.pow(VEH.diameter / 2, 2);
+
+  /* ===== KHOI LUONG TANG 2 — MOT DUONG DUY NHAT =====
+     Khuon `VEH.s2.dry + PAYLOAD + s.prop2 + (s.head || 0)` tung duoc go lai SAU
+     lan trong file nay (circularize, deorbitBurn, planShipReturn, step, va hai
+     cho trong dock.js). Gom lai vi ban TAU CHO co khoi luong kho khac: bo mot
+     cho la ca ke hoach quay ve lech 5 t ma khong ai thay.
+     `s.tanker` la co tren trang thai, dat luc phong. */
+  const dry2 = s => (s && s.tanker) ? VEH.s2.dryT : VEH.s2.dry;
+  const m2 = s => dry2(s) + PAYLOAD + s.prop2 + (s.head || 0);
 
   function clusterThrust(e, throttle, pAmb, nLive) {
     const n = (nLive === undefined) ? e.n : nLive;
@@ -699,11 +723,12 @@ body{
      vi chuyen danh dinh von da tut xuong -4 do: bam theo no la TU RA LENH cho minh tut. */
   const kickDeg = () => 3.0 - 0.5 * Math.min(1, PAYLOAD / 100e3);
 
-  function makeState() {
+  function makeState(opt) {
+    const tk = !!(opt && opt.tanker);
     return {
-      t: 0, x: 0, y: RE, vx: 0, vy: 0, stage: 1,
+      t: 0, x: 0, y: RE, vx: 0, vy: 0, stage: 1, tanker: tk,
       prop1: VEH.s1.prop, prop2: VEH.s2.prop - VEH.s2.header, head: VEH.s2.header,
-      m: VEH.s1.dry + VEH.s1.prop + VEH.s2.dry + VEH.s2.prop + PAYLOAD,
+      m: VEH.s1.dry + VEH.s1.prop + (tk ? VEH.s2.dryT : VEH.s2.dry) + VEH.s2.prop + PAYLOAD,
       nSL: VEH.s2.sl.n, nVac: VEH.s2.vac.n, throttle: 1, alive: true,
       alpha: 0, qAlpha: 0, rud: false, hot: 0, hotT: 0, hotShare: 0, engOut: 0,
     };
@@ -1008,7 +1033,7 @@ body{
         s.prop1 = Math.max(0, s.prop1 - (dm - d2));
       } else s.prop1 = Math.max(0, s.prop1 - dm);
     } else s.prop2 = Math.max(0, s.prop2 - dm);
-    s.m = Math.max(VEH.s2.dry + PAYLOAD + (s.head || 0), s.m - dm);
+    s.m = Math.max(dry2(s) + PAYLOAD + (s.head || 0), s.m - dm);
     s.t += dt;
 
     const newAlt = Math.hypot(s.x, s.y) - RE, newSpeed = Math.hypot(s.vx, s.vy);
@@ -1045,7 +1070,7 @@ body{
     // --- buoc 3-4: het cua so (hoac can binh) thi NHA ---
     if (s.stage === 1 && (s.hotT >= HOT_DUR || s.prop1 <= VEH.s1.prop * HOT_STAGE_FRAC * 0.35)) {
       events.push({ type: 'MECO', t: s.t, alt: newAlt, v: newSpeed, hotT: s.hotT });
-      s.stage = 2; s.hot = 0; s.m = VEH.s2.dry + PAYLOAD + s.prop2 + (s.head || 0);
+      s.stage = 2; s.hot = 0; s.m = m2(s);
       events.push({ type: 'IGNITION', t: s.t, alt: newAlt, v: newSpeed });
       // khoi luong tut dot ngot khi bo booster -> chon lai throttle NGAY,
       // neu khong telemetry frame ke tiep se bao vot gioi han g.
@@ -1141,11 +1166,11 @@ body{
     const r = Math.hypot(s.x, s.y), ux = s.x / r, uy = s.y / r;
     const vC = Math.sqrt(MU / r), tvx = uy * vC, tvy = -ux * vC;
     const dv = Math.hypot(tvx - s.vx, tvy - s.vy);
-    const m = VEH.s2.dry + PAYLOAD + s.prop2 + (s.head || 0);
+    const m = m2(s);
     const dm = m * (1 - Math.exp(-dv / (VEH.s2.vac.isp * G0)));
     if (dm >= s.prop2) return { ok: false, dv, need: dm / 1000, have: s.prop2 / 1000 };
     s.prop2 -= dm; s.vx = tvx; s.vy = tvy;      // AN BINH CHINH, khong dung toi header
-    s.m = VEH.s2.dry + PAYLOAD + s.prop2 + (s.head || 0);
+    s.m = m2(s);
     return { ok: true, dv, used: dm / 1000, orbit: orbitOf(s) };
   }
 
@@ -1154,13 +1179,169 @@ body{
   function deorbitBurn(s, dv) {
     const sp = Math.hypot(s.vx, s.vy);
     if (!(dv > 0) || sp < 1) return { ok: false, dv: 0, used: 0, orbit: orbitOf(s) };
-    const m = VEH.s2.dry + PAYLOAD + s.prop2 + (s.head || 0);
+    const m = m2(s);
     const dm = m * (1 - Math.exp(-dv / (VEH.s2.vac.isp * G0)));
     const k = -dv / sp;
     s.vx *= 1 + k; s.vy *= 1 + k;
     s.prop2 = Math.max(0, s.prop2 - dm);        // AN BINH CHINH
-    s.m = VEH.s2.dry + PAYLOAD + s.prop2 + (s.head || 0);
+    s.m = m2(s);
     return { ok: true, dv, used: dm / 1000, orbit: orbitOf(s) };
+  }
+
+  /* ==================================================================
+     TIEP NHIEN LIEU TREN QUY DAO — bay hoi, truyen, dieu kien TLI
+
+     Vong nay la DUNG ke hoach cong khai cua SpaceX, khong phai tao bay ra:
+     lan phong dau dua TANG TREN len lam BEN CHUA (depot) con tang mot quay ve
+     bai phong; lan sau dua mot tang tren ban TAU CHO len ghep voi con thu
+     nhat; ghep xong CHENH AP giua hai tau day nhien lieu sang — khong bom.
+     Ben that duoc mo ta mang them pin va "cach nhiet + ao chan khong de han
+     che bay hoi". Tinh tới 8/10/2026 chua co cuoc truyen giua hai tau nao bay;
+     gan nhat la chuyen 3, truyen giua hai bon TREN CUNG MOT TAU.
+     ================================================================== */
+
+  /* --- HINH HOC BON, suy tu chinh hang so cua mo hinh, khong go tay ---
+     Mat do khoi o O/F 3.6 (ty so da dung o cho khac trong game), voi LOX
+     1141 va LCH4 422.6 kg/m3 o diem soi thuong. */
+  const OF_MIX = 3.6;
+  const RHO_LOX = 1141, RHO_CH4 = 422.6;
+  const RHO_MIX = 1 / ((OF_MIX / (OF_MIX + 1)) / RHO_LOX + (1 / (OF_MIX + 1)) / RHO_CH4);
+  const BON = (() => {
+    const V = (VEH.s2.prop - VEH.s2.header) / RHO_MIX;    // m3 bon chinh
+    const r = VEH.diameter / 2, L = V / AREA;             // dai doan tru
+    /* HAI VOM LA ELLIPSOID, khong phai ban cau: Starship dung vom ty so can
+       hai (c = r/sqrt2) nhu moi bon ap luc thanh mong. Dien tich mot nua
+       ellipsoid det: pi*a^2*(1 + (c^2/(a^2*e))*atanh(e)), e = sqrt(1-c^2/a^2).
+       Lay ban cau thay vi ellipsoid lam dien tich cao hon 11% va qua do bay
+       hoi cao hon 11% — dang ke khi no la dong ho cua ca chien dich. */
+    const c = r / Math.SQRT2, e = Math.sqrt(1 - (c * c) / (r * r));
+    const Avom = Math.PI * r * r * (1 + (c * c) / (r * r * e) * Math.atanh(e));
+    const Aben = 2 * Math.PI * r * L;
+    const Auot = Aben + 2 * Avom;
+    /* DIEN TICH CHIEU, khong phai dien tich uot. Nhiet HAP THU ti le voi dien
+       tich HINH CHIEU len phuong toi cua tia; voi mot vat loi lay trung binh
+       moi huong thi dien tich chieu = dien tich mat / 4 (dinh ly Cauchy).
+       Day la cho de nham nhat trong ca khoi nay: lay dien tich uot thi bay hoi
+       cao gap bon lan. */
+    return { V, L, Aben, Avom, Auot, Achieu: Auot / 4 };
+  })();
+
+  /* --- BAY HOI ---
+     An nhiet hoa hoi: LOX 213.1, LCH4 510.8 kJ/kg o 1 bar. Trung binh theo
+     KHOI LUONG vi hon hop ra di theo ty so O/F.
+
+     THONG LUONG HAP THU la con so KHONG AI CONG BO, va day la mot lua chon.
+     Dai cong khai trai hai bac: mot depot cach nhiet toi uu (NASA, thiet ke
+     chung) duoi 0.05 %/ngay; bon cach nhiet toi thieu do duoc 0.1-0.4 %/ngay;
+     methalox khong xu ly, theo mot bang khong ghi nguon, 1.5-3 %/ngay. Chinh
+     cai khong biet nay la ly do uoc luong so chuyen tanker cho HLS trai tu 4
+     toi 16. Nen o day no la NUM, mac dinh dat giua dai:
+       500 W/m2 hap thu, MLI giam 10 lan.
+     Handmer tinh nhap 200 W/m2 CO tam chan nang va 1150 W/m2 khong chan.
+     MLI 30-60 lop giam thong luong 10-50 lan la muc thuong gap, va no gan nhu
+     mien phi: 0.5-1.5 kg/m2 tuc 83-250 kg, so voi ty gia 1.468 t giao duoc moi
+     tan kho. Nen MLI khong dang lam thanh lua chon cua nguoi choi.
+
+     QUAN TRONG: bay hoi la t/ngay GAN NHU KHONG DOI, khong phai %/ngay. Nhiet
+     vao do DIEN TICH va THONG LUONG quyet dinh, khong do con bao nhieu long
+     trong bon. Mo hinh %/ngay se lam bon gan can bay hoi cham lai — nguoc han. */
+  const LV_LOX = 213.1e3, LV_CH4 = 510.8e3;
+  const LV_MIX = (OF_MIX / (OF_MIX + 1)) * LV_LOX + (1 / (OF_MIX + 1)) * LV_CH4;
+  const BOIL = { q: 500, mli: 10 };             // W/m2 hap thu, he so giam cua MLI
+  /* kg/s bay hoi. Tach ra ham de num trong bang chinh doi duoc giua chuyen. */
+  function boilRate() { return BOIL.q * BON.Achieu / BOIL.mli / LV_MIX; }
+  const boilDay = () => boilRate() * 86400 / 1000;              // t/ngay
+  function setBoil(qW, mli) {
+    if (qW > 0) BOIL.q = qW;
+    if (mli > 0) BOIL.mli = mli;
+    return boilDay();
+  }
+  /* Tru bay hoi khoi bon chinh. Chay ca trong luc nguoi choi dang bay chuyen
+     khac — do chinh la suc ep thoi gian cua phan choi nay. */
+  function boilStep(s, dt) {
+    if (!s || !(s.prop2 > 0)) return 0;
+    const dm = Math.min(s.prop2, boilRate() * dt);
+    s.prop2 -= dm; s.m = m2(s);
+    s.boiled = (s.boiled || 0) + dm;
+    return dm;
+  }
+
+  /* --- TRUYEN BANG CHENH AP ---
+     Nguon cong bo noi ro co che: "chenh ap giua hai tau day nhien lieu tu con
+     thu hai sang con thu nhat". Khong bom.
+     Luu luong giai TU THUY LUC DUONG ONG, khong chon:
+       dp = 1/2 rho v^2 K,  K = 1 + f L/d + sum K_phu
+     Duong di do tu hinh hoc cua chinh mo hinh: vom truoc bon chinh duoi 33.1 m
+     (BAY_OFS), mieng cong o 52.1 m (Dock.SHIP.port) -> ~19 m moi than, ~45 m ca
+     cum. f = 0.02 (thep nhan, Re cao), sum K_phu = 3 (hai khuc 90 do + mot van).
+
+     CHENH AP 2 bar LA MOT LUA CHON: bon chinh Starship chay ~6 bar ap hoi khi
+     bay, tau cho giu ~3 bar bang tu tang ap, tau nhan xa ve ~1 bar. Do nhay:
+     1 bar lam thoi gian truyen gap 1.41 lan, 6 bar chia 1.73.
+
+     DUONG KINH ONG CH4 PHAI GIAI, khong duoc lay ty le rut gon mdot ~ A*sqrt(rho):
+     phep tat do gia dinh K la hang so, nhung f*L/d PHU THUOC d. Lay tat thi ra
+     101 mm va O/F thanh 4.12 chu khong 3.6. Giai dung ra 107 mm. */
+  const ONG = (() => {
+    const dp = 2e5, f = 0.02, L = 45, Kphu = 3;
+    const mdot = (d, rho) => {
+      const K = 1 + f * L / d + Kphu;
+      return rho * (Math.PI * d * d / 4) * Math.sqrt(2 * dp / (rho * K));
+    };
+    const dLox = 0.150, mLox = mdot(dLox, RHO_LOX);
+    const can = mLox / OF_MIX;                            // kg/s CH4 can de dung O/F
+    let lo = 0.02, hi = 0.40;                             // giai duong kinh CH4
+    for (let i = 0; i < 80; i++) {
+      const m = (lo + hi) / 2;
+      if (mdot(m, RHO_CH4) < can) lo = m; else hi = m;
+    }
+    const dCh4 = (lo + hi) / 2;
+    return { dp, dLox, dCh4, mLox, mCh4: mdot(dCh4, RHO_CH4), tong: mLox + can };
+  })();
+  const transferRate = () => ONG.tong;                    // kg/s
+
+  /* --- LUC DAY LANG ---
+     Nguong KHONG phai suat cang mat ngoai: so Bond 10 chi can 5.7e-6 m/s2, nho
+     hon nguong thuy trieu 35 lan. Nguong THAT la TRUONG THUY TRIEU: chong dai
+     2*port, moi dau cach trong tam chong `port`, gia toc thuy trieu 3n^2*h keo
+     chat long RA XA mat phang cap — tuc nguoc chieu dong chay ra cua tau cho.
+     Chinh so hang 3n^2 ma dock.js da dung trong auto() va holdCmd().
+     He so 10 lan nguong LA MOT LUA CHON (bien an toan). */
+  const TIDE_K = 10;
+  function settleNeed(rDepot, port, mStack) {
+    const n = Math.sqrt(MU / (rDepot * rDepot * rDepot));
+    const aMin = 3 * n * n * port;
+    return { n, aMin, a: aMin * TIDE_K, F: aMin * TIDE_K * mStack };
+  }
+
+  /* Mot buoc truyen. `settled` = nguoi choi/bo tu dong dang giu du luc day lang.
+     Chan TRAN BON NHAN: prop2 khong he bi chan tren o bat ky dau trong mo hinh
+     (circularize/burn/deorbitBurn chi tru), nen bay 5-6 chuyen la tran bon. */
+  function transferStep(from, to, dt, settled) {
+    if (!settled) return { moved: 0, why: 'chua lang' };
+    const tran = VEH.s2.prop - VEH.s2.header;             // suc chua bon chinh
+    const room = Math.max(0, tran - to.prop2);
+    const dm = Math.min(transferRate() * dt, from.prop2, room);
+    if (!(dm > 0)) return { moved: 0, why: room <= 0 ? 'bon nhan day' : 'tau cho can' };
+    from.prop2 -= dm; to.prop2 += dm;
+    from.m = m2(from); to.m = m2(to);
+    return { moved: dm, why: null };
+  }
+
+  /* --- DIEU KIEN THANG: du nhien lieu dot TLI ---
+     dv suy tu vis-viva cho mot ellipse co vien diem o khoang cach Mat Trang
+     384 400 km, khong phai so chon. Khoi luong kho cuoi = kho + header (header
+     khong hut duoc trong luc lat nen no la khoi luong chet o day). */
+  const R_MOON = 384400e3;
+  function tliNeed(s) {
+    const r = Math.hypot(s.x, s.y) || (RE + 300e3);
+    const vC = Math.sqrt(MU / r);
+    const a = (r + R_MOON) / 2;
+    const vP = Math.sqrt(MU * (2 / r - 1 / a));
+    const dv = vP - vC;
+    const m1 = dry2(s) + PAYLOAD + (s.head || 0);
+    const need = m1 * (Math.exp(dv / (VEH.s2.vac.isp * G0)) - 1);
+    return { dv, need, m1, du: s.prop2 - need };
   }
 
   /* ==================================================================
@@ -2096,7 +2277,7 @@ body{
   }
 
   function planShipReturn(s) {
-    let m = VEH.s2.dry + PAYLOAD + s.prop2 + (s.head || 0), prop = s.prop2;   // dot bang binh chinh
+    let m = m2(s), prop = s.prop2;                      // dot bang binh chinh
     const spend = dv => { const dm = m * (1 - Math.exp(-dv / (VEH.s2.vac.isp * G0)));
                           m -= dm; prop = Math.max(0, prop - dm); };
     const applyDv = (st, dv, retro) => {
@@ -2164,6 +2345,7 @@ body{
       // Vao diem tai nhap tau con dang chi MUI VE TRUOC (the bay quan tinh);
       // phai dung RCS xoay sang the bung-truoc. Truoc day tao dat san dung tu the
       // nen RCS chang phai lam gi — sai va cung khong thay gi tren man hinh.
+      tanker: !!s.tanker,            // ban tau cho giu khoi luong kho rieng ca luc quay ve
       th: angleWrap(retro + ENTRY_AOA - 0.62), om: 0, flap: 0, tuck: 0, ext: 0.5, rcs: SH_RCS_TANK,
       eff: '—', rcsCmd: 0, throttle: 0, nEng: 0, cmdPitch: 0,
       phase: 'ENTRY', alive: true, outcome: null, pi: 0, hBurn: 0, flipT: 0,
@@ -2186,7 +2368,7 @@ body{
       impact: sh.pi || 0, hBurn: sh.hBurn || 0, toBurn: (f.alt - CATCH_ALT) - (sh.hBurn || 0) - 420 };
   }
 
-  return { G0, RE, MU, VEH, AREA, atmosphere, cdOfMach, makeState, step,
+  return { G0, RE, MU, VEH, AREA, dry2, m2, atmosphere, cdOfMach, makeState, step,
            WEATHER, WX_KEYS, setWeather, getWeather, randomWeather, windAt, airPitch,
            setBoosterTarget, getBoosterTarget, setShipTargetDr, getShipTargetDr,
            telemetry, selectSetting, clusterThrust, s2Thrust, thrustDir,
@@ -2198,6 +2380,8 @@ body{
            makeBooster, boosterStep, boosterAuto, boosterTelemetry, bFrame,
            ballisticImpact, CATCH_ALT, CATCH, PERFECT, BCD,
            RCS_TANK, GIMBAL_MAX, B_LEN, B_COM,
+           BON, BOIL, boilRate, boilDay, setBoil, boilStep, ONG, transferRate,
+           settleNeed, transferStep, tliNeed, RHO_MIX, LV_MIX, OF_MIX, R_MOON,
            DEL, makeDeluge, delugeStep, nozzleExit, jetRise, dropK };
 });
 /* ============================================================================
@@ -3443,7 +3627,7 @@ body{
       t: 0,
       p: V(p2.x, p2.y, cz),
       v: V(p2.vx, p2.vy, -cz * 3.5e-4),
-      m: p2.m, prop: p2.prop, rcs: CFG.rcsTank,
+      m: p2.m, prop: p2.prop, rcs: CFG.rcsTank, tanker: !!p2.tanker,
       w: V(0, 0, 0), flap: [.5, .5, .5, .5], ext: .5, tuck: 0,
       phase: 'ENTRY', alive: true, outcome: null, pi: 0, hBurn: 0, flipT: 0,
       // ENTRY nham diem lat o APR.GATE + rangeBias (predictFlip, belly flop 80 do).
@@ -3664,7 +3848,7 @@ body{
 
     const dm = d0.mdot * dt;
     sh.prop = Math.max(0, sh.prop - dm);
-    sh.m = Math.max(F.VEH.s2.dry, sh.m - dm);
+    sh.m = Math.max(sh.tanker ? F.VEH.s2.dryT : F.VEH.s2.dry, sh.m - dm);
     sh.t += dt;
     if (sh.prop <= 0) { sh.throttle = 0; sh.nEng = 0; }
     else { sh.throttle = act.throttle; sh.nEng = act.nEng; }
@@ -3987,14 +4171,15 @@ body{
   function burn(F, s, dv) {
     const sp = Math.hypot(s.vx, s.vy);
     if (!sp) return { ok: false, dv: 0, used: 0 };
-    const PL = F.getPayload ? F.getPayload() : 0;
-    const m = F.VEH.s2.dry + PL + s.prop2 + (s.head || 0);
+    /* Qua F.m2 chu khong go lai cong thuc: ban TAU CHO nhe hon 5 t, go tay o
+       day la moi cu dot chuyen quy dao bi tinh nang len 5 t. */
+    const m = F.m2(s);
     const dm = m * (1 - Math.exp(-Math.abs(dv) / (F.VEH.s2.vac.isp * F.G0)));
     if (dm >= s.prop2) return { ok: false, dv, need: dm / 1000, have: s.prop2 / 1000 };
     const k = dv / sp;
     s.vx *= 1 + k; s.vy *= 1 + k;
     s.prop2 -= dm;
-    s.m = F.VEH.s2.dry + PL + s.prop2 + (s.head || 0);
+    s.m = F.m2(s);
     return { ok: true, dv, used: dm / 1000 };
   }
 
@@ -9352,7 +9537,7 @@ function startAbort(lyDo) {
   if (abortInfo || phase !== 'ASCENT') return;
   if (st.stage === 1) {                       // ep tach tang ngay lap tuc
     st.stage = 2; st.hot = 0;
-    st.m = F.VEH.s2.dry + F.getPayload() + st.prop2 + (st.head || 0);
+    st.m = F.m2(st);
   }
   bo = null;
   boostResult = { outcome: 'crash', lat: 0, vs: 0 };
@@ -9408,7 +9593,7 @@ function abortStep(dt) {
     }
   } else if (A.pha === 'XA') {
     st.prop2 = Math.max(AB_GIU, st.prop2 - AB_XA * dt);
-    st.m = F.VEH.s2.dry + F.getPayload() + st.prop2 + (st.head || 0);
+    st.m = F.m2(st);
     if (st.prop2 <= AB_GIU) { A.pha = 'ROI'; logLine('Xả xong — rơi tự do, chuẩn bị tái nhập', 'hi'); }
   }
 
@@ -9428,7 +9613,7 @@ function abortStep(dt) {
        25 t roi bao het nhien lieu va ket thuc van ngay giua cu tai nhap. */
     st.alive = false;
     startShipReturn({ x: st.x, y: st.y, vx: st.vx, vy: st.vy,
-                      m: F.VEH.s2.dry + F.getPayload() + st.prop2 + st.head,
+                      m: F.m2(st),
                       prop: st.head,
                       plan: { circDv: 0, deorbitDv: 0, propUsed: 0, mainLeft: st.prop2,
                               predict: { lat: 0 }, burnAng: 0 } });
@@ -9490,7 +9675,7 @@ function deorbitStep(dt) {
        NGUOI ve — bo quen la tau vao khi quyen nhe hon thuc te. planShipReturn
        ngay ben canh von da cong PAYLOAD, nen truoc day hai cho noi khong khop. */
     startShipReturn({ x: st.x, y: st.y, vx: st.vx, vy: st.vy,
-                      m: F.VEH.s2.dry + F.getPayload() + st.prop2 + st.head,
+                      m: F.m2(st),
                       prop: st.head, plan: dorPlan.plan });
   }
 }
