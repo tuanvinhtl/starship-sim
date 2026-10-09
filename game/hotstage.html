@@ -6738,11 +6738,63 @@ function makeCluster(positions, isShip) {
   return g;
 }
 
+/* ===================== DO NO CUA LUONG PHUT =====================
+   Luat cu: `exp = 1 - min(1, pAmb/P0)`. Tuyen tinh theo ap suat, nen no BAO HOA
+   RAT SOM: o 20 km da la 0.946 va tu do len toi MECO chi doi them 5.4%. Tuc hinh
+   luong DONG BANG tu 20 km tro len — dung doan ma luong that no ra to nhat. Cu
+   "sua bien" ma chuyen Starship nao cung co, game khong bao gio co.
+   Luat dung: goc be cua bien luong ngay tai mieng loa la hieu PRANDTL-MEYER
+   giua Mach khop ap suat moi truong va Mach mieng loa:  dnu = nu(M_amb) - nu(Me).
+   Tinh tu so CONG BO cua Raptor: ty so gian no 34.34, ap suat buong 330 bar,
+   gamma 1.2 cho khi xa methalox. Suy ra Me = 4.133 va Pe = 83.65 kPa — tuc o
+   mat bien loa hoi QUA GIAN NO (Pe/P0 = 0.83), dung voi mot loa mat bien.
+   Do ra duong cong that khac han:
+       do cao   luat cu   Prandtl-Meyer
+        5 km     0.467        4.1%
+       10 km     0.739       10.3%
+       20 km     0.946       22.3%
+       40 km     0.997       40.4%
+       70 km     1.000       58.1%
+   Be rong tan theo tan(dnu): bien luong be di goc dnu thi ban kinh lon dan theo
+   x*tan(dnu). Nen thay vi nhan voi `exp`, nhan voi tan(dnu) — o mat bien bang 0
+   (hinh khong doi so voi truoc) va tu do no mai khong bao hoa. */
+const PM_TAN = (() => {
+  const G = 1.2, EPS = 34.34, PC = 330e5;
+  const aR = M => (1 / M) * Math.pow((2 / (G + 1)) * (1 + (G - 1) / 2 * M * M), (G + 1) / (2 * (G - 1)));
+  const pR = M => Math.pow(1 + (G - 1) / 2 * M * M, -G / (G - 1));
+  const giai = (f, muc, lo, hi, tang) => { for (let i = 0; i < 70; i++) {
+    const m = (lo + hi) / 2; (tang ? f(m) < muc : f(m) > muc) ? hi = m : lo = m; } return (lo + hi) / 2; };
+  const b = Math.sqrt((G + 1) / (G - 1));
+  const nu = M => b * Math.atan(Math.sqrt((M * M - 1) / (b * b))) - Math.atan(Math.sqrt(M * M - 1));
+  const Me = giai(aR, EPS, 1, 20, false), Pe = PC * pR(Me), nuE = nu(Me);
+  /* Bang tra theo log(pAmb): 28 diem tu 1e-3 Pa den 1.2e5 Pa. Tinh MOT LAN luc
+     tai trang — giai Mach bang chia doi moi khung thi qua dat. */
+  const N = 28, lo = Math.log(1e-3), hi = Math.log(1.2e5), t = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const pa = Math.exp(lo + (hi - lo) * i / (N - 1));
+    /* pR GIAM theo Mach (ap suat tinh tut dan khi gian no), con aR TANG — hai
+       ham nguoc chieu nhau nen phep chia doi phai doi huong. Lan dau tao dua ca
+       hai vao cung mot nhanh: bang tra ra toan so AM va luong phut bien mat. */
+    const Mm = pa < Pe ? giai(pR, pa / PC, 1, 40, true) : Me;
+    t[i] = Math.tan(Math.max(0, nu(Mm) - nuE));
+  }
+  return { t, lo, hi, N, Pe };
+})();
+/* tan(goc be) tai ap suat pAmb — noi suy tuyen tinh tren thang log. */
+function pmTan(pAmb) {
+  const x = (Math.log(Math.max(1e-3, pAmb)) - PM_TAN.lo) / (PM_TAN.hi - PM_TAN.lo) * (PM_TAN.N - 1);
+  if (x <= 0) return PM_TAN.t[0];
+  if (x >= PM_TAN.N - 1) return PM_TAN.t[PM_TAN.N - 1];
+  const i = x | 0, f = x - i;
+  return PM_TAN.t[i] * (1 - f) + PM_TAN.t[i + 1] * f;
+}
+
 /* Cap nhat hinh dang cum theo so may chay, ga, va do gian no theo ap suat. */
 function updateCluster(g, lit, throttle, pAmb, tms) {
   const u = g.userData;
   const on = lit > 0 && throttle > 0.01;
-  const exp = 1 - Math.min(1, pAmb / P0);          // 0 = mat bien, 1 = chan khong
+  const tn = pmTan(pAmb);                          // tan(goc be) — 0 o mat bien
+  const exp = Math.min(1, tn / 2.48);              // 0..1, 1 = muc o 70 km
   const fl = .93 + .07 * Math.sin(tms * .05);
   const R = u.isShip ? 1.15 : 1.0;
 
@@ -6750,17 +6802,28 @@ function updateCluster(g, lit, throttle, pAmb, tms) {
   plumeU.uExp.value = exp;
   // so o soc thua dan khi len cao; het khi quyen thi khong con soc
   plumeU.uCells.value = 5 + 4 * (1 - exp);
-  plumeU.uShock.value = Math.max(0, 1 - exp * 1.9) * (.45 + .55 * throttle);
+  /* DIA SOC CAN AP SUAT MOI TRUONG DE TON TAI: chuoi dia hinh thanh do song
+     xung kich phan xa qua lai giua luong va khi quyen. Het khi quyen thi luong
+     no tu do, khong con gi de phan xa. Nen do manh di theo pAmb/Pe chu khong
+     theo mot ham cua `exp`: 1.00 o mat bien, 0.32 o 10 km, 0.065 o 20 km, va
+     gan nhu het o 40 km. */
+  plumeU.uShock.value = Math.min(1, pAmb / PM_TAN.Pe) * (.45 + .55 * throttle);
+  /* LOANG. Cung ngan ay khoi luong trai ra mot luong rong gap W/W0 lan thi mat
+     do giam theo 1/W^2, nhung quang duong nhin xuyen qua lai DAI ra theo W —
+     voi mot the tich phat sang mong thi do sang quan sat duoc ti le voi mat do
+     nhan quang duong, tuc 1/W. Khong co he so nay thi luong no ra ma khong
+     loang di: mot tam trang DAC chan mat duong chan troi. */
+  const loang = 2.6 / (2.6 + 4.0 * tn);
 
   for (let i = 0; i < u.jets.length; i++) {
     const vis = on && i < lit;
     u.jets[i].holder.visible = vis;
     if (!vis) continue;
-    const L = (11 + 40 * exp) * (.45 + .55 * throttle) * fl * R;
-    const W = (2.6 + 7.0 * exp) * (.72 + .28 * throttle) * R;
+    const L = (11 + 25 * tn) * (.45 + .55 * throttle) * fl * R;
+    const W = (2.6 + 4.0 * tn) * (.72 + .28 * throttle) * R;
     u.jets[i].j.scale.set(W, L, 1);
     faceCam(u.jets[i].j, camera);
-    u.jets[i].j.material.uniforms.uInt.value = .55 + .45 * throttle;
+    u.jets[i].j.material.uniforms.uInt.value = (.55 + .45 * throttle) * loang;
     const s = (.8 + .5 * throttle) * R;
     u.jets[i].gl.scale.set(s, s, 1);
     u.jets[i].gl.material.opacity = (.35 + .5 * throttle) * (1 - .5 * exp);
@@ -6771,13 +6834,13 @@ function updateCluster(g, lit, throttle, pAmb, tms) {
      nhung thua hon vi duong kinh lon hon. */
   const frac = lit / u.jets.length;
   const spread = u.isShip ? 6.5 : (9.5 * (0.45 + 0.55 * frac));
-  const L2 = (64 + 250 * exp) * (.42 + .58 * throttle) * fl * (0.5 + 0.5 * frac);
-  const W2 = (spread + 16 * exp) * (.72 + .28 * throttle);
+  const L2 = (64 + 120 * tn) * (.42 + .58 * throttle) * fl * (0.5 + 0.5 * frac);
+  const W2 = (spread + 7.0 * tn) * (.72 + .28 * throttle);
   u.merged.visible = true;
   u.merged.scale.set(W2, L2, 1);
   u.merged.position.y = -4.2;
   faceCam(u.merged, camera);
-  u.merged.material.uniforms.uInt.value = (.30 + .30 * throttle) * (0.45 + 0.55 * frac);
+  u.merged.material.uniforms.uInt.value = (.30 + .30 * throttle) * (0.45 + 0.55 * frac) * loang;
   u.merged.material.uniforms.uCells.value = 3.2 + 2.4 * (1 - exp);
 }
 
