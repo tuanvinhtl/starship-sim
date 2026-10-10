@@ -242,10 +242,16 @@ body{
   display:flex;flex-direction:column;align-items:center;gap:14px;
   pointer-events:none;
 }
+/* Do duoc o man 1024: hang nay rong 909 px o tieng Anh, 863 Viet, 797 Trung.
+   Tieng Anh dai nhat va chi con 115 px du — cua so hep hon mot chut la no bi
+   cat cut (truoc day la white-space:nowrap tren ca hang). Cho xuong dong; cot
+   #botstack tu no cao len theo. */
 #keys{
-  display:flex;gap:16px;font-family:var(--fd);font-size:10px;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--dim);white-space:nowrap;
+  display:flex;flex-wrap:wrap;justify-content:center;gap:6px 16px;max-width:96vw;
+  font-family:var(--fd);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dim);
 }
+#keys span{white-space:nowrap}
 #keys i{font-style:normal}
 #keys kbd{
   font-family:var(--fm);font-size:10px;letter-spacing:0;color:var(--haze);
@@ -575,6 +581,19 @@ body{
    nghia — nut bam chet, pha xep chong khong chay — ma man hinh thi khong noi
    gi ca. Nguoi choi khong the duoc yeu cau mo DevTools de biet dieu do. */
 (function () {
+  /* Lop nay phai noi duoc ngay CA KHI khoi script chet luc phan tich — luc do
+     bang NGU chua ton tai. Nen no mang mot ban dich rut gon cua chinh no, va
+     doc ngon ngu thang tu localStorage chu khong qua datNgu(). */
+  const NHAN = {
+    en: { pageDead: 'ERROR — the page cannot run:', promiseRej: 'Promise rejected: ' },
+    vi: { pageDead: 'LỖI — trang không chạy được:', promiseRej: 'Promise bị từ chối: ' },
+    zh: { pageDead: '错误 — 页面无法运行：', promiseRej: 'Promise 被拒绝：' },
+  };
+  function nhan(k) {
+    let l = 'en';
+    try { l = localStorage.getItem('hotstage.lang') || 'en'; } catch (_) {}
+    return (NHAN[l] || NHAN.en)[k];
+  }
   let da = false;
   function hien(msg) {
     if (da) return; da = true;
@@ -582,14 +601,14 @@ body{
     d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#7F1D2E;'
       + 'color:#FFE8EC;font:12px/1.5 ui-monospace,Menlo,monospace;padding:10px 14px;'
       + 'white-space:pre-wrap;box-shadow:0 2px 14px rgba(0,0,0,.6)';
-    d.textContent = 'LỖI — trang không chạy được:\n' + msg;
+    d.textContent = nhan('pageDead') + '\n' + msg;
     (document.body || document.documentElement).appendChild(d);
   }
   addEventListener('error', e => hien(
     e.message
     + (e.filename ? '\n' + e.filename.replace(/^.*\//, '') + ':' + e.lineno + ':' + e.colno : '')
     + (e.error && e.error.stack ? '\n\n' + String(e.error.stack).split('\n').slice(0, 4).join('\n') : '')));
-  addEventListener('unhandledrejection', e => hien('Promise bị từ chối: ' + (e.reason && e.reason.message || e.reason)));
+  addEventListener('unhandledrejection', e => hien(nhan('promiseRej') + (e.reason && e.reason.message || e.reason)));
 })();
 /* Flight model 3-DOF — port tu sim/python/ascent.py (da verify).
    Dung chung cho ca game va bo test node.  Khong phu thuoc DOM. */
@@ -5151,6 +5170,291 @@ const $ = id => document.getElementById(id);
 const NGU_DS = [['en', 'English'], ['vi', 'Tiếng Việt'], ['zh', '中文']];
 const NGU = {
   en: {
+    'ph.boostback': 'Boostback burn',
+    'lg.liftoff': 'Liftoff — 33 Raptors',
+    'm.pastMaxQ': 'Past max-Q — {0} kPa',
+    'm.bloomOn': 'Bloom + contact shadows: on',
+    'm.bloomOff': 'Bloom + contact shadows: off — tone unchanged',
+    'm.delugeOpen': 'Deluge valve open — {0} m³/s onto the steel plate',
+    'm.wxSet': 'Weather: {0}',
+    'm.tgtBarge': 'Target: the tower on the barge +{0} km',
+    'm.offshore': ' offshore',
+    'm.tliEnough': 'MET, {0} to spare',
+    'm.tliShort': 'still {0} short',
+    'm.aft': 'aft body',
+    'm.tile': 'heat shield',
+    'm.fillPct': 'Loading {0}%',
+    'm.padCrack': 'PAD CRACKED — the steel overheated',
+    'm.padBad': 'PAD BADLY DAMAGED — concrete thrown up',
+    'm.padGone': 'PAD DESTROYED — the infrastructure is gone',
+    'm.debrisEng': 'Debris into {0} engines',
+    'm.saving': 'Saving the flight…',
+    'm.saved': 'Saved — flight code {0}',
+    'm.saveFailN': 'Could not save: {0}',
+    'm.saveFail': 'Could not save',
+    'm.padDry': ', ran dry',
+    'm.valveShut': ', the valve never opened',
+    'm.late': '{0} s late',
+    'm.filmBoil': ', film boiling',
+    'm.hingeHot': 'Hinges part-burned — ',
+    'm.envFail': 'Could not build the environment map — the steel falls back to the old mode',
+    'm.degrade1': 'The machine cannot keep up — dropping anti-aliasing, lowering shadows',
+    'm.degrade2': 'Still heavy — turning off bloom and contact shadows',
+    'm.degrade3': 'Still heavy — dropping the resolution',
+    'm.delugeStart': 'Pad deluge running — T−{0} s',
+    'm.delugeShut': 'Deluge valve shut — {0}% left',
+    'm.valveClosed': '{0}% — valve shut',
+    'm.filmBoilCap': ' — FILM BOILING',
+    'm.closingAt': ' · closing {0} m/s',
+    'm.burnNow': 'BURN',
+    'm.flapExt': 'FLAP · {0}% out',
+    'm.crossOff': ' · cross {0} m',
+    'm.pageDead': 'ERROR — the page cannot run:',
+    'm.promiseRej': 'Promise rejected: ',
+    'res.in1km': 'within 1 km',
+    'm.engSel': '{0} engines selected',
+    'm.flightTanker': 'Flight {0}: TANKER (dry {1} t)',
+    'm.flightDepot': 'Flight 1: DEPOT (standard build, dry {0} t)',
+    'm.breakQa': 'AIRFRAME BREAKUP — q·α {0} past the {1} limit',
+    'm.circUsed': 'Circularised {0} m/s — {1} t used',
+    'm.orbit': 'Orbit {0}×{1} km',
+    'm.noPropCircN': 'Not enough propellant to circularise — {0} t needed, {1} t left',
+    'm.deployed': '{0}/{1} satellites deployed',
+    'm.bayShut': 'Bay closed — {0} satellites at {1}×{2} km',
+    'm.depotIn': '— DEPOT on station: {0} t · TLI needs {1} t —',
+    'm.flightDone': '— Flight {0}/{1} done. Depot holds {2} t, ',
+    'm.tliNeed': 'TLI needs {0} t —',
+    'm.shortDays': '{0} t short · depot has been in orbit ',
+    'm.daysBoil': '{0} days, {1} t lost to boil-off',
+    'm.noPropCirc2': 'Not enough propellant to circularise',
+    'm.transToDepot': 'Transfer burn {0} m/s up to the {1} km depot',
+    'm.coastApo': '{0} minutes of coast to apoapsis',
+    'm.depotOn': 'Circularised {0} m/s — DEPOT is on station',
+    'm.depotHas': 'Depot holds {0} t · TLI needs {1} t ',
+    'm.dvShort': '(Δv {0} m/s) → {1} t short',
+    'm.boilClock': 'Boil-off {0} t/day — the clock starts now',
+    'm.tliOk': 'TLI PROPELLANT MET — depot holds {0} t, ',
+    'm.needSpare': '{0} t needed, {1} t to spare',
+    'm.tankerCount': '{0} tanker flights · {1} launches · ',
+    'm.boilLost': '{0} t lost to boil-off',
+    'm.boilWon': 'Eight flights and the depot is still {0} t short — boil-off won',
+    'm.depotLead': 'Depot leads by {0}° — {1}° wanted',
+    'm.chase2': '{0} h of chasing · {1} orbits ',
+    'm.boilParen': '({0} t lost to boil-off)',
+    'm.rcsLeft': 'RCS gas at {0}%',
+    'm.transUsed': 'Transfer burn {0} m/s — {1} t used',
+    'm.belowDepot': '{0} km below the depot — entering the R-bar corridor',
+    'm.softAt': 'SOFT CAPTURE — contact at {0} m/s relative',
+    'm.settle': 'Hold {0} N of settling thrust toward Earth — without it the pumps draw gas',
+    'm.xferRate': 'Transferring {0} t at {1} kg/s ',
+    'm.takesMin': '— takes {0} minutes',
+    'm.keepDeorbit': 'Keeping {0} t back for the deorbit burn',
+    'm.xferDone': 'Transferred {0} t in {1} minutes ',
+    'm.settleUsed': '— {0} kg of settling gas used',
+    'm.issLead': 'The station leads by {0}° — {1}° wanted',
+    'm.chase': '{0} h of chasing · {1} orbits',
+    'm.settled': 'Settled (drift {0} m/s) — re-aiming at the waypoint',
+    'm.noPropTransN': 'Not enough propellant for the transfer — {0} t needed, {1} t left',
+    'm.belowIss': '{0} km below the station — drifting to the approach point',
+    'm.rbarFrom': 'R-bar approach starts {0} m below the station',
+    'm.captureMiss': 'Soft capture missed: {0} — backing out 40 m to retry',
+    'm.dockTel': 'Offset {0} cm · closing {1} m/s · angle {2}°',
+    'm.crewOver': '{0} crew and {1} t of cargo transferred to the station',
+    'm.keepOut': '{0} m from the station — outside the keep-out sphere',
+    'm.abortLaunch': 'LAUNCH ABORT — {0}',
+    'm.dumpProp': 'Dumping propellant — {0} t down to {1} t',
+    'm.fallFrom': 'Falling from {0} km — rolling belly-first',
+    'm.touchdown': 'TOUCHDOWN {0} m/s',
+    'm.apexLow': 'Apex only {0} km — not high enough to turn around and land',
+    'm.coastToBurn': 'Coasting to the burn point — {0}° around the orbit',
+    'm.deorbitBurn': 'Deorbit burn {0} m/s — {1} t used',
+    'm.periCut': 'Periapsis {0} km — cutting into the atmosphere',
+    'm.circOnly': 'Circularised {0} m/s',
+    'm.deorbitShort': 'Deorbit {0} m/s — {1} t used',
+    'm.hingeBurn': 'Flap hinge {0} burned through — control lost on that side',
+    'm.burnThru': 'BURN-THROUGH {0} — {1} K',
+    'm.filling': 'Loading {0}% — LOX {1} t, CH4 {2} t (×{3})',
+    'm.abortLandOk': 'EMERGENCY LANDING SUCCESSFUL — contact {0} m/s, {1} m from the tower',
+    'm.crewSafe': '{0} crew safe. Booster lost.',
+    'm.abortLandBad': 'Emergency landing failed — contact {0} m/s',
+    'm.allLost': '{0} crew and both stages lost.',
+    'm.abortFail': 'Abort failed — {0} crew did not make it back',
+    'm.hitTowerAt': 'The ship <b>hit the tower</b> at {0} m, ',
+    'm.fromMast': '<b>{0} m</b> from the mast. ',
+    'm.shipAt': 'The ship hit at <b>{0} m/s</b>, tilted <b>{1}°</b>. ',
+    'm.flipInTime': 'The flip has to finish before the altitude runs out — under {0} m/s and {1}° counts as a soft landing.',
+    'm.boostTower': 'The booster came back to the tower <b>{0} m</b> off. ',
+    'm.shipFlopLand': 'The ship flew the belly flop, flipped upright and touched down at <b>{0} m/s</b> ',
+    'm.fromTarget': '<b>{0}</b> from the target',
+    'm.downCross': ' (down {0} m, cross {1} m)',
+    'm.boostMiss': 'Booster missed: <b>{0} m</b> off, contact <b>{1} m/s</b>. ',
+    'm.catchLimit': 'The catch limits are under {0} m and {1} m/s.',
+    'm.secoShort': 'The upper stage stopped at <b>{0} m/s</b>, <b>{1} m/s</b> short.',
+    'm.satsDeployed': '<b>{0} Starlink satellites</b> ({1} t) released into a circular orbit. ',
+    'm.burnThruWhy': 'Burn-through on the {0} during entry — {1} K. Fly the wrong attitude and bare steel takes the full heat flux.',
+    'm.breakWhy': 'Airframe failed at T+{0}s — q·α {1} Pa·rad, past the {2} limit. Steer more gently through max-Q.',
+    'm.boostOff': 'Booster {0} off (limit {1} m)',
+    'm.boostFast': 'Booster contact {0} m/s — too fast',
+    'm.boostTilt': 'Booster tilted {0}° at contact',
+    'm.padDmgN': 'Pad damage {0}% — the steel plate reached {1} K',
+    'm.valveAt': ', valve opened {0}',
+    'm.padDebris': 'Pad debris knocked out {0} engines',
+    'm.shipYaw': 'The ship entered the pins {0}° off in yaw — a flap struck the chopstick',
+    'm.hingeGone': 'Flap hinge {0} burned through',
+    'm.engLoss': '{0} lost {1}% of its thrust',
+    'm.peakK': ' (peak {0} K)',
+    'm.shipBroke': 'The ship broke up on landing ({0} m/s, {1}° tilt)',
+    'm.shipOff': 'The ship was {0} off — outside the target area',
+    'm.gOver': 'G-LOAD PAST THE LIMIT — peak {0} g, {1} s above {2} g',
+    'm.o2Left': 'Oxygen at {0}% — {1} hours',
+    'm.o2Out': 'OXYGEN EXHAUSTED after {0} hours — {1} crew only had {2} hours',
+    'ph.stack': 'Stacking',
+    'ph.count': 'Countdown',
+    'ph.fly': 'In flight',
+    'ph.hot': 'Hot-stage',
+    'ph.sep': 'Staging',
+    'ph.flip': 'Flip',
+    'ph.landBurn': 'Landing burn',
+    'ph.entry': 'Entry',
+    'ph.entryFlop': 'Entry — belly flop',
+    'ph.deploy': 'Payload deploy',
+    'ph.deorbit': 'Deorbit',
+    'ph.phasing': 'Phasing',
+    'ph.phasingDepot': 'Phasing to depot',
+    'ph.transfer': 'Transfer orbit',
+    'ph.coellip': 'Co-elliptic',
+    'ph.approach': 'Approach',
+    'ph.approachDepot': 'Depot approach',
+    'ph.transferProp': 'Propellant transfer',
+    'ph.undock': 'Undocking',
+    'ph.toDepot': 'Depot to orbit',
+    'ph.done': 'Mission complete',
+    'ph.end': 'Mission over',
+    'ph.failed': 'Mission failed',
+    'ph.abort': 'ABORT',
+    'ph.manual': 'MANUAL',
+    'ph.auto': 'AUTO',
+    'tl.liftoff': 'Liftoff',
+    'tl.catch': 'Booster catch',
+    'tl.entryBurn': 'Entry burn',
+    'tl.peakHeat': 'Peak heating',
+    'tl.flop': 'Belly flop',
+    'tl.flip': 'Flip',
+    'tl.land': 'Ship landing',
+    'cam.pad': 'Pad camera',
+    'cam.chase': 'Booster chase camera',
+    'cam.dual': 'Dual view',
+    'cam.dir': 'Director camera — cuts itself on landing events',
+    'cam.wide': 'Wide',
+    'cam.towerBase': 'Tower base',
+    'cam.arm': 'Tower arm',
+    'cam.arc': 'Approach arc',
+    'cam.corridor': 'Approach corridor',
+    'cam.tele': 'Sea-level telephoto',
+    'cam.dualOnly': 'Dual view only runs from staging to booster touchdown',
+    'cam.ground': 'Views 1/2 are ground-mounted — the ship is in orbit, use 3/4 or 5',
+    'lg.armLift': 'Chopsticks lift the booster onto the pad',
+    'lg.stacked': 'Stacked — 20 hold-down clamps locked',
+    'lg.clamps': '20 clamps locked — QD arm and 20 quick-disconnects mated',
+    'lg.skipStack': 'Stacking skipped — into the count',
+    'lg.skipReset': 'Skipped — booster already back on the pad and full',
+    'lg.fillStart': 'Loading starts — LOX + CH4',
+    'lg.fillDone': 'Full at 3,400 t — booster ready to fly again',
+    'lg.armSeat': 'Arms lower the booster back onto the pad',
+    'lg.mach1': 'Supersonic — Mach 1',
+    'lg.karman': 'Past the Kármán line — 100 km',
+    'lg.meco': 'MECO — hot staging',
+    'lg.hotstage': 'Hot-stage — down to the 3 centre engines, the ship lights while still mated',
+    'lg.shipIgn': 'Ship ignition — 6 Raptors',
+    'lg.sep': 'Booster separates',
+    'lg.hotRing': 'Hot-stage ring jettisoned',
+    'lg.rcsFlip': 'Flipping on RCS',
+    'lg.tgtTower': 'Target: the Starbase tower',
+    'lg.followBoost': 'Following the booster — the ship flies on by itself',
+    'lg.key5': 'Key 5 — dual view: watch the ship climb to orbit',
+    'lg.coast': 'Coasting',
+    'lg.fall': 'Free fall',
+    'lg.seco': 'SECO — the ship is in orbit',
+    'lg.entryIf': 'Touching the atmosphere — entry begins',
+    'lg.toBelly': 'Rolling belly-first on RCS',
+    'lg.dumped': 'Dump complete — free fall, standing by for entry',
+    'lg.toFlip': 'Into the flip — control back to the computer',
+    'lg.flipIgn': 'FLIP — 3 Raptors light',
+    'lg.abortIgn': '3 Raptors light — running from the booster',
+    'lg.abortSep': 'Ship pulled off the booster — the booster is lost',
+    'lg.bayOpen': 'Payload bay opening',
+    'lg.holdFlop': 'Holding belly flop',
+    'lg.boostPad': 'Booster touches the pad',
+    'lg.boostLost': 'Booster lost',
+    'lg.pins': 'Pins into the rails',
+    'lg.cross38': '38 km cross-range — bank to pull it back',
+    'lg.needDump': 'Without the dump T/W is only 0.43 — it cannot land',
+    'lg.missWin': 'It should have launched into the window',
+    'lg.wxLocked': 'Weather can only be changed before launch',
+    'lg.toManual': 'Switching to manual',
+    'lg.toAuto': 'Control handed back to the computer',
+    'lg.autoOn': 'Autopilot ON',
+    'lg.toAutoSettle': 'Control handed back — settling before it re-aims',
+    'lg.flipAuto': 'Flip and landing burn are always automatic — you only fly the belly-down fall',
+    'lg.youFlyShip': 'YOU HAVE CONTROL — W/S pitch · A/D bank · Z release',
+    'lg.youFlyDock': 'YOU HAVE CONTROL — W/S fore/aft · A/D sideways · Q/E yaw',
+    'lg.dockKeys': 'W/S fore/aft · A/D sideways · Q/E yaw · Shift hard burn · Z release',
+    'lg.holdShift': 'Hold Shift for a hard burn · press Z to hand back',
+    'lg.takeOver': 'Press W/S/A/D/Q/E to take over',
+    'lg.softIss': 'SOFT CAPTURE — docked to the ISS',
+    'lg.undockSpring': 'Latches open — springs push the ship off the port',
+    'lg.undockRcs': 'Latches open — RCS backs out of the corridor',
+    'lg.backOut': 'RCS backing out of the corridor — 250 m',
+    'lg.outCorridor': 'Clear of the corridor — on to deorbit',
+    'lg.outSafe': 'Clear of the keep-out zone — preparing to deorbit',
+    'lg.giveUpCrew': 'Docking abandoned, bringing the crew home',
+    'lg.giveUpCargo': 'Docking abandoned, deorbiting the ship',
+    'lg.rcsOut': 'RCS EXHAUSTED — no approach control left',
+    'lg.rcsOutCargo': 'RCS EXHAUSTED — cannot dock, the whole load is lost',
+    'lg.dockKeysCam': 'Key 3 cinematic · key 4 down the docking axis · ⏭ skip leg by leg',
+    'lg.realTimeDock': 'Back to real time — manual docking cannot be skipped',
+    'lg.realTimeHot': 'Back to real time — hot staging only lasts 3.2 seconds',
+    'lg.tli': 'TLI burn — the depot leaves Earth orbit',
+    'lg.useSkip': 'Press ⏭ Skip to event if you would rather not wait',
+    'lg.nextFlight': 'Press “Stack &amp; count down” to send the next flight up',
+    'lg.noPropCirc': 'Not enough propellant to circularise',
+    'lg.noPropCircHi': 'Not enough propellant to circularise up there',
+    'lg.noPropDepot': 'Not enough propellant to reach the depot altitude',
+    'lg.noPropTrans': 'Not enough propellant for the transfer',
+    'res.caught': 'CAUGHT — the chopsticks hold',
+    'res.caughtPerfect': 'CLEAN CATCH — perfectly into the pins',
+    'res.bullseye': 'ON TARGET — dead centre',
+    'res.soft1km': 'SOFT LANDING — within 1 km',
+    'res.softFar': 'SOFT LANDING — wide of the mark',
+    'res.softLost': 'SOFT LANDING but off the map',
+    'res.crash': 'BROKE UP ON CONTACT',
+    'res.missed': 'MISSED — the booster falls',
+    'res.hitTower': 'HIT THE TOWER — the ship breaks up',
+    'res.aeroBreak': 'AIRFRAME BREAKUP — aerodynamic overload',
+    'res.shipCrash': 'The ship broke up on contact',
+    'res.shipDry': 'The ship ran dry',
+    'res.noOrbit': 'The ship never made orbit',
+    'res.crewLost': 'The crew did not survive',
+    'res.failed': 'Mission failed',
+    'res.both': 'Both stages recovered',
+    'res.orbit': 'Orbit reached',
+    'res.crewAbort': 'the commander hit the button',
+    'res.wTight': 'dead centre',
+    'res.wCaught': 'clean catch',
+    'res.wGot': 'caught',
+    'res.wFar': 'wide',
+    'res.wLost': 'lost',
+    'res.wFell': 'fell',
+    'res.wBroke': 'broke up',
+    'res.wNone': 'not recovered',
+    'res.wDry': 'nearly dry',
+    'ov.qAlpha': 'Dynamic pressure times angle of attack went past the structural limit. Steer smoothly through max-Q.',
+    'ov.approachLine': 'The approach has to run along the arms, not across the mast.',
+    'lab.met': 'Mission elapsed',
+    'lab.ret': 'Return time',
+    'lab.speed2': 'Speed',
+    'lab.alt2': 'Altitude',
+    'btn.skipping': 'Skipping…',
     'tgt.tower': 'Starbase tower', 'tgt.offshore': 'Offshore tower +{0} km',
     'mis.starlink': 'Starlink \u2014 satellite deploy', 'mis.iss': 'ISS \u2014 crew + cargo',
     'mis.tnl': 'Orbital refuelling \u2014 depot at {0} km, {1} tanker flights',
@@ -5195,6 +5499,291 @@ const NGU = {
     'wx.gusty': 'Gusty', 'wx.storm': 'Storm', 'wx.blizzard': 'Blizzard',
   },
   vi: {
+    'ph.boostback': 'Boostback',
+    'lg.liftoff': 'Rời bệ — 33 Raptor',
+    'm.pastMaxQ': 'Qua max-Q — {0} kPa',
+    'm.bloomOn': 'Quầng sáng + bóng khe: bật',
+    'm.bloomOff': 'Quầng sáng + bóng khe: tắt — tông giữ nguyên',
+    'm.delugeOpen': 'Mở van nước — {0} m³/s vào tấm thép',
+    'm.wxSet': 'Thời tiết: {0}',
+    'm.tgtBarge': 'Đích: tháp trên xà lan +{0} km',
+    'm.offshore': ' ngoài khơi',
+    'm.tliEnough': 'ĐỦ, dư {0}',
+    'm.tliShort': 'còn thiếu {0}',
+    'm.aft': 'thân sau',
+    'm.tile': 'tấm chắn nhiệt',
+    'm.fillPct': 'Nạp {0}%',
+    'm.padCrack': 'BỆ PHÓNG NỨT — thép quá nhiệt',
+    'm.padBad': 'BỆ PHÓNG HỎNG NẶNG — bê tông văng lên',
+    'm.padGone': 'BỆ PHÓNG VỠ — mất hạ tầng',
+    'm.debrisEng': 'Mảnh văng vào {0} động cơ',
+    'm.saving': 'Đang lưu chuyến bay…',
+    'm.saved': 'Đã lưu — mã chuyến {0}',
+    'm.saveFailN': 'Không lưu được: {0}',
+    'm.saveFail': 'Không lưu được',
+    'm.padDry': ', cạn nước',
+    'm.valveShut': ', van không mở',
+    'm.late': 'trễ {0} s',
+    'm.filmBoil': ', sôi màng',
+    'm.hingeHot': 'Bản lề cháy dở — ',
+    'm.envFail': 'Không dựng được bản đồ môi trường — thép về chế độ cũ',
+    'm.degrade1': 'Máy không tải nổi — bỏ khử răng cưa, hạ bóng đổ',
+    'm.degrade2': 'Vẫn nặng — tắt quầng sáng và bóng khe',
+    'm.degrade3': 'Vẫn nặng — hạ độ phân giải',
+    'm.delugeStart': 'Xả nước làm mát bệ — T−{0} s',
+    'm.delugeShut': 'Đóng van nước — còn {0}%',
+    'm.valveClosed': '{0}% — van đóng',
+    'm.filmBoilCap': ' — SÔI MÀNG',
+    'm.closingAt': ' · khép {0} m/s',
+    'm.burnNow': 'ĐỐT',
+    'm.flapExt': 'FLAP · xoè {0}%',
+    'm.crossOff': ' · lệch ngang {0} m',
+    'm.pageDead': 'LỖI — trang không chạy được:',
+    'm.promiseRej': 'Promise bị từ chối: ',
+    'res.in1km': 'trong 1 km',
+    'm.engSel': 'Chọn {0} động cơ',
+    'm.flightTanker': 'Chuyến {0}: TÀU CHỞ (khô {1} t)',
+    'm.flightDepot': 'Chuyến 1: BẾN CHỨA (bản chuẩn, khô {0} t)',
+    'm.breakQa': 'VỠ THÂN — q·α {0} vượt hạn {1}',
+    'm.circUsed': 'Tròn quỹ đạo {0} m/s — hết {1} t',
+    'm.orbit': 'Quỹ đạo {0}×{1} km',
+    'm.noPropCircN': 'Thiếu nhiên liệu để tròn quỹ đạo — cần {0} t, còn {1} t',
+    'm.deployed': 'Đã thả {0}/{1} vệ tinh',
+    'm.bayShut': 'Đóng cửa khoang — {0} vệ tinh ở {1}×{2} km',
+    'm.depotIn': '— BẾN vào vị trí: {0} t · TLI cần {1} t —',
+    'm.flightDone': '— Chuyến {0}/{1} xong. Bến có {2} t, ',
+    'm.tliNeed': 'TLI cần {0} t —',
+    'm.shortDays': 'Thiếu {0} t · bến đã trên quỹ đạo ',
+    'm.daysBoil': '{0} ngày, bay hơi mất {1} t',
+    'm.noPropCirc2': 'Thiếu nhiên liệu để tròn quỹ đạo',
+    'm.transToDepot': 'Đốt chuyển tiếp {0} m/s lên bến {1} km',
+    'm.coastApo': 'Bay lên viễn điểm mất {0} phút',
+    'm.depotOn': 'Tròn quỹ đạo {0} m/s — BẾN CHỨA đã vào vị trí',
+    'm.depotHas': 'Bến có {0} t · TLI cần {1} t ',
+    'm.dvShort': '(Δv {0} m/s) → thiếu {1} t',
+    'm.boilClock': 'Bay hơi {0} t/ngày — đồng hồ bắt đầu chạy',
+    'm.tliOk': 'ĐỦ NHIÊN LIỆU TLI — bến có {0} t, ',
+    'm.needSpare': 'cần {0} t, dư {1} t',
+    'm.tankerCount': '{0} chuyến tàu chở · {1} lần phóng · ',
+    'm.boilLost': 'bay hơi mất {0} t',
+    'm.boilWon': 'Tám chuyến mà bến vẫn thiếu {0} t — bay hơi đã thắng',
+    'm.depotLead': 'Bến dẫn trước {0}° — cần {1}°',
+    'm.chase2': 'Phải đuổi {0} giờ · {1} vòng ',
+    'm.boilParen': '(bay hơi mất {0} t)',
+    'm.rcsLeft': 'Khí RCS còn {0}%',
+    'm.transUsed': 'Đốt chuyển tiếp {0} m/s — hết {1} t',
+    'm.belowDepot': 'Cách bến {0} km bên dưới — vào hành lang R-bar',
+    'm.softAt': 'BẮT MỀM — chạm ở {0} m/s tương đối',
+    'm.settle': 'Giữ đẩy lắng {0} N về phía Trái Đất — không giữ thì bơm hút phải khí',
+    'm.xferRate': 'Truyền {0} t ở {1} kg/s ',
+    'm.takesMin': '— mất {0} phút',
+    'm.keepDeorbit': 'Giữ lại {0} t để hạ quỹ đạo',
+    'm.xferDone': 'Truyền xong {0} t trong {1} phút ',
+    'm.settleUsed': '— hết {0} kg khí đẩy lắng',
+    'm.issLead': 'Trạm dẫn trước {0}° — cần {1}°',
+    'm.chase': 'Phải đuổi {0} giờ · {1} vòng',
+    'm.settled': 'Đã ổn định (còn trôi {0} m/s) — nhắm lại mốc tiếp cận',
+    'm.noPropTransN': 'Thiếu nhiên liệu để chuyển quỹ đạo — cần {0} t, còn {1} t',
+    'm.belowIss': 'Đang ở {0} km dưới trạm — trôi tự do tới điểm tiếp cận',
+    'm.rbarFrom': 'Bắt đầu tiếp cận R-bar từ {0} m dưới trạm',
+    'm.captureMiss': 'Trượt bắt mềm: {0} — lùi ra 40 m làm lại',
+    'm.dockTel': 'Lệch {0} cm · khép {1} m/s · góc {2}°',
+    'm.crewOver': 'Chuyển {0} người và {1} t hàng sang trạm',
+    'm.keepOut': 'Cách trạm {0} m — ngoài vùng cấm tiếp cận',
+    'm.abortLaunch': 'HỦY BỎ KHI PHÓNG — {0}',
+    'm.dumpProp': 'Xả bớt nhiên liệu — {0} t xuống {1} t',
+    'm.fallFrom': 'Bắt đầu rơi từ {0} km — chuyển sang tư thế bụng trước',
+    'm.touchdown': 'CHẠM ĐẤT {0} m/s',
+    'm.apexLow': 'Đỉnh chỉ {0} km — không đủ cao để xoay trở và hạ cánh',
+    'm.coastToBurn': 'Bay quán tính tới điểm đốt — {0}° quanh quỹ đạo',
+    'm.deorbitBurn': 'Đốt hạ quỹ đạo {0} m/s — hết {1} t',
+    'm.periCut': 'Cận điểm {0} km — cắt vào khí quyển',
+    'm.circOnly': 'Tròn quỹ đạo {0} m/s',
+    'm.deorbitShort': 'Deorbit {0} m/s — hết {1} t',
+    'm.hingeBurn': 'Bản lề flap {0} cháy — mất lực điều khiển bên đó',
+    'm.burnThru': 'CHÁY THỦNG {0} — {1} K',
+    'm.filling': 'Nạp {0}% — LOX {1} t, CH4 {2} t (×{3})',
+    'm.abortLandOk': 'HẠ CÁNH KHẨN CẤP THÀNH CÔNG — chạm {0} m/s, cách tháp {1} m',
+    'm.crewSafe': '{0} người an toàn. Booster mất.',
+    'm.abortLandBad': 'Hạ cánh khẩn cấp thất bại — chạm {0} m/s',
+    'm.allLost': 'Mất {0} người và cả hai tầng.',
+    'm.abortFail': 'Hủy bỏ thất bại — {0} người không về được',
+    'm.hitTowerAt': 'Tàu <b>va vào toà tháp</b> ở độ cao {0} m, ',
+    'm.fromMast': 'cách trục cột <b>{0} m</b>. ',
+    'm.shipAt': 'Tàu chạm ở <b>{0} m/s</b>, nghiêng <b>{1}°</b>. ',
+    'm.flipInTime': 'Cú lật phải xong trước khi hết độ cao — dưới {0} m/s và {1}° mới coi là hạ mềm.',
+    'm.boostTower': 'Booster về tháp lệch <b>{0} m</b>. ',
+    'm.shipFlopLand': 'Tàu tái nhập belly flop rồi lật dựng, chạm <b>{0} m/s</b> ',
+    'm.fromTarget': 'cách đích <b>{0}</b>',
+    'm.downCross': ' (dọc {0} m, ngang {1} m)',
+    'm.boostMiss': 'Booster trượt: lệch <b>{0} m</b>, chạm <b>{1} m/s</b>. ',
+    'm.catchLimit': 'Ngưỡng bắt là dưới {0} m và {1} m/s.',
+    'm.secoShort': 'Tầng trên dừng ở <b>{0} m/s</b>, thiếu <b>{1} m/s</b>.',
+    'm.satsDeployed': 'Thả <b>{0} vệ tinh Starlink</b> ({1} t) vào quỹ đạo tròn. ',
+    'm.burnThruWhy': 'Cháy thủng {0} khi tái nhập — {1} K. Bay sai thế thì thép trần ăn trọn dòng nhiệt.',
+    'm.breakWhy': 'Vỡ thân lúc T+{0}s — q·α {1} Pa·rad, quá ngưỡng {2}. Bẻ lái nhẹ tay hơn quanh max-Q.',
+    'm.boostOff': 'Booster lệch {0} (ngưỡng {1} m)',
+    'm.boostFast': 'Booster chạm {0} m/s — quá nhanh',
+    'm.boostTilt': 'Booster nghiêng {0}° khi chạm',
+    'm.padDmgN': 'Bệ phóng hư {0}% — tấm thép lên {1} K',
+    'm.valveAt': ', mở van {0}',
+    'm.padDebris': 'Mảnh từ bệ làm hỏng {0} động cơ',
+    'm.shipYaw': 'Tàu vào chốt lệch phương {0}° — cánh gió đập vào tay đũa',
+    'm.hingeGone': 'Bản lề flap {0} đã cháy',
+    'm.engLoss': '{0} mất {1}% lực',
+    'm.peakK': ' (đỉnh {0} K)',
+    'm.shipBroke': 'Tàu vỡ khi hạ ({0} m/s, nghiêng {1}°)',
+    'm.shipOff': 'Tàu lệch {0} — ngoài vùng đích',
+    'm.gOver': 'QUÁ TẢI VƯỢT NGƯỠNG — đỉnh {0} g, {1} s trên {2} g',
+    'm.o2Left': 'Dưỡng khí còn {0}% — {1} giờ',
+    'm.o2Out': 'CẠN DƯỠNG KHÍ sau {0} giờ — {1} người chỉ đủ {2} giờ',
+    'ph.stack': 'Xếp chồng',
+    'ph.count': 'Đếm ngược',
+    'ph.fly': 'Đang bay',
+    'ph.hot': 'Hot-stage',
+    'ph.sep': 'Tách tầng',
+    'ph.flip': 'Lật dựng',
+    'ph.landBurn': 'Đốt hãm',
+    'ph.entry': 'Tái nhập',
+    'ph.entryFlop': 'Tái nhập — belly flop',
+    'ph.deploy': 'Thả hàng',
+    'ph.deorbit': 'Hạ quỹ đạo',
+    'ph.phasing': 'Đuổi pha',
+    'ph.phasingDepot': 'Đuổi pha tới bến',
+    'ph.transfer': 'Chuyển quỹ đạo',
+    'ph.coellip': 'Đồng quỹ đạo',
+    'ph.approach': 'Tiếp cận',
+    'ph.approachDepot': 'Tiếp cận bến',
+    'ph.transferProp': 'Truyền nhiên liệu',
+    'ph.undock': 'Tách ghép',
+    'ph.toDepot': 'Đưa bến lên quỹ đạo',
+    'ph.done': 'Hoàn tất nhiệm vụ',
+    'ph.end': 'Kết thúc nhiệm vụ',
+    'ph.failed': 'Nhiệm vụ hỏng',
+    'ph.abort': 'HỦY BỎ',
+    'ph.manual': 'LÁI TAY',
+    'ph.auto': 'TỰ ĐỘNG',
+    'tl.liftoff': 'Rời bệ',
+    'tl.catch': 'Thu booster',
+    'tl.entryBurn': 'Đốt tái nhập',
+    'tl.peakHeat': 'Đỉnh nhiệt',
+    'tl.flop': 'Chúc ngửa',
+    'tl.flip': 'Lật',
+    'tl.land': 'Hạ tàu',
+    'cam.pad': 'Camera bệ phóng',
+    'cam.chase': 'Camera bám booster',
+    'cam.dual': 'Camera hai khung',
+    'cam.dir': 'Camera đạo diễn — tự cắt cảnh theo sự kiện hạ cánh',
+    'cam.wide': 'Toàn cảnh',
+    'cam.towerBase': 'Chân tháp',
+    'cam.arm': 'Cánh tay',
+    'cam.arc': 'Cung tiếp cận',
+    'cam.corridor': 'Hành lang tiếp cận',
+    'cam.tele': 'Ống tele mặt nước',
+    'cam.dualOnly': 'Hai khung chỉ có từ lúc tách tầng tới khi booster chạm đất',
+    'cam.ground': 'Góc 1/2 gắn ở mặt đất — tàu đang ở quỹ đạo, dùng 3/4 hoặc 5',
+    'lg.armLift': 'Cánh tay đũa nhấc booster lên bệ',
+    'lg.stacked': 'Xếp chồng xong — 20 chốt giữ đã khoá',
+    'lg.clamps': '20 chốt giữ khoá — nối BQD và 20 cụm ngắt nhanh',
+    'lg.skipStack': 'Bỏ qua xếp chồng — vào đếm ngược',
+    'lg.skipReset': 'Bỏ qua — booster đã về bệ, nạp đầy',
+    'lg.fillStart': 'Bắt đầu nạp — LOX + CH4',
+    'lg.fillDone': 'Nạp đầy 3400 t — booster sẵn sàng bay lại',
+    'lg.armSeat': 'Cánh tay hạ booster về bệ phóng',
+    'lg.mach1': 'Vượt âm thanh — Mach 1',
+    'lg.karman': 'Vượt đường Kármán — 100 km',
+    'lg.meco': 'MECO — tách tầng nóng',
+    'lg.hotstage': 'Hot-stage — hạ còn 3 máy giữa, tàu đánh lửa khi vẫn dính',
+    'lg.shipIgn': 'Ship đánh lửa — 6 Raptor',
+    'lg.sep': 'Booster tách',
+    'lg.hotRing': 'Nhả vành hot-stage',
+    'lg.rcsFlip': 'Lật thân bằng khí RCS',
+    'lg.tgtTower': 'Đích: tháp Starbase',
+    'lg.followBoost': 'Bám theo booster — tàu bay tiếp tự động',
+    'lg.key5': 'Phím 5 — hai khung: xem tàu bay lên quỹ đạo',
+    'lg.coast': 'Bay quán tính',
+    'lg.fall': 'Rơi tự do',
+    'lg.seco': 'SECO — tàu vào quỹ đạo',
+    'lg.entryIf': 'Chạm rìa khí quyển — bắt đầu tái nhập',
+    'lg.toBelly': 'Xoay sang tư thế bụng trước bằng RCS',
+    'lg.dumped': 'Xả xong — rơi tự do, chuẩn bị tái nhập',
+    'lg.toFlip': 'Vào cú lật — trả lái cho máy',
+    'lg.flipIgn': 'LẬT DỰNG — đánh lửa 3 Raptor',
+    'lg.abortIgn': 'Đánh lửa 3 Raptor — chạy khỏi booster',
+    'lg.abortSep': 'Tách tàu khỏi booster — booster mất',
+    'lg.bayOpen': 'Mở cửa khoang hàng',
+    'lg.holdFlop': 'Bám belly flop',
+    'lg.boostPad': 'Booster chạm bàn phóng',
+    'lg.boostLost': 'Mất booster',
+    'lg.pins': 'Chốt vào ray',
+    'lg.cross38': 'Lệch ngang 38 km — phải nghiêng thân kéo về',
+    'lg.needDump': 'Không xả thì T/W chỉ 0,43 — không hạ cánh được',
+    'lg.missWin': 'Lẽ ra phải phóng trúng cửa sổ',
+    'lg.wxLocked': 'Chỉ đổi được thời tiết trước khi phóng',
+    'lg.toManual': 'Chuyển sang lái tay',
+    'lg.toAuto': 'Đã trả lái cho máy',
+    'lg.autoOn': 'Tự lái BẬT',
+    'lg.toAutoSettle': 'Đã trả lái cho máy — đang ổn định lại trước khi nhắm',
+    'lg.flipAuto': 'Cú lật và đốt hãm luôn tự động — chỉ lái được lúc rơi bụng',
+    'lg.youFlyShip': 'BẠN ĐANG LÁI — W/S góc tấn · A/D nghiêng · Z trả lái',
+    'lg.youFlyDock': 'BẠN ĐANG LÁI — W/S tiến lùi · A/D dạt ngang · Q/E xoay',
+    'lg.dockKeys': 'W/S tiến lùi · A/D dạt ngang · Q/E xoay · Shift phụt mạnh · Z trả lái',
+    'lg.holdShift': 'Giữ Shift để phụt mạnh · bấm Z trả lái cho máy',
+    'lg.takeOver': 'Bấm W/S/A/D/Q/E để giành lái',
+    'lg.softIss': 'BẮT MỀM — đã ghép nối với ISS',
+    'lg.undockSpring': 'Nhả chốt — lò xo đẩy tàu rời cổng',
+    'lg.undockRcs': 'Nhả chốt — RCS đẩy lùi khỏi hành lang',
+    'lg.backOut': 'RCS đẩy lùi khỏi hành lang — 250 m',
+    'lg.outCorridor': 'Ra khỏi hành lang — chuyển sang hạ quỹ đạo',
+    'lg.outSafe': 'Đã ra khỏi hành lang an toàn — chuyển sang chuẩn bị hạ quỹ đạo',
+    'lg.giveUpCrew': 'Bỏ ghép nối, đưa phi hành đoàn về nhà',
+    'lg.giveUpCargo': 'Bỏ ghép nối, hạ quỹ đạo đưa tàu về',
+    'lg.rcsOut': 'HẾT KHÍ RCS — không còn điều khiển tiếp cận được',
+    'lg.rcsOutCargo': 'HẾT KHÍ RCS — không ghép được, mất cả chuyến hàng',
+    'lg.dockKeysCam': 'Phím 3 góc điện ảnh · phím 4 nhìn dọc trục cập · ⏩ tua từng mốc',
+    'lg.realTimeDock': 'Về tốc độ thật — cập tay không tua được',
+    'lg.realTimeHot': 'Về tốc độ thật — tách tầng nóng chỉ kéo 3,2 giây',
+    'lg.tli': 'Đốt TLI — bến rời quỹ đạo Trái Đất',
+    'lg.useSkip': 'Bấm ⏩ Tua tới sự kiện nếu không muốn chờ',
+    'lg.nextFlight': 'Bấm “Xếp chồng &amp; đếm ngược” để đưa chuyến tiếp theo lên',
+    'lg.noPropCirc': 'Thiếu nhiên liệu để tròn quỹ đạo',
+    'lg.noPropCircHi': 'Thiếu nhiên liệu tròn quỹ đạo trên',
+    'lg.noPropDepot': 'Thiếu nhiên liệu để lên độ cao bến',
+    'lg.noPropTrans': 'Thiếu nhiên liệu để chuyển quỹ đạo',
+    'res.caught': 'ĐÃ BẮT — chopstick giữ được',
+    'res.caughtPerfect': 'BẮT CHUẨN — vào chốt hoàn hảo',
+    'res.bullseye': 'CHẠM ĐÍCH — trúng tâm',
+    'res.soft1km': 'HẠ MỀM — trong vòng 1 km',
+    'res.softFar': 'HẠ MỀM — lệch xa',
+    'res.softLost': 'HẠ MỀM nhưng mất dấu',
+    'res.crash': 'VỠ KHI CHẠM',
+    'res.missed': 'TRƯỢT — booster rơi',
+    'res.hitTower': 'VA VÀO THÁP — tàu vỡ',
+    'res.aeroBreak': 'VỠ THÂN TÀU — quá tải khí động',
+    'res.shipCrash': 'Tàu vỡ khi chạm',
+    'res.shipDry': 'Tàu hết nhiên liệu',
+    'res.noOrbit': 'Tàu không vào được quỹ đạo',
+    'res.crewLost': 'Phi hành đoàn không qua khỏi',
+    'res.failed': 'Nhiệm vụ thất bại',
+    'res.both': 'Trọn vẹn cả hai',
+    'res.orbit': 'Vào quỹ đạo',
+    'res.crewAbort': 'người chỉ huy bấm nút',
+    'res.wTight': 'trúng tâm',
+    'res.wCaught': 'bắt chuẩn',
+    'res.wGot': 'đã bắt',
+    'res.wFar': 'lệch xa',
+    'res.wLost': 'mất dấu',
+    'res.wFell': 'rơi',
+    'res.wBroke': 'vỡ',
+    'res.wNone': 'chưa về',
+    'res.wDry': 'gần cạn nhiên liệu',
+    'ov.qAlpha': 'Áp suất động nhân góc tấn vượt giới hạn kết cấu. Qua max-Q phải bẻ lái mượt.',
+    'ov.approachLine': 'Đường tiếp cận phải chạy dọc cánh tay, không được cắt ngang qua cột.',
+    'lab.met': 'Thời gian bay',
+    'lab.ret': 'Thời gian về',
+    'lab.speed2': 'Vận tốc',
+    'lab.alt2': 'Độ cao',
+    'btn.skipping': 'Đang tua…',
     'tgt.tower': 'Tháp Starbase', 'tgt.offshore': 'Tháp ngoài khơi +{0} km',
     'mis.starlink': 'Starlink \u2014 thả vệ tinh', 'mis.iss': 'Trạm ISS \u2014 người + hàng',
     'mis.tnl': 'Tiếp nhiên liệu \u2014 bến {0} km, cần {1} chuyến',
@@ -5239,6 +5828,291 @@ const NGU = {
     'wx.gusty': 'Gió giật', 'wx.storm': 'Giông', 'wx.blizzard': 'Bão tuyết',
   },
   zh: {
+    'ph.boostback': '返场点火',
+    'lg.liftoff': '起飞 — 33 台猛禽',
+    'm.pastMaxQ': '越过最大动压 — {0} kPa',
+    'm.bloomOn': '泛光 + 接触阴影：开',
+    'm.bloomOff': '泛光 + 接触阴影：关 — 色调不变',
+    'm.delugeOpen': '喷水阀开启 — {0} m³/s 冲上钢板',
+    'm.wxSet': '天气：{0}',
+    'm.tgtBarge': '目标：驳船上的塔架 +{0} km',
+    'm.offshore': '（海上）',
+    'm.tliEnough': '达标，余 {0}',
+    'm.tliShort': '还差 {0}',
+    'm.aft': '后体',
+    'm.tile': '隔热瓦',
+    'm.fillPct': '加注 {0}%',
+    'm.padCrack': '发射台开裂 — 钢板过热',
+    'm.padBad': '发射台严重损坏 — 混凝土被掀起',
+    'm.padGone': '发射台炸毁 — 基础设施损失',
+    'm.debrisEng': '碎片打中 {0} 台发动机',
+    'm.saving': '正在保存飞行…',
+    'm.saved': '已保存 — 飞行代码 {0}',
+    'm.saveFailN': '保存失败：{0}',
+    'm.saveFail': '保存失败',
+    'm.padDry': '，水已用尽',
+    'm.valveShut': '，阀门未开启',
+    'm.late': '迟 {0} s',
+    'm.filmBoil': '，膜态沸腾',
+    'm.hingeHot': '铰链部分烧蚀 — ',
+    'm.envFail': '无法生成环境贴图 — 钢材回退到旧模式',
+    'm.degrade1': '机器带不动 — 关闭抗锯齿，降低阴影',
+    'm.degrade2': '仍然吃力 — 关闭泛光与接触阴影',
+    'm.degrade3': '仍然吃力 — 降低分辨率',
+    'm.delugeStart': '发射台开始喷水 — T−{0} s',
+    'm.delugeShut': '关闭喷水阀 — 剩 {0}%',
+    'm.valveClosed': '{0}% — 阀门关闭',
+    'm.filmBoilCap': '— 膜态沸腾',
+    'm.closingAt': '· 接近 {0} m/s',
+    'm.burnNow': '点火',
+    'm.flapExt': '襟翼 · 展开 {0}%',
+    'm.crossOff': '· 横偏 {0} m',
+    'm.pageDead': '错误 — 页面无法运行：',
+    'm.promiseRej': 'Promise 被拒绝：',
+    'res.in1km': '1 km 以内',
+    'm.engSel': '选择 {0} 台发动机',
+    'm.flightTanker': '第 {0} 趟：加注飞船（干重 {1} t）',
+    'm.flightDepot': '第 1 趟：燃料库（标准型，干重 {0} t）',
+    'm.breakQa': '箭体解体 — q·α {0} 超过上限 {1}',
+    'm.circUsed': '圆化轨道 {0} m/s — 消耗 {1} t',
+    'm.orbit': '轨道 {0}×{1} km',
+    'm.noPropCircN': '推进剂不足，无法圆化 — 需 {0} t，剩 {1} t',
+    'm.deployed': '已释放 {0}/{1} 颗卫星',
+    'm.bayShut': '关闭货舱 — {0} 颗卫星在 {1}×{2} km',
+    'm.depotIn': '— 燃料库就位：{0} t · TLI 需 {1} t —',
+    'm.flightDone': '— 第 {0}/{1} 趟完成。库存 {2} t，',
+    'm.tliNeed': 'TLI 需 {0} t —',
+    'm.shortDays': '还差 {0} t · 燃料库在轨已 ',
+    'm.daysBoil': '{0} 天，蒸发损失 {1} t',
+    'm.noPropCirc2': '推进剂不足，无法圆化轨道',
+    'm.transToDepot': '转移点火 {0} m/s 前往 {1} km 燃料库',
+    'm.coastApo': '滑行 {0} 分钟到远地点',
+    'm.depotOn': '圆化 {0} m/s — 燃料库已就位',
+    'm.depotHas': '库存 {0} t · TLI 需 {1} t ',
+    'm.dvShort': '（Δv {0} m/s）→ 还差 {1} t',
+    'm.boilClock': '蒸发 {0} t/天 — 计时开始',
+    'm.tliOk': 'TLI 推进剂达标 — 库存 {0} t，',
+    'm.needSpare': '需 {0} t，余 {1} t',
+    'm.tankerCount': '{0} 趟加注 · {1} 次发射 · ',
+    'm.boilLost': '蒸发损失 {0} t',
+    'm.boilWon': '八趟过后仍差 {0} t — 蒸发赢了',
+    'm.depotLead': '燃料库超前 {0}° — 需要 {1}°',
+    'm.chase2': '需追赶 {0} 小时 · {1} 圈 ',
+    'm.boilParen': '（蒸发损失 {0} t）',
+    'm.rcsLeft': 'RCS 气体剩 {0}%',
+    'm.transUsed': '转移点火 {0} m/s — 消耗 {1} t',
+    'm.belowDepot': '在燃料库下方 {0} km — 进入 R-bar 走廊',
+    'm.softAt': '软捕获 — 相对速度 {0} m/s 接触',
+    'm.settle': '保持 {0} N 沉降推力指向地球 — 否则泵会吸到气体',
+    'm.xferRate': '以 {1} kg/s 传输 {0} t ',
+    'm.takesMin': '— 需 {0} 分钟',
+    'm.keepDeorbit': '留下 {0} t 用于离轨点火',
+    'm.xferDone': '{1} 分钟内传输完 {0} t ',
+    'm.settleUsed': '— 消耗 {0} kg 沉降气体',
+    'm.issLead': '空间站超前 {0}° — 需要 {1}°',
+    'm.chase': '需追赶 {0} 小时 · {1} 圈',
+    'm.settled': '已稳定（漂移 {0} m/s）— 重新瞄准航路点',
+    'm.noPropTransN': '推进剂不足，无法转移 — 需 {0} t，剩 {1} t',
+    'm.belowIss': '在空间站下方 {0} km — 自由漂向接近点',
+    'm.rbarFrom': '从空间站下方 {0} m 开始 R-bar 接近',
+    'm.captureMiss': '软捕获失败：{0} — 退出 40 m 重试',
+    'm.dockTel': '偏移 {0} cm · 接近 {1} m/s · 角度 {2}°',
+    'm.crewOver': '{0} 名乘员与 {1} t 货物转移至空间站',
+    'm.keepOut': '距空间站 {0} m — 位于禁飞区之外',
+    'm.abortLaunch': '发射中止 — {0}',
+    'm.dumpProp': '排放推进剂 — 从 {0} t 降到 {1} t',
+    'm.fallFrom': '从 {0} km 开始下落 — 转为腹部朝前',
+    'm.touchdown': '触地 {0} m/s',
+    'm.apexLow': '最高点仅 {0} km — 不足以调头着陆',
+    'm.coastToBurn': '滑行至点火点 — 绕轨 {0}°',
+    'm.deorbitBurn': '离轨点火 {0} m/s — 消耗 {1} t',
+    'm.periCut': '近地点 {0} km — 切入大气层',
+    'm.circOnly': '圆化轨道 {0} m/s',
+    'm.deorbitShort': '离轨 {0} m/s — 消耗 {1} t',
+    'm.hingeBurn': '襟翼铰链 {0} 烧穿 — 该侧失去控制',
+    'm.burnThru': '烧穿 {0} — {1} K',
+    'm.filling': '加注 {0}% — 液氧 {1} t，甲烷 {2} t（×{3}）',
+    'm.abortLandOk': '应急着陆成功 — 接触 {0} m/s，距塔架 {1} m',
+    'm.crewSafe': '{0} 名乘员安全。助推器损失。',
+    'm.abortLandBad': '应急着陆失败 — 接触 {0} m/s',
+    'm.allLost': '{0} 名乘员与两级全部损失。',
+    'm.abortFail': '中止失败 — {0} 名乘员未能返回',
+    'm.hitTowerAt': '飞船在 {0} m 高度<b>撞上塔架</b>，',
+    'm.fromMast': '距塔柱 <b>{0} m</b>。',
+    'm.shipAt': '飞船以 <b>{0} m/s</b> 接触，倾斜 <b>{1}°</b>。',
+    'm.flipInTime': '转向必须在高度耗尽前完成 — 低于 {0} m/s 且 {1}° 才算软着陆。',
+    'm.boostTower': '助推器返回塔架，偏差 <b>{0} m</b>。',
+    'm.shipFlopLand': '飞船完成腹部下落后转向立起，以 <b>{0} m/s</b> 接地 ',
+    'm.fromTarget': '距目标 <b>{0}</b>',
+    'm.downCross': '（纵向 {0} m，横向 {1} m）',
+    'm.boostMiss': '助推器未接住：偏差 <b>{0} m</b>，接触 <b>{1} m/s</b>。',
+    'm.catchLimit': '接住的门槛是 {0} m 以内、{1} m/s 以内。',
+    'm.secoShort': '上面级停在 <b>{0} m/s</b>，还差 <b>{1} m/s</b>。',
+    'm.satsDeployed': '把 <b>{0} 颗星链卫星</b>（{1} t）释放进圆轨道。',
+    'm.burnThruWhy': '再入时{0}烧穿 — {1} K。姿态不对，裸钢就要承受全部热流。',
+    'm.breakWhy': 'T+{0}s 箭体解体 — q·α {1} Pa·rad，超过上限 {2}。过最大动压段要更柔和。',
+    'm.boostOff': '助推器偏差 {0}（上限 {1} m）',
+    'm.boostFast': '助推器接触 {0} m/s — 太快',
+    'm.boostTilt': '助推器接触时倾斜 {0}°',
+    'm.padDmgN': '发射台损伤 {0}% — 钢板升至 {1} K',
+    'm.valveAt': '，阀门开启 {0}',
+    'm.padDebris': '发射台碎片损坏 {0} 台发动机',
+    'm.shipYaw': '飞船入销时偏航 {0}° — 襟翼撞上机械臂',
+    'm.hingeGone': '襟翼铰链 {0} 已烧穿',
+    'm.engLoss': '{0} 损失 {1}% 推力',
+    'm.peakK': '（峰值 {0} K）',
+    'm.shipBroke': '飞船着陆解体（{0} m/s，倾斜 {1}°）',
+    'm.shipOff': '飞船偏差 {0} — 在目标区之外',
+    'm.gOver': '过载超限 — 峰值 {0} g，{1} s 高于 {2} g',
+    'm.o2Left': '氧气剩 {0}% — {1} 小时',
+    'm.o2Out': '{0} 小时后氧气耗尽 — {1} 名乘员只够 {2} 小时',
+    'ph.stack': '堆叠中',
+    'ph.count': '倒计时',
+    'ph.fly': '飞行中',
+    'ph.hot': '热分离',
+    'ph.sep': '级间分离',
+    'ph.flip': '转向立起',
+    'ph.landBurn': '着陆点火',
+    'ph.entry': '再入',
+    'ph.entryFlop': '再入 — 腹部下落',
+    'ph.deploy': '释放载荷',
+    'ph.deorbit': '离轨',
+    'ph.phasing': '相位追赶',
+    'ph.phasingDepot': '追赶燃料库',
+    'ph.transfer': '转移轨道',
+    'ph.coellip': '共椭圆',
+    'ph.approach': '接近',
+    'ph.approachDepot': '接近燃料库',
+    'ph.transferProp': '推进剂传输',
+    'ph.undock': '分离',
+    'ph.toDepot': '送燃料库入轨',
+    'ph.done': '任务完成',
+    'ph.end': '任务结束',
+    'ph.failed': '任务失败',
+    'ph.abort': '中止',
+    'ph.manual': '手动',
+    'ph.auto': '自动',
+    'tl.liftoff': '起飞',
+    'tl.catch': '回收助推器',
+    'tl.entryBurn': '再入点火',
+    'tl.peakHeat': '峰值热流',
+    'tl.flop': '腹部下落',
+    'tl.flip': '转向',
+    'tl.land': '飞船着陆',
+    'cam.pad': '发射台视角',
+    'cam.chase': '跟拍助推器',
+    'cam.dual': '双画面',
+    'cam.dir': '导播视角 — 按着陆事件自动切换',
+    'cam.wide': '全景',
+    'cam.towerBase': '塔架底部',
+    'cam.arm': '机械臂',
+    'cam.arc': '接近弧线',
+    'cam.corridor': '接近走廊',
+    'cam.tele': '海平面长焦',
+    'cam.dualOnly': '双画面只在分离到助推器触地之间可用',
+    'cam.ground': '视角 1/2 固定在地面 — 飞船在轨，请用 3/4 或 5',
+    'lg.armLift': '机械臂把助推器吊上发射台',
+    'lg.stacked': '堆叠完成 — 20 个压紧夹已锁定',
+    'lg.clamps': '20 个夹具锁定 — 快断臂与 20 组快断接头连接',
+    'lg.skipStack': '跳过堆叠 — 进入倒计时',
+    'lg.skipReset': '跳过 — 助推器已回台并加满',
+    'lg.fillStart': '开始加注 — 液氧 + 甲烷',
+    'lg.fillDone': '加满 3400 t — 助推器可再次飞行',
+    'lg.armSeat': '机械臂把助推器放回发射台',
+    'lg.mach1': '突破音障 — 1 马赫',
+    'lg.karman': '越过卡门线 — 100 km',
+    'lg.meco': '主发动机关机 — 热分离',
+    'lg.hotstage': '热分离 — 只留 3 台中央发动机，飞船在未脱离时点火',
+    'lg.shipIgn': '飞船点火 — 6 台猛禽',
+    'lg.sep': '助推器分离',
+    'lg.hotRing': '抛掉热分离环',
+    'lg.rcsFlip': '用 RCS 调头',
+    'lg.tgtTower': '目标：星舰基地塔架',
+    'lg.followBoost': '跟随助推器 — 飞船自动续飞',
+    'lg.key5': '按 5 — 双画面：看飞船爬升入轨',
+    'lg.coast': '惯性滑行',
+    'lg.fall': '自由落体',
+    'lg.seco': '二级关机 — 飞船入轨',
+    'lg.entryIf': '触及大气层 — 开始再入',
+    'lg.toBelly': '用 RCS 转为腹部朝前',
+    'lg.dumped': '排放完成 — 自由落体，准备再入',
+    'lg.toFlip': '进入转向 — 操纵权交还计算机',
+    'lg.flipIgn': '转向立起 — 3 台猛禽点火',
+    'lg.abortIgn': '3 台猛禽点火 — 逃离助推器',
+    'lg.abortSep': '飞船脱离助推器 — 助推器损失',
+    'lg.bayOpen': '打开货舱门',
+    'lg.holdFlop': '保持腹部下落',
+    'lg.boostPad': '助推器触及发射台',
+    'lg.boostLost': '助推器损失',
+    'lg.pins': '销轴入轨道',
+    'lg.cross38': '横向偏差 38 km — 需侧倾拉回',
+    'lg.needDump': '不排放则推重比只有 0.43 — 无法着陆',
+    'lg.missWin': '本该掐着窗口发射',
+    'lg.wxLocked': '只能在发射前更改天气',
+    'lg.toManual': '切换到手动',
+    'lg.toAuto': '操纵权交还计算机',
+    'lg.autoOn': '自动驾驶开启',
+    'lg.toAutoSettle': '操纵权交还 — 重新瞄准前先稳定',
+    'lg.flipAuto': '转向与着陆点火始终自动 — 只有腹部下落段可手动',
+    'lg.youFlyShip': '你在操纵 — W/S 迎角 · A/D 滚转 · Z 交还',
+    'lg.youFlyDock': '你在操纵 — W/S 前后 · A/D 横移 · Q/E 偏航',
+    'lg.dockKeys': 'W/S 前后 · A/D 横移 · Q/E 偏航 · Shift 大推力 · Z 交还',
+    'lg.holdShift': '按住 Shift 大推力 · 按 Z 交还',
+    'lg.takeOver': '按 W/S/A/D/Q/E 接管',
+    'lg.softIss': '软捕获 — 已与国际空间站对接',
+    'lg.undockSpring': '解锁 — 弹簧把飞船推离接口',
+    'lg.undockRcs': '解锁 — RCS 退出走廊',
+    'lg.backOut': 'RCS 退出走廊 — 250 m',
+    'lg.outCorridor': '脱离走廊 — 转入离轨',
+    'lg.outSafe': '已离开安全走廊 — 准备离轨',
+    'lg.giveUpCrew': '放弃对接，带乘员回家',
+    'lg.giveUpCargo': '放弃对接，离轨带飞船返回',
+    'lg.rcsOut': 'RCS 耗尽 — 无法继续控制接近',
+    'lg.rcsOutCargo': 'RCS 耗尽 — 无法对接，整批货损失',
+    'lg.dockKeysCam': '按 3 电影视角 · 按 4 沿对接轴 · ⏭ 逐段跳过',
+    'lg.realTimeDock': '回到实时 — 手动对接不能快进',
+    'lg.realTimeHot': '回到实时 — 热分离只有 3.2 秒',
+    'lg.tli': 'TLI 点火 — 燃料库离开地球轨道',
+    'lg.useSkip': '不想等就按 ⏭ 跳到下一事件',
+    'lg.nextFlight': '按“堆叠并倒计时”发射下一趟',
+    'lg.noPropCirc': '推进剂不足，无法圆化轨道',
+    'lg.noPropCircHi': '推进剂不足，无法在高轨圆化',
+    'lg.noPropDepot': '推进剂不足，无法到达燃料库高度',
+    'lg.noPropTrans': '推进剂不足，无法转移轨道',
+    'res.caught': '已接住 — 机械臂夹稳',
+    'res.caughtPerfect': '完美接住 — 精准入销',
+    'res.bullseye': '命中 — 正中靶心',
+    'res.soft1km': '软着陆 — 1 km 以内',
+    'res.softFar': '软着陆 — 偏差较大',
+    'res.softLost': '软着陆但偏出目标区',
+    'res.crash': '触地解体',
+    'res.missed': '未接住 — 助推器坠落',
+    'res.hitTower': '撞上塔架 — 飞船解体',
+    'res.aeroBreak': '箭体解体 — 气动过载',
+    'res.shipCrash': '飞船触地解体',
+    'res.shipDry': '飞船推进剂耗尽',
+    'res.noOrbit': '飞船未能入轨',
+    'res.crewLost': '乘员未能生还',
+    'res.failed': '任务失败',
+    'res.both': '两级全部回收',
+    'res.orbit': '进入轨道',
+    'res.crewAbort': '指挥员按下中止',
+    'res.wTight': '正中',
+    'res.wCaught': '精准接住',
+    'res.wGot': '接住',
+    'res.wFar': '偏远',
+    'res.wLost': '失联',
+    'res.wFell': '坠落',
+    'res.wBroke': '解体',
+    'res.wNone': '未回收',
+    'res.wDry': '接近耗尽',
+    'ov.qAlpha': '动压乘以迎角超出结构极限。过最大动压段要柔和操纵。',
+    'ov.approachLine': '接近路线必须沿着机械臂走，不能横切塔柱。',
+    'lab.met': '飞行时间',
+    'lab.ret': '返回时间',
+    'lab.speed2': '速度',
+    'lab.alt2': '高度',
+    'btn.skipping': '快进中…',
     'tgt.tower': '星舰基地塔架', 'tgt.offshore': '海上塔架 +{0} km',
     'mis.starlink': 'Starlink \u2014 释放卫星', 'mis.iss': '国际空间站 \u2014 乘员 + 货物',
     'mis.tnl': '在轨加注 \u2014 {0} km 燃料库，需 {1} 趟',
@@ -7772,7 +8646,7 @@ function nhaVanhHot() {
      ra sau nhu lo xo tach that. */
   const bt = bo ? F.boosterTelemetry(bo) : null;
   vanhRoi = { m, t: 0, v: bt ? bt.vspeed : 0, wx: .5, wz: .32 };
-  logLine('Nhả vành hot-stage', 'hi');
+  logLine(NG('lg.hotRing'), 'hi');
 }
 
 const HOTFX = (() => {
@@ -9235,7 +10109,15 @@ function veDichUI() {
     + ' / ' + (sTargetCr >= 0 ? '+' : '') + (sTargetCr / 1000).toFixed(0) + ' km';
 }
 
-function setPhase(text, cls) { const p = $('phase'); p.textContent = text; p.className = cls || ''; }
+/* NHAN KHOA, khong nhan chu. Neu nhan chu thi doi ngon ngu giua chuyen bay se
+   de o pha giu nguyen chu cu cho toi lan doi pha sau — da thay that: doi sang
+   tieng Anh giua luc roi bung, moi o khac doi het, rieng o pha van la chu Han.
+   Giu lai khoa de veLaiUI() ve lai duoc. */
+let phaseKey = '';
+function setPhase(k, cls) {
+  phaseKey = k; const p = $('phase');
+  p.textContent = NG(k); p.className = cls || '';
+}
 const inReturn = () => phase === 'RETURN';
 const inShip = () => phase === 'SHIPRET';
 /* Hai pha nay camera phai bam TAU chu khong bam booster (booster da cham va dong bang). */
@@ -9291,7 +10173,7 @@ function reset() {
   /* Tra lai CA NHAN chu khong chi bo class: bam tua xong ma chuyen do ket thuc
      giua chung thi nut ket o chu "Dang tua..." sang tan chuyen sau. */
   $('skip').hidden = true; $('skip').classList.remove('busy');
-  $('skip').innerHTML = '&#9193; Tua tới sự kiện';
+  $('skip').textContent = NG('btn.skip');
   /* TRA TU THE VE GOC. Luc tau tai nhap, lop ve gan THANG
      `shipObj.quaternion.set(srt.q4...)` — tu the 3D day du, ba truc. Khi ve lai be
      thi nhanh "con dinh" chi dat `rotation.z`, nen x va y GIU NGUYEN tu the
@@ -9330,7 +10212,7 @@ function reset() {
   $('log').innerHTML = ''; $('over').hidden = true; $('catchbar').hidden = true; $('hinge').hidden = true; $('stick').hidden = true;
   $('intro').hidden = false;          // R phai tra ve man hinh mo dau, khong bo nguoi choi treo o PRE
   $('tT').classList.remove('act');
-  setPhase('Đếm ngược');
+  setPhase('ph.count');
   setCellLabels('asc');
   document.querySelectorAll('#warp button').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === '1'));
 }
@@ -9391,10 +10273,10 @@ function toManual() {
     if (warp !== 1) {
       warp = 1;
       document.querySelectorAll('#warp button').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === '1'));
-      logLine('Về tốc độ thật — cập tay không tua được', 'hi');
+      logLine(NG('lg.realTimeDock'), 'hi');
     }
-    logLine('BẠN ĐANG LÁI — W/S tiến lùi · A/D dạt ngang · Q/E xoay', 'hi');
-    logLine('Giữ Shift để phụt mạnh · bấm Z trả lái cho máy', 'hi');
+    logLine(NG('lg.youFlyDock'), 'hi');
+    logLine(NG('lg.holdShift'), 'hi');
     return;
   }
   if (!auto) return;
@@ -9419,7 +10301,7 @@ function toManual() {
     if (shr.phase !== 'ENTRY' && shr.phase !== 'FLOP') {
       const now = performance.now();
       if (now - noManualT > 4000) { noManualT = now;
-        logLine('Cú lật và đốt hãm luôn tự động — chỉ lái được lúc rơi bụng', 'hi'); }
+        logLine(NG('lg.flipAuto'), 'hi'); }
       return;
     }
     if (!shipManual) {
@@ -9431,7 +10313,7 @@ function toManual() {
       shipAoa = shr._faoa !== undefined ? shr._faoa : (shr.aoa || S3.FLOP_AOA);
       shipBank = shr._fbank !== undefined ? shr._fbank : (shr.bank || 0);
       $('tT').classList.add('act');
-      logLine('BẠN ĐANG LÁI — W/S góc tấn · A/D nghiêng · Z trả lái', 'hi');
+      logLine(NG('lg.youFlyShip'), 'hi');
     }
     return;
   }
@@ -9439,12 +10321,12 @@ function toManual() {
   if (inReturn() && bo) { const c = F.boosterAuto(bo); pitchCmd = c.pitch; throttleCmd = c.throttle; bEngIdx = c.nEng === 1 ? 0 : c.nEng === 3 ? 1 : c.nEng === 13 ? 2 : 3; }
   else pitchCmd = F.progradePitch(st);
   $('tT').classList.add('act');
-  logLine('Chuyển sang lái tay', 'hi');
+  logLine(NG('lg.toManual'), 'hi');
 }
 function toggleAuto() {
   if (phase !== 'ASCENT' && phase !== 'RETURN' && phase !== 'SHIPRET') return;
   if (auto) toManual();
-  else { auto = true; $('tT').classList.remove('act'); logLine('Tự lái BẬT', 'hi'); }
+  else { auto = true; $('tT').classList.remove('act'); logLine(NG('lg.autoOn'), 'hi'); }
 }
 addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
@@ -9472,11 +10354,11 @@ addEventListener('keydown', e => {
   if (k === 't') toggleAuto();
   if (k === 'n' && dlg && !dlg.on && (phase === 'PRE' || phase === 'COUNT' || phase === 'ASCENT')) {
     dlg.on = true; dlgAuto = false; everManual = true;
-    logLine('Mở van nước — ' + F.DEL.Q0 + ' m³/s vào tấm thép', 'hi');
+    logLine(NG('m.delugeOpen', F.DEL.Q0), 'hi');
   }
   if (k === 'r') reset();
   if (k === 'm') { Sfx.init(); $('mute').setAttribute('aria-pressed', Sfx.toggle()); }
-  if (k === 'e' && inReturn() && !auto) { bEngIdx = (bEngIdx + 1) % 4; logLine(`Chọn ${B_ENGINE_STEPS[bEngIdx]} động cơ`); }
+  if (k === 'e' && inReturn() && !auto) { bEngIdx = (bEngIdx + 1) % 4; logLine(NG('m.engSel', B_ENGINE_STEPS[bEngIdx])); }
   if ('1234'.includes(k)) {
     /* Goc 1 (be phong) va 2 (ong tele mat dat) gan CUNG o mat dat. Trong pha tha hang tau o
        ~155 km nen hai goc do cho ra khung trong (fov co ve muc toi thieu 1.1 do). Chan lai va
@@ -9484,29 +10366,29 @@ addEventListener('keydown', e => {
        giu phim thi keydown tu lap lai. */
     if (shipCam() && (k === '1' || k === '2')) {
       const tn = performance.now();
-      if (tn - noCamT > 4000) { noCamT = tn; logLine('Góc 1/2 gắn ở mặt đất — tàu đang ở quỹ đạo, dùng 3/4 hoặc 5', 'hi'); }
+      if (tn - noCamT > 4000) { noCamT = tn; logLine(NG('cam.ground'), 'hi'); }
     } else { camMode = +k; hotCam = 0; if (shr) CIN.user = true; }
   }
-  if (k === '6') { camMode = 6; CIN.user = false; CIN.shot = ''; logLine('Camera đạo diễn — tự cắt cảnh theo sự kiện hạ cánh', 'hi'); }
+  if (k === '6') { camMode = 6; CIN.user = false; CIN.shot = ''; logLine(NG('cam.dir'), 'hi'); }
   if (k === ' ' && CIN.overAt) { CIN.overAt = 0; $('over').hidden = false; }
   if (k === '5') {
-    if (dualOK()) { camMode = 5; camAuto = false; logLine('Camera hai khung', 'hi'); }
+    if (dualOK()) { camMode = 5; camAuto = false; logLine(NG('cam.dual'), 'hi'); }
     else logMode5();
   }
   if (['w','s','a','d','q','e','arrowup','arrowdown','arrowleft','arrowright'].includes(k)) toManual();
-  if (k === 'p') { FX.bat = !FX.bat; logLine(FX.bat ? 'Quầng sáng + bóng khe: bật' : 'Quầng sáng + bóng khe: tắt — tông giữ nguyên', 'hi'); }
+  if (k === 'p') { FX.bat = !FX.bat; logLine(NG(FX.bat ? 'm.bloomOn' : 'm.bloomOff'), 'hi'); }
   /* Nhan ca chu O lan so 0: hai ky tu nay nhin gan nhu giong nhau trong van
      ban, va so 1-6 da la phim camera nen 0 dang de trong. */
   if (k === 'o' || k === '0') TUNE.bat();
-  if (k === 'x' && phase === 'ASCENT' && !abortInfo) startAbort('người chỉ huy bấm nút');
+  if (k === 'x' && phase === 'ASCENT' && !abortInfo) startAbort(NG('res.crewAbort'));
   if (k === 'z' && shipManual) {
     shipManual = false; $('tT').classList.remove('act');
-    logLine('Đã trả lái cho máy', 'hi');
+    logLine(NG('lg.toAuto'), 'hi');
   }
   if (k === 'z' && dockManual) {
     dockManual = false;
     if (iss) { iss.leg = null; iss.onDinh = st.t + 400; }
-    logLine('Đã trả lái cho máy — đang ổn định lại trước khi nhắm', 'hi');
+    logLine(NG('lg.toAutoSettle'), 'hi');
   }
 });
 addEventListener('keyup', e => { held[e.key.toLowerCase()] = false; });
@@ -9588,7 +10470,7 @@ const touchHold = (el, key) => {
 touchHold($('tL'), 'a'); touchHold($('tR'), 'd');
 $('tA').onclick = () => {
   if (phase === 'PRE') return launch();
-  if (inReturn() && !auto) { bEngIdx = (bEngIdx + 1) % 4; logLine(`Chọn ${B_ENGINE_STEPS[bEngIdx]} động cơ`); return; }
+  if (inReturn() && !auto) { bEngIdx = (bEngIdx + 1) % 4; logLine(NG('m.engSel', B_ENGINE_STEPS[bEngIdx])); return; }
   held['w'] = true; setTimeout(() => held['w'] = false, 260);
 };
 $('tT').onclick = toggleAuto;
@@ -9610,18 +10492,18 @@ function showWx() {
    thoi tiet dang chon nen no co tac dung that. */
 const canSetWx = () => phase === 'PRE' || phase === 'COUNT' || phase === 'END';
 $('wxSel').onchange = () => {
-  if (!canSetWx()) { logLine('Chỉ đổi được thời tiết trước khi phóng', 'bad'); showWx(); return; }
+  if (!canSetWx()) { logLine(NG('lg.wxLocked'), 'bad'); showWx(); return; }
   F.setWeather($('wxSel').value);
   showWx();
-  logLine('Thời tiết: ' + F.getWeather().name, 'hi');
+  logLine(NG('m.wxSet', NG('wx.' + $('wxSel').value)), 'hi');
 };
 $('wxRnd').onclick = () => {
-  if (!canSetWx()) { logLine('Chỉ đổi được thời tiết trước khi phóng', 'bad'); return; }
+  if (!canSetWx()) { logLine(NG('lg.wxLocked'), 'bad'); return; }
   const w = F.randomWeather();
   showWx();
-  logLine('Thời tiết: ' + w.name, 'hi');
+  logLine(NG('m.wxSet', NG('wx.' + F.WX_KEYS.find(x => F.WEATHER[x] === w))), 'hi');
 };
-$('skip').onclick = () => { turbo = true; $('skip').classList.add('busy'); $('skip').textContent = 'Đang tua…'; };
+$('skip').onclick = () => { turbo = true; $('skip').classList.add('busy'); $('skip').textContent = NG('btn.skipping'); };
 
 function launch() {
   if (phase !== 'PRE') return;
@@ -9640,13 +10522,13 @@ function launch() {
     F.setPayload(0);
     st = F.makeState({ tanker: tnlLaTauCho() });
     logLine(tnlLaTauCho()
-      ? `Chuyến ${TNL.nChuyen + 1}: TÀU CHỞ (khô ${(F.VEH.s2.dryT / 1000).toFixed(0)} t)`
-      : `Chuyến 1: BẾN CHỨA (bản chuẩn, khô ${(F.VEH.s2.dry / 1000).toFixed(0)} t)`, 'hi');
+      ? NG('m.flightTanker', TNL.nChuyen + 1, (F.VEH.s2.dryT / 1000).toFixed(0))
+      : NG('m.flightDepot', (F.VEH.s2.dry / 1000).toFixed(0)), 'hi');
   } else {
     F.setPayload(missionType === 'iss' ? issPay() : payloadSats * F.SAT.m); st = F.makeState();
   }
   phase = 'STACK'; stackT = 0; padRel = 1; padRelease(1); stackBegin();
-  setPhase('Xếp chồng'); logLine('Cánh tay đũa nhấc booster lên bệ', 'hi');
+  setPhase('ph.stack'); logLine(NG('lg.armLift'), 'hi');
   const wxNow = F.getWeather();
   recStart({
     wx: F.WX_KEYS.find(k => F.WEATHER[k] === wxNow) || '?', wxName: wxNow.name,
@@ -9660,8 +10542,8 @@ $('mute').onclick = () => { Sfx.init(); $('mute').setAttribute('aria-pressed', S
 function onShipEvent(e) {
   if (e.type === 'HOTSTAGE') {
     hotInfo = { t: e.t, alt: e.alt, v: e.v };
-    logLine('Hot-stage — hạ còn 3 máy giữa, tàu đánh lửa khi vẫn dính', 'hi');
-    setPhase('Hot-stage', 'hot'); Sfx.thud(110); shakeT = .35;
+    logLine(NG('lg.hotstage'), 'hi');
+    setPhase('ph.hot', 'hot'); Sfx.thud(110); shakeT = .35;
     hotCam = 4.9; sepFlash = 0;        // cat vao khe noi suot cua so 3,2 giay
     /* VE TOC DO THAT. Cua so hot-stage dai 3,2 giay MO PHONG: o nut 20x no troi
        qua trong 0,16 giay that, tuc ca khau tach tang — dung cai nguoi choi doi
@@ -9669,50 +10551,50 @@ function onShipEvent(e) {
     if (warp !== 1) {
       warp = 1;
       document.querySelectorAll('#warp button').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === '1'));
-      logLine('Về tốc độ thật — tách tầng nóng chỉ kéo 3,2 giây', 'hi');
+      logLine(NG('lg.realTimeHot'), 'hi');
     }
   }
   if (e.type === 'MECO') {
     mecoInfo = { t: e.t, alt: e.alt, v: e.v };
     if (hotInfo) { hotInfo.dur = e.hotT || (e.t - hotInfo.t); hotInfo.relAlt = e.alt; hotInfo.relV = e.v; }
-    logLine('MECO — tách tầng nóng', 'hi');
+    logLine(NG('lg.meco'), 'hi');
     bo = F.makeBooster(st);
     boJust = true;                     // dung buoc no lan nua trong chinh lan lap nay
     phase = 'RETURN'; auto = true; $('tT').classList.remove('act');
-    setPhase('Booster tách', 'hot');
+    setPhase('lg.sep', 'hot');
     buildGrid('booster'); setCellLabels('ret');
     $('catchbar').hidden = false;
     /* Dat nhan ngay day. Nhanh TAU ve (updateHUDShip) va nhanh CAP ISS deu tu dat
        nhan cua minh moi khung, rieng cu bat BOOSTER thi chi bat thanh len roi dung
        nhan dang co san — nen choi ISS xong phong lai la cu bat booster doi tieu de
        "Hanh lang tiep can". */
-    document.querySelector('#catchbar .lab').textContent = 'Căn chỉnh với tháp';
+    document.querySelector('#catchbar .lab').textContent = NG('lab.catch');
     camMode = 3; shakeT = .8;
     sepPad = SHIP_OFFSET; sepFlash = 1;
     hotCam = Math.max(hotCam, 1.8);    // giu them 1,8 giay de THAY hai tang roi nhau
-    logLine('Phím 5 — hai khung: xem tàu bay lên quỹ đạo', 'hi');
-    logLine('Bám theo booster — tàu bay tiếp tự động', 'hi');
-    logLine(bTargetDr === 0 ? 'Đích: tháp Starbase'
-      : 'Đích: tháp trên xà lan +' + (bTargetDr / 1000).toFixed(0) + ' km', 'hi');
-    logLine('Lật thân bằng khí RCS', 'hi');
+    logLine(NG('lg.key5'), 'hi');
+    logLine(NG('lg.followBoost'), 'hi');
+    logLine(bTargetDr === 0 ? NG('lg.tgtTower')
+      : NG('m.tgtBarge', (bTargetDr / 1000).toFixed(0)), 'hi');
+    logLine(NG('lg.rcsFlip'), 'hi');
     Sfx.thud(120); Sfx.boom(.35, .9);
-  } else if (e.type === 'IGNITION') { logLine('Ship đánh lửa — 6 Raptor', 'hi'); Sfx.thud(190); }
+  } else if (e.type === 'IGNITION') { logLine(NG('lg.shipIgn'), 'hi'); Sfx.thud(190); }
   else if (e.type === 'SECO') { shipResult = 'orbit'; shipTelFinal = F.telemetry(st);
-    secoInfo = { t: e.t, alt: e.alt, v: e.v }; logLine('SECO — tàu vào quỹ đạo', 'hi'); Sfx.beep(1320, .5, .3); maybeEnd(); }
-  else if (e.type === 'DEPLETED') { shipResult = 'short'; shipTelFinal = F.telemetry(st); logLine('Tàu hết nhiên liệu', 'bad'); maybeEnd(); }
+    secoInfo = { t: e.t, alt: e.alt, v: e.v }; logLine(NG('lg.seco'), 'hi'); Sfx.beep(1320, .5, .3); maybeEnd(); }
+  else if (e.type === 'DEPLETED') { shipResult = 'short'; shipTelFinal = F.telemetry(st); logLine(NG('res.shipDry'), 'bad'); maybeEnd(); }
   else if (e.type === 'RUD') {
     shipResult = 'rud'; shipTelFinal = F.telemetry(st);
     rudInfo = { t: e.t, qa: e.qAlpha, alt: e.alt, v: e.v };
-    logLine(`VỠ THÂN — q·α ${e.qAlpha.toFixed(0)} vượt hạn ${F.Q_ALPHA_LIMIT}`, 'bad');
+    logLine(NG('m.breakQa', e.qAlpha.toFixed(0), F.Q_ALPHA_LIMIT), 'bad');
     shakeT = 1.4; Sfx.boom(.95, 2.2); endGame();
   } else if (e.type === 'IMPACT') { shipResult = 'impact'; shipTelFinal = F.telemetry(st); endGame(); }
 }
 function onBoosterEvent(e) {
   boostResult = e;
-  const noi = bTargetDr === 0 ? '' : ' ngoài khơi';
-  const n = { perfect: 'BẮT CHUẨN — vào chốt hoàn hảo' + noi,
-              caught: 'ĐÃ BẮT — chopstick giữ được' + noi,
-              crash: 'TRƯỢT — booster rơi' }[e.outcome];
+  const noi = bTargetDr === 0 ? '' : NG('m.offshore');
+  const n = { perfect: NG('res.caughtPerfect') + noi,
+              caught: NG('res.caught') + noi,
+              crash: NG('res.missed') }[e.outcome];
   logLine(n, e.outcome === 'crash' ? 'bad' : 'hi');
   if (e.outcome === 'crash') { shakeT = 1.4; Sfx.boom(.95, 2.2); }
   else { Sfx.clank(); Sfx.thud(90); }
@@ -9763,12 +10645,12 @@ function startDeploy() {
      kieu ASCENT cua tau -> o 'Van toc dung' hien Mach, 'Dong co' hien m/s. Doi nhan cho khop,
      dung luoi 6 may cua tau, va tat thanh can chinh vi khong con gi de bat. */
   buildGrid('ship'); setCellLabels('asc'); $('catchbar').hidden = true;
-  setPhase('Thả hàng', 'hot');
+  setPhase('ph.deploy', 'hot');
   if (r.ok) {
-    logLine(`Tròn quỹ đạo ${r.dv.toFixed(0)} m/s — hết ${r.used.toFixed(1)} t`, 'hi');
-    logLine(`Quỹ đạo ${(r.orbit.peri / 1000).toFixed(0)}×${(r.orbit.apo / 1000).toFixed(0)} km`, 'hi');
-  } else logLine(`Thiếu nhiên liệu để tròn quỹ đạo — cần ${r.need.toFixed(1)} t, còn ${r.have.toFixed(1)} t`, 'bad');
-  logLine('Mở cửa khoang hàng', 'hi'); Sfx.thud(150);
+    logLine(NG('m.circUsed', r.dv.toFixed(0), r.used.toFixed(1)), 'hi');
+    logLine(NG('m.orbit', (r.orbit.peri / 1000).toFixed(0), (r.orbit.apo / 1000).toFixed(0)), 'hi');
+  } else logLine(NG('m.noPropCircN', r.need.toFixed(1), r.have.toFixed(1)), 'bad');
+  logLine(NG('lg.bayOpen'), 'hi'); Sfx.thud(150);
 }
 
 /* Mot buoc cua pha tha. Tau va ve tinh deu bay hai-the that (F.orbitStep). */
@@ -9788,7 +10670,7 @@ function deployStep(dt) {
       F.setPayload(Math.max(0, (payloadSats - depN) * F.SAT.m));
       st.pay = F.getPayload();          // hang con lai TREN CHINH tau nay
       Sfx.beep(920, .05, .10);
-      if (depN % 10 === 0 || depN === payloadSats) logLine(`Đã thả ${depN}/${payloadSats} vệ tinh`, 'hi');
+      if (depN % 10 === 0 || depN === payloadSats) logLine(NG('m.deployed', depN, payloadSats), 'hi');
     }
     return;
   }
@@ -9797,7 +10679,7 @@ function deployStep(dt) {
   if (depShut > 4.5 && !depDone) {
     depDone = true;
     const o = F.orbitOf(satList[satList.length - 1]);
-    logLine(`Đóng cửa khoang — ${depN} vệ tinh ở ${(o.peri / 1000).toFixed(0)}×${(o.apo / 1000).toFixed(0)} km`, 'hi');
+    logLine(NG('m.bayShut', depN, (o.peri / 1000).toFixed(0), (o.apo / 1000).toFixed(0)), 'hi');
     startDeorbit();
   }
 }
@@ -9875,13 +10757,13 @@ function tnlChuyenSau() {
   /* Lan phong 1 la BEN CHUA, khong phai mot chuyen cho. Goi no "Chuyen 0/3
      xong" la vo nghia — do dung cai nguoi choi doc duoc truoc ban nay. */
   logLine(TNL.nChuyen === 0
-    ? `— BẾN vào vị trí: ${(TNL.ben.prop2 / 1000).toFixed(1)} t · TLI cần ${(t.need / 1000).toFixed(1)} t —`
-    : `— Chuyến ${TNL.nChuyen}/${TNL_CAN} xong. Bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t, `
-      + `TLI cần ${(t.need / 1000).toFixed(1)} t —`, 'hi');
-  logLine(`Thiếu ${((t.need - TNL.ben.prop2) / 1000).toFixed(1)} t · bến đã trên quỹ đạo `
-        + `${TNL.ngay.toFixed(1)} ngày, bay hơi mất ${bh.toFixed(1)} t`, bh > 0 ? 'bad' : 'hi');
+    ? NG('m.depotIn', (TNL.ben.prop2 / 1000).toFixed(1), (t.need / 1000).toFixed(1))
+    : NG('m.flightDone', TNL.nChuyen, TNL_CAN, (TNL.ben.prop2 / 1000).toFixed(1))
+      + NG('m.tliNeed', (t.need / 1000).toFixed(1)), 'hi');
+  logLine(NG('m.shortDays', ((t.need - TNL.ben.prop2) / 1000).toFixed(1))
+        + NG('m.daysBoil', TNL.ngay.toFixed(1), bh.toFixed(1)), bh > 0 ? 'bad' : 'hi');
   /* Noi dung nut THAT: khong co nut nao ten "Phong" o man hinh mo dau. */
-  logLine('Bấm “Xếp chồng &amp; đếm ngược” để đưa chuyến tiếp theo lên', 'hi');
+  logLine(NG('lg.nextFlight'), 'hi');
   setMisUI();
 }
 
@@ -9891,17 +10773,17 @@ function startTnlBen() {
   if (r.ok) showBurn(r.dv, st.m || 210e3, 3, 1);
   phase = 'TNLBEN'; auto = true; camMode = 3; camAuto = false; cinReset();
   buildGrid('ship'); setCellLabels('asc'); $('catchbar').hidden = true;
-  setPhase('Đưa bến lên quỹ đạo', 'hot');
-  if (r.ok) logLine(`Tròn quỹ đạo ${r.dv.toFixed(0)} m/s — hết ${r.used.toFixed(1)} t`, 'hi');
-  else { logLine(`Thiếu nhiên liệu để tròn quỹ đạo`, 'bad'); shipResult = 'stranded'; endGame(); return; }
+  setPhase('ph.toDepot', 'hot');
+  if (r.ok) logLine(NG('m.circUsed', r.dv.toFixed(0), r.used.toFixed(1)), 'hi');
+  else { logLine(NG('m.noPropCirc2'), 'bad'); shipResult = 'stranded'; endGame(); return; }
   const r1 = Math.hypot(st.x, st.y), r2 = F.RE + TNL.hBen;
   const h = D.hohmann(F, r1, r2);
   const b = D.burn(F, st, h.dv1);
-  if (!b.ok) { logLine('Thiếu nhiên liệu để lên độ cao bến', 'bad'); shipResult = 'stranded'; endGame(); return; }
+  if (!b.ok) { logLine(NG('lg.noPropDepot'), 'bad'); shipResult = 'stranded'; endGame(); return; }
   showBurn(h.dv1, st.m || 190e3, 1, .40);
   TNL.tArr = st.t + h.t; TNL.dv2 = h.dv2;
-  logLine(`Đốt chuyển tiếp ${h.dv1.toFixed(1)} m/s lên bến ${(TNL.hBen / 1000).toFixed(0)} km`, 'hi');
-  logLine(`Bay lên viễn điểm mất ${(h.t / 60).toFixed(0)} phút`, 'hi');
+  logLine(NG('m.transToDepot', h.dv1.toFixed(1), (TNL.hBen / 1000).toFixed(0)), 'hi');
+  logLine(NG('m.coastApo', (h.t / 60).toFixed(0)), 'hi');
 }
 
 function tnlBenStep(dt) {
@@ -9910,16 +10792,16 @@ function tnlBenStep(dt) {
   if (st.t < TNL.tArr) return;
   const b = D.burn(F, st, TNL.dv2);
   showBurn(TNL.dv2, st.m || 190e3, 1, .40);
-  if (!b.ok) { logLine('Thiếu nhiên liệu tròn quỹ đạo trên', 'bad'); shipResult = 'stranded'; endGame(); return; }
+  if (!b.ok) { logLine(NG('lg.noPropCircHi'), 'bad'); shipResult = 'stranded'; endGame(); return; }
   /* GIU CHINH DOI TUONG `st`, khong sao chep: tu day no la ben chua, va lan
      phong sau `st` se duoc gan lai mot trang thai moi — hai thu phai roi nhau. */
   TNL.ben = st;
   TNL.ben.laBen = true;
   const t = F.tliNeed(TNL.ben);
-  logLine(`Tròn quỹ đạo ${TNL.dv2.toFixed(1)} m/s — BẾN CHỨA đã vào vị trí`, 'hi');
-  logLine(`Bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t · TLI cần ${(t.need / 1000).toFixed(1)} t `
-        + `(Δv ${t.dv.toFixed(0)} m/s) → thiếu ${((t.need - TNL.ben.prop2) / 1000).toFixed(1)} t`, 'hi');
-  logLine(`Bay hơi ${F.boilDay().toFixed(2)} t/ngày — đồng hồ bắt đầu chạy`, 'bad');
+  logLine(NG('m.depotOn', TNL.dv2.toFixed(1)), 'hi');
+  logLine(NG('m.depotHas', (TNL.ben.prop2 / 1000).toFixed(1), (t.need / 1000).toFixed(1))
+        + NG('m.dvShort', t.dv.toFixed(0), ((t.need - TNL.ben.prop2) / 1000).toFixed(1)), 'hi');
+  logLine(NG('m.boilClock', F.boilDay().toFixed(2)), 'bad');
   shipResult = 'depot';
   maybeEnd();                     // mot duong duy nhat ra khoi mot chuyen
 }
@@ -9930,16 +10812,16 @@ function tnlHetChuyen() {
   const tl = F.tliNeed(TNL.ben);
   if (tl.du >= 0 && TNL.nChuyen > 0) {
     TNL.thanh = true;
-    logLine(`ĐỦ NHIÊN LIỆU TLI — bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t, `
-          + `cần ${(tl.need / 1000).toFixed(1)} t, dư ${(tl.du / 1000).toFixed(1)} t`, 'hi');
-    logLine(`${TNL.nChuyen} chuyến tàu chở · ${TNL.nChuyen + 1} lần phóng · `
-          + `bay hơi mất ${((TNL.ben.boiled || 0) / 1000).toFixed(1)} t`, 'hi');
-    logLine('Đốt TLI — bến rời quỹ đạo Trái Đất', 'hi');
+    logLine(NG('m.tliOk', (TNL.ben.prop2 / 1000).toFixed(1))
+          + NG('m.needSpare', (tl.need / 1000).toFixed(1), (tl.du / 1000).toFixed(1)), 'hi');
+    logLine(NG('m.tankerCount', TNL.nChuyen, TNL.nChuyen + 1)
+          + NG('m.boilLost', ((TNL.ben.boiled || 0) / 1000).toFixed(1)), 'hi');
+    logLine(NG('lg.tli'), 'hi');
     Sfx.thud(150);
     return false;                 // de endGame() chay tiep, cham diem chien dich
   }
   if (TNL.nChuyen >= 8) {
-    logLine(`Tám chuyến mà bến vẫn thiếu ${(-tl.du / 1000).toFixed(1)} t — bay hơi đã thắng`, 'bad');
+    logLine(NG('m.boilWon', (-tl.du / 1000).toFixed(1)), 'bad');
     return false;
   }
   tnlChuyenSau();
@@ -9954,19 +10836,19 @@ function tnlHetChuyen() {
 function startTnlCho() {
   const r = F.circularize(st);
   if (r.ok) showBurn(r.dv, st.m || 210e3, 3, 1);
-  else { logLine('Thiếu nhiên liệu để tròn quỹ đạo', 'bad'); shipResult = 'stranded'; endGame(); return; }
+  else { logLine(NG('lg.noPropCirc'), 'bad'); shipResult = 'stranded'; endGame(); return; }
   phase = 'TNLCHO'; auto = true; camMode = 3; camAuto = false; cinReset();
   buildGrid('ship'); setCellLabels('asc'); $('catchbar').hidden = true;
-  setPhase('Đuổi pha tới bến', 'hot');
-  logLine(`Tròn quỹ đạo ${r.dv.toFixed(0)} m/s — hết ${r.used.toFixed(1)} t`, 'hi');
+  setPhase('ph.phasingDepot', 'hot');
+  logLine(NG('m.circUsed', r.dv.toFixed(0), r.used.toFixed(1)), 'hi');
   tnl = D.make(F, st, { tgt: TNL.ben, tgtShip: true, alt: TNL.hBen });
   tnl.phase = 'PHASING';
   khiDaBao = 0;
   const w = D.windowIn(F, st, TNL.ben, F.RE + TNL.hBen - ISS_BELOW);
-  logLine(`Bến dẫn trước ${(w.now * 57.3).toFixed(0)}° — cần ${(w.need * 57.3).toFixed(1)}°`, 'hi');
-  logLine(`Phải đuổi ${(w.wait / 3600).toFixed(1)} giờ · ${w.orbits.toFixed(1)} vòng `
-        + `(bay hơi mất ${(F.boilDay() * w.wait / 86400).toFixed(2)} t)`, w.orbits > 20 ? 'bad' : 'hi');
-  logLine('Bấm ⏩ Tua tới sự kiện nếu không muốn chờ', 'hi');
+  logLine(NG('m.depotLead', (w.now * 57.3).toFixed(0), (w.need * 57.3).toFixed(1)), 'hi');
+  logLine(NG('m.chase2', (w.wait / 3600).toFixed(1), w.orbits.toFixed(1))
+        + NG('m.boilParen', (F.boilDay() * w.wait / 86400).toFixed(2)), w.orbits > 20 ? 'bad' : 'hi');
+  logLine(NG('lg.useSkip'), 'hi');
 }
 
 function tnlChoStep(dt) {
@@ -9982,11 +10864,11 @@ function tnlChoStep(dt) {
     const pc = t.rcsFrac * 100;
     while (khiDaBao < KHI_MOC.length && pc <= KHI_MOC[khiDaBao]) {
       const m = KHI_MOC[khiDaBao++];
-      logLine(`Khí RCS còn ${m}%`, m <= 25 ? 'bad' : 'hi');
+      logLine(NG('m.rcsLeft', m), m <= 25 ? 'bad' : 'hi');
     }
     if (pc <= 0 && tnl.phase === 'APPROACH') {
-      logLine('HẾT KHÍ RCS — không ghép được, mất cả chuyến hàng', 'bad');
-      logLine('Bỏ ghép nối, hạ quỹ đạo đưa tàu về', 'bad');
+      logLine(NG('lg.rcsOutCargo'), 'bad');
+      logLine(NG('lg.giveUpCargo'), 'bad');
       tnl.phase = 'DONE'; TNL.boCap = true; startDeorbit(); return;
     }
   }
@@ -10000,11 +10882,11 @@ function tnlChoStep(dt) {
     if (w.wait <= dt * 2) {
       const h = D.hohmann(F, Math.hypot(st.x, st.y), rTgt);
       const b = D.burn(F, st, h.dv1);
-      if (!b.ok) { logLine('Thiếu nhiên liệu để chuyển quỹ đạo', 'bad'); shipResult = 'stranded'; endGame(); return; }
+      if (!b.ok) { logLine(NG('lg.noPropTrans'), 'bad'); shipResult = 'stranded'; endGame(); return; }
       showBurn(h.dv1, st.m || 190e3, 1, .40);
       tnl.phase = 'TRANSFER'; tnl.tArr = st.t + h.t; tnl.dv2 = h.dv2;
-      setPhase('Chuyển quỹ đạo', 'hot');
-      logLine(`Đốt chuyển tiếp ${h.dv1.toFixed(1)} m/s — hết ${b.used.toFixed(2)} t`, 'hi');
+      setPhase('ph.transfer', 'hot');
+      logLine(NG('m.transUsed', h.dv1.toFixed(1), b.used.toFixed(2)), 'hi');
     }
     return;
   }
@@ -10012,13 +10894,13 @@ function tnlChoStep(dt) {
     if (st.t >= tnl.tArr) {
       const b = D.burn(F, st, tnl.dv2);
       showBurn(tnl.dv2, st.m || 190e3, 1, .40);
-      tnl.phase = 'COELLIP'; setPhase('Đồng quỹ đạo', 'hot');
-      logLine(`Tròn quỹ đạo ${tnl.dv2.toFixed(1)} m/s — hết ${(b.used || 0).toFixed(2)} t`, 'hi');
-      logLine(`Cách bến ${(ISS_BELOW / 1000).toFixed(0)} km bên dưới — vào hành lang R-bar`, 'hi');
+      tnl.phase = 'COELLIP'; setPhase('ph.coellip', 'hot');
+      logLine(NG('m.circUsed', tnl.dv2.toFixed(1), (b.used || 0).toFixed(2)), 'hi');
+      logLine(NG('m.belowDepot', (ISS_BELOW / 1000).toFixed(0)), 'hi');
     }
     return;
   }
-  if (tnl.phase === 'COELLIP') { tnl.phase = 'APPROACH'; setPhase('Tiếp cận bến', 'hot'); return; }
+  if (tnl.phase === 'COELLIP') { tnl.phase = 'APPROACH'; setPhase('ph.approachDepot', 'hot'); return; }
 
   if (tnl.phase === 'DOCKED' && !TNL.dangTruyen) {
     /* BAT DAU TRUYEN. Du tru ha quy dao tinh o khoi luong LUC DOT THAT (kho +
@@ -10029,12 +10911,12 @@ function tnlChoStep(dt) {
     const giu = (F.dry2(st) + (st.head || 0)) * (Math.exp(dv / (F.VEH.s2.vac.isp * F.G0)) - 1);
     const ss = F.settleNeed(r, D.SHIP.port, st.m + TNL.ben.m);
     TNL.dangTruyen = { giu, coThe: Math.max(0, st.prop2 - giu), daGiao: 0, t: 0, ss };
-    setPhase('Truyền nhiên liệu', 'hot');
-    logLine(`BẮT MỀM — chạm ở ${(tnl.vKhep || 0).toFixed(3)} m/s tương đối`, 'hi');
-    logLine(`Giữ đẩy lắng ${ss.F.toFixed(0)} N về phía Trái Đất — không giữ thì bơm hút phải khí`, 'hi');
-    logLine(`Truyền ${(TNL.dangTruyen.coThe / 1000).toFixed(2)} t ở ${F.transferRate().toFixed(0)} kg/s `
-          + `— mất ${(TNL.dangTruyen.coThe / F.transferRate() / 60).toFixed(1)} phút`, 'hi');
-    logLine(`Giữ lại ${(giu / 1000).toFixed(2)} t để hạ quỹ đạo`, 'hi');
+    setPhase('ph.transferProp', 'hot');
+    logLine(NG('m.softAt', (tnl.vKhep || 0).toFixed(3)), 'hi');
+    logLine(NG('m.settle', ss.F.toFixed(0)), 'hi');
+    logLine(NG('m.xferRate', (TNL.dangTruyen.coThe / 1000).toFixed(2), F.transferRate().toFixed(0))
+          + NG('m.takesMin', (TNL.dangTruyen.coThe / F.transferRate() / 60).toFixed(1)), 'hi');
+    logLine(NG('m.keepDeorbit', (giu / 1000).toFixed(2)), 'hi');
   }
   if (tnl.phase === 'DOCKED' && TNL.dangTruyen) {
     const T = TNL.dangTruyen;
@@ -10049,21 +10931,21 @@ function tnlChoStep(dt) {
     if (r.moved <= 0) {
       TNL.nChuyen++; TNL.giao.push(T.daGiao / 1000);
       const tl = F.tliNeed(TNL.ben);
-      logLine(`Truyền xong ${(T.daGiao / 1000).toFixed(2)} t trong ${(T.t / 60).toFixed(1)} phút `
-            + `— hết ${(T.ss.F / (D.RCS.ISP * F.G0) * T.t).toFixed(0)} kg khí đẩy lắng`, 'hi');
-      logLine(`Bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t · TLI cần ${(tl.need / 1000).toFixed(1)} t `
-            + `→ ${tl.du >= 0 ? 'ĐỦ, dư ' + (tl.du / 1000).toFixed(1) : 'còn thiếu ' + (-tl.du / 1000).toFixed(1)} t`,
+      logLine(NG('m.xferDone', (T.daGiao / 1000).toFixed(2), (T.t / 60).toFixed(1))
+            + NG('m.settleUsed', (T.ss.F / (D.RCS.ISP * F.G0) * T.t).toFixed(0)), 'hi');
+      logLine(NG('m.depotHas', (TNL.ben.prop2 / 1000).toFixed(1), (tl.need / 1000).toFixed(1))
+            + '→ ' + (tl.du >= 0 ? NG('m.tliEnough', (tl.du / 1000).toFixed(1)) : NG('m.tliShort', (-tl.du / 1000).toFixed(1))) + ' t',
             tl.du >= 0 ? 'hi' : 'bad');
       TNL.dangTruyen = null;
-      tnl.phase = 'UNDOCK'; setPhase('Tách ghép', 'hot');
-      logLine('Nhả chốt — RCS đẩy lùi khỏi hành lang', 'hi');
+      tnl.phase = 'UNDOCK'; setPhase('ph.undock', 'hot');
+      logLine(NG('lg.undockRcs'), 'hi');
     }
     return;
   }
   if (tnl.phase === 'UNDOCK') {
     if (-t.R > D.tamCap() + 250) {
       tnl.phase = 'DONE';
-      logLine('Ra khỏi hành lang — chuyển sang hạ quỹ đạo', 'hi');
+      logLine(NG('lg.outCorridor'), 'hi');
       startDeorbit();
     }
     return;
@@ -10075,11 +10957,11 @@ function startIss() {
   if (r.ok) showBurn(r.dv, st.m || 210e3, 3, 1);
   phase = 'ISS'; auto = true; camMode = 3; camAuto = false; cinReset();
   buildGrid('ship'); setCellLabels('asc'); $('catchbar').hidden = true;
-  setPhase('Đuổi pha', 'hot');
+  setPhase('ph.phasing', 'hot');
   if (r.ok) {
-    logLine(`Tròn quỹ đạo ${r.dv.toFixed(0)} m/s — hết ${r.used.toFixed(1)} t`, 'hi');
-    logLine(`Quỹ đạo ${(r.orbit.peri / 1000).toFixed(0)}×${(r.orbit.apo / 1000).toFixed(0)} km`, 'hi');
-  } else logLine(`Thiếu nhiên liệu để tròn quỹ đạo — cần ${r.need.toFixed(1)} t, còn ${r.have.toFixed(1)} t`, 'bad');
+    logLine(NG('m.circUsed', r.dv.toFixed(0), r.used.toFixed(1)), 'hi');
+    logLine(NG('m.orbit', (r.orbit.peri / 1000).toFixed(0), (r.orbit.apo / 1000).toFixed(0)), 'hi');
+  } else logLine(NG('m.noPropCircN', r.need.toFixed(1), r.have.toFixed(1)), 'bad');
 
   /* Goc tram luc nay = goc luc bam phong + n*thoi gian da bay. issAng0 chot o
      launch(), nen BAM PHONG LUC NAO that su quyet dinh phai duoi bao lau. */
@@ -10089,10 +10971,10 @@ function startIss() {
   iss.phase = 'PHASING';
   const w = D.windowIn(F, st, iss.stn, F.RE + ISS_ALT - ISS_BELOW);
   issWait0 = w.wait;
-  logLine(`Trạm dẫn trước ${(w.now * 57.3).toFixed(0)}° — cần ${(w.need * 57.3).toFixed(1)}°`, 'hi');
-  logLine(`Phải đuổi ${(w.wait / 3600).toFixed(1)} giờ · ${w.orbits.toFixed(1)} vòng`,
+  logLine(NG('m.issLead', (w.now * 57.3).toFixed(0), (w.need * 57.3).toFixed(1)), 'hi');
+  logLine(NG('m.chase', (w.wait / 3600).toFixed(1), w.orbits.toFixed(1)),
           w.orbits > 6 ? 'bad' : 'hi');
-  logLine('Bấm ⏩ Tua tới sự kiện nếu không muốn chờ', 'hi');
+  logLine(NG('lg.useSkip'), 'hi');
 }
 
 /* Muc khi RCS: bao truoc chu khong de nguoi choi cham vao day roi moi biet.
@@ -10106,11 +10988,11 @@ function issKhiCanh(t) {
   const pc = t.rcsFrac * 100;
   while (khiDaBao < KHI_MOC.length && pc <= KHI_MOC[khiDaBao]) {
     const m = KHI_MOC[khiDaBao++];
-    logLine(`Khí RCS còn ${m}%`, m <= 25 ? 'bad' : 'hi');
+    logLine(NG('m.rcsLeft', m), m <= 25 ? 'bad' : 'hi');
   }
   if (pc <= 0 && iss.phase === 'APPROACH') {
-    logLine('HẾT KHÍ RCS — không còn điều khiển tiếp cận được', 'bad');
-    logLine('Bỏ ghép nối, đưa phi hành đoàn về nhà', 'bad');
+    logLine(NG('lg.rcsOut'), 'bad');
+    logLine(NG('lg.giveUpCrew'), 'bad');
     setCellLabels('asc');
     iss.phase = 'DONE'; issBoCap = true;
     F.setPayload(crewN() * 500 + cargoKg());   // hang chua giao, van con tren tau
@@ -10135,7 +11017,7 @@ function issStep(dt) {
   const onDinh = iss.onDinh && iss.phase === 'APPROACH' && conTroi && st.t < iss.onDinh;
   if (iss.onDinh && !onDinh && iss.phase === 'APPROACH') {
     iss.onDinh = 0;
-    logLine(`Đã ổn định (còn trôi ${Math.hypot(t0.dR, t0.dV).toFixed(3)} m/s) — nhắm lại mốc tiếp cận`, 'hi');
+    logLine(NG('m.settled', Math.hypot(t0.dR, t0.dV).toFixed(3)), 'hi');
   }
   const cmd = tay ? manualCmd()
             : onDinh ? D.holdCmd(iss)
@@ -10151,12 +11033,12 @@ function issStep(dt) {
     if (w.wait <= dt * 2) {
       const h = D.hohmann(F, Math.hypot(st.x, st.y), rTgt);
       const b = D.burn(F, st, h.dv1);
-      if (!b.ok) { logLine(`Thiếu nhiên liệu để chuyển quỹ đạo — cần ${b.need.toFixed(1)} t, còn ${b.have.toFixed(1)} t`, 'bad'); shipResult = 'stranded'; endGame(); return; }
+      if (!b.ok) { logLine(NG('m.noPropTransN', b.need.toFixed(1), b.have.toFixed(1)), 'bad'); shipResult = 'stranded'; endGame(); return; }
       showBurn(h.dv1, st.m || 190e3, 1, .40);
       iss.phase = 'TRANSFER'; iss.tArr = st.t + h.t; iss.dv2 = h.dv2;
-      setPhase('Chuyển quỹ đạo', 'hot');
-      logLine(`Đốt chuyển tiếp ${h.dv1.toFixed(1)} m/s — hết ${b.used.toFixed(2)} t`, 'hi');
-      logLine(`Bay lên viễn điểm mất ${(h.t / 60).toFixed(0)} phút`, 'hi');
+      setPhase('ph.transfer', 'hot');
+      logLine(NG('m.transUsed', h.dv1.toFixed(1), b.used.toFixed(2)), 'hi');
+      logLine(NG('m.coastApo', (h.t / 60).toFixed(0)), 'hi');
     }
     return;
   }
@@ -10166,9 +11048,9 @@ function issStep(dt) {
       const b = D.burn(F, st, iss.dv2);
       showBurn(iss.dv2, st.m || 190e3, 1, .40);
       iss.phase = 'COELLIP';
-      setPhase('Đồng quỹ đạo', 'hot');
-      logLine(`Tròn quỹ đạo ${iss.dv2.toFixed(1)} m/s — hết ${(b.used || 0).toFixed(2)} t`, 'hi');
-      logLine(`Đang ở ${(ISS_BELOW / 1000).toFixed(0)} km dưới trạm — trôi tự do tới điểm tiếp cận`, 'hi');
+      setPhase('ph.coellip', 'hot');
+      logLine(NG('m.circUsed', iss.dv2.toFixed(1), (b.used || 0).toFixed(2)), 'hi');
+      logLine(NG('m.belowIss', (ISS_BELOW / 1000).toFixed(0)), 'hi');
     }
     return;
   }
@@ -10178,33 +11060,33 @@ function issStep(dt) {
        can ngay; do troi 3,4 m/s con lai de chang CW dau tien don. */
     if (Math.abs(t.V) < 400) {
       iss.phase = 'APPROACH';
-      setPhase('Tiếp cận', 'hot');
+      setPhase('ph.approach', 'hot');
       setCellLabels('dock');
-      logLine(`Bắt đầu tiếp cận R-bar từ ${(-t.R).toFixed(0)} m dưới trạm`, 'hi');
-      logLine('Phím 3 góc điện ảnh · phím 4 nhìn dọc trục cập · ⏩ tua từng mốc', 'hi');
+      logLine(NG('m.rbarFrom', (-t.R).toFixed(0)), 'hi');
+      logLine(NG('lg.dockKeysCam'), 'hi');
     }
     return;
   }
 
   if (iss.phase === 'APPROACH') {
-    if (iss.tries > (iss._tri || 0)) { iss._tri = iss.tries; logLine(`Trượt bắt mềm: ${iss.why} — lùi ra 40 m làm lại`, 'bad'); }
+    if (iss.tries > (iss._tri || 0)) { iss._tri = iss.tries; logLine(NG('m.captureMiss', iss.why), 'bad'); }
     return;
   }
 
   if (iss.phase === 'DOCKED') {
     if (!dockT) {
-      logLine('BẮT MỀM — đã ghép nối với ISS', 'hi'); Sfx.thud(120);
-      logLine(`Lệch ${(t.lat * 100).toFixed(1)} cm · khép ${t.closing.toFixed(3)} m/s · góc ${(t.ang / DEG).toFixed(2)}°`, 'hi');
-      logLine(`Chuyển ${crewN()} người và ${(cargoKg() / 1000).toFixed(0)} t hàng sang trạm`, 'hi');
+      logLine(NG('lg.softIss'), 'hi'); Sfx.thud(120);
+      logLine(NG('m.dockTel', (t.lat * 100).toFixed(1), t.closing.toFixed(3), (t.ang / DEG).toFixed(2)), 'hi');
+      logLine(NG('m.crewOver', crewN(), (cargoKg() / 1000).toFixed(0)), 'hi');
     }
     dockT += dt;
     if (dockT >= 900) {
       iss.phase = 'UNDOCK';
       F.setPayload(crewN() * 500);          // hang o lai tram, nguoi ve cung tau
       st.pay = F.getPayload();
-      setPhase('Tách ghép', 'hot');
-      logLine('Nhả chốt — lò xo đẩy tàu rời cổng', 'hi');
-      logLine('RCS đẩy lùi khỏi hành lang — 250 m', 'hi');
+      setPhase('ph.undock', 'hot');
+      logLine(NG('lg.undockSpring'), 'hi');
+      logLine(NG('lg.backOut'), 'hi');
       Sfx.thud(110);
     }
     return;
@@ -10212,9 +11094,9 @@ function issStep(dt) {
 
   if (iss.phase === 'UNDOCK') {
     const xa = -t.R;
-    if (xa > 120 && !iss._m120) { iss._m120 = 1; logLine(`Cách trạm ${Math.round(xa)} m — ngoài vùng cấm tiếp cận`, 'hi'); }
+    if (xa > 120 && !iss._m120) { iss._m120 = 1; logLine(NG('m.keepOut', Math.round(xa)), 'hi'); }
     if (xa > 250) {
-      logLine('Đã ra khỏi hành lang an toàn — chuyển sang chuẩn bị hạ quỹ đạo', 'hi');
+      logLine(NG('lg.outSafe'), 'hi');
       setCellLabels('asc');
       iss.phase = 'DONE';
       startDeorbit();
@@ -10263,9 +11145,9 @@ function startAbort(lyDo) {
      ngam vao troi trong. Huy bo la cu cat manh hon moi phim camera, ma phim
      camera 1-4 da xoa hotCam tu truoc. */
   hotCam = 0;
-  setPhase('HỦY BỎ', 'hot'); Sfx.thud(220); shakeT = 1.2;
-  logLine(`HỦY BỎ KHI PHÓNG — ${lyDo}`, 'bad');
-  logLine('Tách tàu khỏi booster — booster mất', 'bad');
+  setPhase('ph.abort', 'hot'); Sfx.thud(220); shakeT = 1.2;
+  logLine(NG('m.abortLaunch', lyDo), 'bad');
+  logLine(NG('lg.abortSep'), 'bad');
   buildGrid('ship'); setCellLabels('asc'); $('catchbar').hidden = true;
 }
 
@@ -10283,7 +11165,7 @@ function abortStep(dt) {
 
   let thr = 0, muon = pitPro;
   if (A.pha === 'SEP') {
-    if (A.t > 1.5) { A.pha = 'CHAY'; logLine('Đánh lửa 3 Raptor — chạy khỏi booster', 'hi'); }
+    if (A.t > 1.5) { A.pha = 'CHAY'; logLine(NG('lg.abortIgn'), 'hi'); }
   } else if (A.pha === 'CHAY') {
     /* Dot cho toi khi TRANG THAI BAN GIAO NAM TRONG VUNG lo 6-DOF ha duoc. Do
        duoc vung do bang cach ban thang trang thai vao ship3d: no ha tot tu 70
@@ -10302,13 +11184,13 @@ function abortStep(dt) {
     const dinhDuKien = alt + (vu > 0 ? vu * vu / (2 * 9.80665) : 0);
     if (Math.abs(ve) < 300 || dinhDuKien > 118e3 || st.prop2 <= 420e3) {
       A.pha = 'XA';
-      logLine(`Xả bớt nhiên liệu — ${(st.prop2 / 1000).toFixed(0)} t xuống ${(AB_GIU / 1000).toFixed(0)} t`, 'hi');
-      logLine('Không xả thì T/W chỉ 0,43 — không hạ cánh được', 'hi');
+      logLine(NG('m.dumpProp', (st.prop2 / 1000).toFixed(0), (AB_GIU / 1000).toFixed(0)), 'hi');
+      logLine(NG('lg.needDump'), 'hi');
     }
   } else if (A.pha === 'XA') {
     st.prop2 = Math.max(AB_GIU, st.prop2 - AB_XA * dt);
     st.m = F.m2(st);
-    if (st.prop2 <= AB_GIU) { A.pha = 'ROI'; logLine('Xả xong — rơi tự do, chuẩn bị tái nhập', 'hi'); }
+    if (st.prop2 <= AB_GIU) { A.pha = 'ROI'; logLine(NG('lg.dumped'), 'hi'); }
   }
 
   let d1 = muon - pitPro;
@@ -10319,7 +11201,7 @@ function abortStep(dt) {
 
   /* Giao cho lo 6-DOF ngay khi bat dau roi va con du do cao de no xoay tro. */
   if (A.pha !== 'SEP' && vu < 0 && alt < 110e3 && alt > 25e3) {
-    logLine(`Bắt đầu rơi từ ${(A.dinh / 1000).toFixed(0)} km — chuyển sang tư thế bụng trước`, 'hi');
+    logLine(NG('m.fallFrom', (A.dinh / 1000).toFixed(0)), 'hi');
     abortInfo = null;
     /* PHAI danh dau tau da xong voi lo 2D. Trong luong binh thuong, toi luc nay
        SECO da dat alive = false nen vong chinh tu bo qua; luong huy bo thi tau
@@ -10335,8 +11217,8 @@ function abortStep(dt) {
   }
   if (!A.dinh || alt > A.dinh) A.dinh = alt;
   if (alt <= 0 || !st.alive) {
-    logLine(st.rud ? 'VỠ THÂN TÀU — quá tải khí động' : `CHẠM ĐẤT ${Math.abs(vu).toFixed(0)} m/s`, 'bad');
-    logLine(`Đỉnh chỉ ${(A.dinh / 1000).toFixed(1)} km — không đủ cao để xoay trở và hạ cánh`, 'bad');
+    logLine(st.rud ? NG('res.aeroBreak') : NG('m.touchdown', Math.abs(vu).toFixed(0)), 'bad');
+    logLine(NG('m.apexLow', (A.dinh / 1000).toFixed(1)), 'bad');
     doanChet = true; abortInfo = null;
     shipResult = 'abort-crash'; shipLand = { outcome: 'crash', miss: 0, vs: vu };
     endGame();
@@ -10347,9 +11229,9 @@ function startDeorbit() {
   dorPlan = F.planShipReturn(st);
   dorAng = 0; dorBurned = false;
   phase = 'DEORBIT'; auto = true;
-  setPhase('Hạ quỹ đạo', 'hot');
-  logLine(`Bay quán tính tới điểm đốt — ${(dorPlan.plan.burnAng * 57.3).toFixed(0)}° quanh quỹ đạo`, 'hi');
-  logLine('Bấm ⏩ Tua tới sự kiện nếu không muốn chờ', 'hi');
+  setPhase('ph.deorbit', 'hot');
+  logLine(NG('m.coastToBurn', (dorPlan.plan.burnAng * 57.3).toFixed(0)), 'hi');
+  logLine(NG('lg.useSkip'), 'hi');
 }
 
 function deorbitStep(dt) {
@@ -10369,18 +11251,18 @@ function deorbitStep(dt) {
       const b = F.deorbitBurn(st, dorPlan.plan.deorbitDv);
       dorBurned = true;
       showBurn(b.dv, st.m || 160e3, 1, .40);
-      logLine(`Đốt hạ quỹ đạo ${b.dv.toFixed(0)} m/s — hết ${b.used.toFixed(1)} t`, 'hi');
-      logLine(`Cận điểm ${(b.orbit.peri / 1000).toFixed(0)} km — cắt vào khí quyển`, 'hi');
-      logLine('Xoay sang tư thế bụng trước bằng RCS', 'hi');
+      logLine(NG('m.deorbitBurn', b.dv.toFixed(0), b.used.toFixed(1)), 'hi');
+      logLine(NG('m.periCut', (b.orbit.peri / 1000).toFixed(0)), 'hi');
+      logLine(NG('lg.toBelly'), 'hi');
       Sfx.thud(150);
       // dung tua de nguoi choi kip nhin cu dot, giong cach vong lap tu huy turbo khi doi pha
-      if (turbo) { turbo = false; acc = 0; $('skip').classList.remove('busy'); $('skip').innerHTML = '&#9193; Tua tới sự kiện'; }
+      if (turbo) { turbo = false; acc = 0; $('skip').classList.remove('busy'); $('skip').textContent = NG('btn.skip'); }
     }
     return;
   }
   const alt = Math.hypot(st.x, st.y) - F.RE;
   if (alt <= 120000 && (st.x * st.vx + st.y * st.vy) < 0) {
-    logLine('Chạm rìa khí quyển — bắt đầu tái nhập', 'hi');
+    logLine(NG('lg.entryIf'), 'hi');
     seamQ = shipObj.quaternion.clone(); seamT = 0;   // chot tu the ngay truoc khi doi sang lo 3D
     /* Tu day chi HEADER dot duoc; phan binh chinh con lai van nam tren tau nhung khong hut
        duoc trong luc lat, nen vao khoi luong chu khong vao phan dot duoc. */
@@ -10417,32 +11299,32 @@ function startShipReturn(p2) {
   /* Hai cu dot nay chi la SO TRONG KE HOACH. Khi den tu pha DEORBIT thi tau da dot that va
      da ghi nhat ky ngay luc do — in lai o day thanh thua va lam nguoi choi tuong dot hai lan. */
   if (!p2) {
-    logLine(`Tròn quỹ đạo ${pl.circDv.toFixed(0)} m/s`, 'hi');
-    logLine(`Deorbit ${pl.deorbitDv.toFixed(0)} m/s — hết ${pl.propUsed.toFixed(0)} t`, 'hi');
+    logLine(NG('m.circOnly', pl.circDv.toFixed(0)), 'hi');
+    logLine(NG('m.deorbitShort', pl.deorbitDv.toFixed(0), pl.propUsed.toFixed(0)), 'hi');
   }
-  logLine('Lệch ngang 38 km — phải nghiêng thân kéo về', 'hi');
-  logLine('Tái nhập — belly flop', 'hi');
-  setPhase('Tái nhập', 'hot');
+  logLine(NG('lg.cross38'), 'hi');
+  logLine(NG('ph.entryFlop'), 'hi');
+  setPhase('ph.entry', 'hot');
   Sfx.thud(140);
 }
 
 function onShipReturnEvent(e) {
   if (e.type === 'HINGE_BURN') {
     hingeBurn = e.flap;
-    logLine(`Bản lề flap ${e.flap} cháy — mất lực điều khiển bên đó`, 'bad');
+    logLine(NG('m.hingeBurn', e.flap), 'bad');
     shakeT = .6; Sfx.boom(.5, 1.2);
     return;                                   // chua mat tau, chi hong mot canh
   }
   if (e.type === 'BURN_THROUGH') {
-    logLine(`CHÁY THỦNG ${e.where === 'lung' ? 'thân sau' : 'tấm chắn nhiệt'} — ${e.T} K`, 'bad');
+    logLine(NG('m.burnThru', NG(e.where === 'lung' ? 'm.aft' : 'm.tile'), e.T), 'bad');
     shipLand = { outcome: 'crash', lat: 0, cross: 0, miss: 0, vs: 0, tilt: 0, burn: e.where };
     Sfx.boom(1, 2.4); shakeT = 1.6;
     endGame();
     return;
   }
   shipLand = e;
-  const n = { bullseye: 'CHẠM ĐÍCH — trúng tâm', ontarget: 'HẠ MỀM — trong vòng 1 km',
-              wide: 'HẠ MỀM — lệch xa', lost: 'HẠ MỀM nhưng mất dấu', crash: 'VỠ KHI CHẠM' }[e.outcome];
+  const n = { bullseye: NG('res.bullseye'), ontarget: NG('res.soft1km'),
+              wide: NG('res.softFar'), lost: NG('res.softLost'), crash: NG('res.crash') }[e.outcome];
   logLine(n, e.outcome === 'crash' ? 'bad' : 'hi');
   if (e.outcome === 'crash') { shakeT = 1.4; Sfx.boom(.95, 2.2); }
   else { Sfx.thud(85); Sfx.beep(880, .4, .25); }
@@ -10451,7 +11333,7 @@ function onShipReturnEvent(e) {
 
 function hitTower(srt) {
   sHitTower = true;
-  logLine('VA VÀO THÁP — tàu vỡ', 'bad');
+  logLine(NG('res.hitTower'), 'bad');
   shipLand = { outcome: 'crash', lat: srt.lateral, cross: srt.cross,
                miss: Math.hypot(srt.lateral, srt.cross), vs: srt.vspeed,
                tilt: 0, yaw: srt.yawErr || 0, aligned: false, burn: 'thap',
@@ -10485,7 +11367,7 @@ function bResetBegin() {
   twInitDyn(towerPad);
   bRes = { step: 0, fill: Math.max(0, bo ? bo.prop : 0) / F.VEH.s1.prop, rel: 1, done: false, mark: 0 };
   camMode = 1;
-  logLine('Cánh tay hạ booster về bệ phóng', 'hi');
+  logLine(NG('lg.armSeat'), 'hi');
 }
 /* Tra ve vi tri booster trong he BE PHONG. */
 function bResetStep(dt, rawDt, bg) {
@@ -10505,13 +11387,13 @@ function bResetStep(dt, rawDt, bg) {
       if (Math.abs(tw.car.position.y - STK.bSet) < .2 && Math.abs(tw.vy) < .3
           && Math.abs(tw.car.position.x) < .05 && Math.abs(tw.car.rotation.y) < .005) {
         R.step = 1; Sfx.clang(1, .95); motor(0, 0);
-        logLine('Booster chạm bàn phóng', 'hi');
+        logLine(NG('lg.boostPad'), 'hi');
       }
     } else if (R.step === 1) {                 // chot giu dong, QD + BQD noi lai
       R.rel = Math.max(0, R.rel - dtc / 1.4);
       if (R.rel <= 0) {
         R.step = 2; R.seated = true; Sfx.clang(.7, .2);
-        logLine('20 chốt giữ khoá — nối BQD và 20 cụm ngắt nhanh', 'hi');
+        logLine(NG('lg.clamps'), 'hi');
         if (!shr) maybeEnd();                  // khoa xong la chuyen sang tau
       }
     } else if (R.step === 2) {                 // nha tay, xe truot lui len
@@ -10521,14 +11403,14 @@ function bResetStep(dt, rawDt, bg) {
       for (const a of tw.arms) a.pv.position.x += (a.s * tw.hx - a.pv.position.x) * Math.min(1, dtc * 2);
       motor(Math.min(1, Math.abs(tw.vy) / 10 + Math.abs(tw.vang)), 0);
       if (Math.abs(tw.ang - TW_OPEN) < .01 && Math.abs(tw.car.position.y - STK.clear) < .3) {
-        R.step = 3; motor(0, 0); logLine('Bắt đầu nạp — LOX + CH4', 'hi');
+        R.step = 3; motor(0, 0); logLine(NG('lg.fillStart'), 'hi');
       }
     } else {                                   // nap
       R.fill = Math.min(1, R.fill + FILL_TPS * 1000 * FILL_X * rawDt / F.VEH.s1.prop);
       motor(.22, .25);                         // tieng bom tram
       if (Math.random() < rawDt * 9) ventEmit(0, 70, 0, 2);
       const q = Math.floor(R.fill * 4);
-      if (q > R.mark && q < 4) { R.mark = q; logLine('Nạp ' + q * 25 + '%', ''); }
+      if (q > R.mark && q < 4) { R.mark = q; logLine(NG('m.fillPct', q * 25), ''); }
       if (R.fill >= 1) bResetDone(false);
     }
     for (const a of tw.arms) a.pv.rotation.y = a.s * tw.ang;
@@ -10540,7 +11422,7 @@ function bResetStep(dt, rawDt, bg) {
     boostFrost.scale.y = Math.max(.001, 62 * R.fill);
     const lox = R.fill * F.VEH.s1.prop * OF_RATIO / (1 + OF_RATIO) / 1000;
     const ch4 = R.fill * F.VEH.s1.prop / (1 + OF_RATIO) / 1000;
-    if (!R.done && !bg) setPhase(`Nạp ${Math.round(R.fill * 100)}% — LOX ${Math.round(lox)} t, CH4 ${Math.round(ch4)} t (×${FILL_X})`, '');
+    if (!R.done && !bg) setPhase(NG('m.filling', Math.round(R.fill * 100), Math.round(lox), Math.round(ch4), FILL_X), '');
   }
   if (R.step === 0) {
     const th = tw.car.rotation.y;
@@ -10553,7 +11435,7 @@ function bResetDone(bySkip) {
   bRes.step = 3; bRes.fill = 1; bRes.rel = 0; bRes.done = true;
   towerPad.seat = false; Sfx.setMotor(0, 0);
   boostFrost.visible = true; boostFrost.scale.y = 62;
-  logLine(bySkip ? 'Bỏ qua — booster đã về bệ, nạp đầy' : 'Nạp đầy 3400 t — booster sẵn sàng bay lại', 'hi');
+  logLine(bySkip ? NG('lg.skipReset') : NG('lg.fillDone'), 'hi');
   /* KHONG goi maybeEnd() vo dieu kien: neu tau da bay ve (shr co roi) thi
      maybeEnd roi thang xuong endGame() va KET THUC game giua chuyen bay ve.
      Chi goi khi day chinh la luc booster vua duoc coi la khoa vao be. */
@@ -10705,21 +11587,19 @@ function stackDone(bySkip) {
   towerPad.seat = false; twIdle(towerPad, 1);
   twInitDyn(towerPad); towerPad._cl = null; Sfx.setMotor(0, 0);
   Sfx.clang(.6, .3);                       // chot giu dong lan cuoi
-  phase = 'COUNT'; pre = 10; setPhase('T−10');
-  logLine(bySkip ? 'Bỏ qua xếp chồng — vào đếm ngược' : 'Xếp chồng xong — 20 chốt giữ đã khoá', 'hi');
+  phase = 'COUNT'; pre = 10; setPhase('T\u221210');
+  logLine(bySkip ? NG('lg.skipStack') : NG('lg.stacked'), 'hi');
 }
 
 function padDamaged(e) {
-  const txt = { 0.25: 'BỆ PHÓNG NỨT — thép quá nhiệt',
-                0.60: 'BỆ PHÓNG HỎNG NẶNG — bê tông văng lên',
-                1: 'BỆ PHÓNG VỠ — mất hạ tầng' }[e.level];
+  const txt = { 0.25: NG('m.padCrack'), 0.60: NG('m.padBad'), 1: NG('m.padGone') }[e.level];
   logLine(txt + ' (' + e.T + ' K)', 'bad');
   shakeT = Math.max(shakeT, .5 + e.level);
   Sfx.boom(.45 + e.level * .4, 1.6);
   if (e.level >= 0.6 && st && st.stage === 1 && st.alive) {
     const lose = e.level >= 1 ? 3 : 1;
     st.engOut = (st.engOut || 0) + lose;
-    logLine('Mảnh văng vào ' + lose + ' động cơ', 'bad');
+    logLine(NG('m.debrisEng', lose), 'bad');
   }
 }
 
@@ -10734,14 +11614,14 @@ function endGame() {
   if (abortDaBay && shipLand) {
     const vsA = Math.abs(shipLand.vs || 0), lechA = shipLand.miss || 0;
     if (vsA < 15 && !doanChet) {
-      logLine(`HẠ CÁNH KHẨN CẤP THÀNH CÔNG — chạm ${vsA.toFixed(1)} m/s, cách tháp ${lechA.toFixed(0)} m`, 'hi');
-      logLine(`${crewN()} người an toàn. Booster mất.`, 'hi');
+      logLine(NG('m.abortLandOk', vsA.toFixed(1), lechA.toFixed(0)), 'hi');
+      logLine(NG('m.crewSafe', crewN()), 'hi');
     } else {
-      logLine(`Hạ cánh khẩn cấp thất bại — chạm ${vsA.toFixed(0)} m/s`, 'bad');
-      logLine(`Mất ${crewN()} người và cả hai tầng.`, 'bad');
+      logLine(NG('m.abortLandBad', vsA.toFixed(0)), 'bad');
+      logLine(NG('m.allLost', crewN()), 'bad');
     }
   } else if (abortDaBay) {
-    logLine(`Hủy bỏ thất bại — ${crewN()} người không về được`, 'bad');
+    logLine(NG('m.abortFail', crewN()), 'bad');
   }
   const tel = shipTelFinal || F.telemetry(st);
   const shipOK = shipResult === 'orbit';
@@ -10755,42 +11635,42 @@ function endGame() {
   const satScore = depN * 12;                     // 60 con = 720 diem, ngang mot cu bat booster
   const score = Math.round((vScore + bScore + sScore + satScore) * (everManual ? 2 : 1));
 
-  const BN = { perfect: 'bắt chuẩn', caught: 'đã bắt', crash: 'rơi', none: 'chưa về' }[bOut];
-  const SN = { bullseye: 'trúng tâm', ontarget: 'trong 1 km', wide: 'lệch xa',
-               lost: 'mất dấu', crash: 'vỡ', none: 'chưa về' }[sOut];
+  const BN = { perfect: NG('res.wCaught'), caught: NG('res.wGot'), crash: NG('res.wFell'), none: NG('res.wNone') }[bOut];
+  const SN = { bullseye: NG('res.wTight'), ontarget: NG('res.in1km'), wide: NG('res.wFar'),
+               lost: NG('res.wLost'), crash: NG('res.wBroke'), none: NG('res.wNone') }[sOut];
   const HEAD = (bOut === 'perfect' || bOut === 'caught') && (sOut === 'bullseye' || sOut === 'ontarget')
-      ? 'Trọn vẹn cả hai' : sOut === 'crash' ? 'Tàu vỡ khi chạm'
-      : bOut === 'crash' ? 'Mất booster' : shipOK ? 'Hoàn tất nhiệm vụ' : 'Nhiệm vụ hỏng';
+      ? NG('res.both') : sOut === 'crash' ? NG('res.shipCrash')
+      : bOut === 'crash' ? NG('lg.boostLost') : shipOK ? NG('ph.done') : NG('ph.failed');
   $('ovh').textContent = HEAD;
   $('ovs').textContent = `Booster: ${BN} · Ship: ${SN}`;
   $('s1').textContent = tel.speed.toFixed(0);
   $('s2').textContent = boostResult ? Math.abs(boostResult.lat).toFixed(1) + 'm' : '—';
   const sm = shipLand ? (shipLand.miss !== undefined ? shipLand.miss : Math.abs(shipLand.lat)) : 0;
   $('s3').textContent = shipLand ? (sm < 1000 ? sm.toFixed(0) + 'm' : (sm / 1000).toFixed(1) + 'km') : '—';
-  $('s4').textContent = score.toLocaleString('vi-VN') + (everManual ? ' ×2' : '');
+  $('s4').textContent = score.toLocaleString(LANG === 'vi' ? 'vi-VN' : LANG === 'zh' ? 'zh-CN' : 'en-US') + (everManual ? ' ×2' : '');
 
   let p;
   if (sOut === 'crash' && shipLand.burn === 'thap') {
-    p = `Tàu <b>va vào toà tháp</b> ở độ cao ${Math.round(shipLand.hitAlt || 0)} m, `
-      + `cách trục cột <b>${(shipLand.hitD || 0).toFixed(1)} m</b>. `
-      + `Đường tiếp cận phải chạy dọc cánh tay, không được cắt ngang qua cột.`;
+    p = NG('m.hitTowerAt', Math.round(shipLand.hitAlt || 0))
+      + NG('m.fromMast', (shipLand.hitD || 0).toFixed(1))
+      + NG('ov.approachLine');
   } else if (sOut === 'crash') {
-    p = `Tàu chạm ở <b>${Math.abs(shipLand.vs).toFixed(1)} m/s</b>, nghiêng <b>${(shipLand.tilt * 57.3).toFixed(1)}°</b>. `
-      + `Cú lật phải xong trước khi hết độ cao — dưới ${F.SHIP_LAND.vspeed} m/s và ${(F.SHIP_LAND.tilt * 57.3).toFixed(0)}° mới coi là hạ mềm.`;
+    p = NG('m.shipAt', Math.abs(shipLand.vs).toFixed(1), (shipLand.tilt * 57.3).toFixed(1))
+      + NG('m.flipInTime', F.SHIP_LAND.vspeed, (F.SHIP_LAND.tilt * 57.3).toFixed(0));
   } else if (shipLand) {
     // boostResult co the chua co neu man 2 bi bo qua — dung de no lam vo man ket thuc
-    p = (boostResult ? `Booster về tháp lệch <b>${Math.abs(boostResult.lat).toFixed(1)} m</b>. ` : '')
-      + `Tàu tái nhập belly flop rồi lật dựng, chạm <b>${Math.abs(shipLand.vs).toFixed(2)} m/s</b> `
-      + `cách đích <b>${sm < 1000 ? sm.toFixed(0) + ' m' : (sm / 1000).toFixed(1) + ' km'}</b>`      + (shipLand.cross !== undefined ? ` (dọc ${Math.round(shipLand.lat)} m, ngang ${Math.round(shipLand.cross)} m)` : '') + '.';
+    p = (boostResult ? NG('m.boostTower', Math.abs(boostResult.lat).toFixed(1)) : '')
+      + NG('m.shipFlopLand', Math.abs(shipLand.vs).toFixed(2))
+      + NG('m.fromTarget', sm < 1000 ? sm.toFixed(0) + ' m' : (sm / 1000).toFixed(1) + ' km')      + (shipLand.cross !== undefined ? NG('m.downCross', Math.round(shipLand.lat), Math.round(shipLand.cross)) : '') + '.';
   } else if (bOut === 'crash') {
-    p = `Booster trượt: lệch <b>${Math.abs(boostResult.lat).toFixed(0)} m</b>, chạm <b>${Math.abs(boostResult.vs).toFixed(1)} m/s</b>. `
-      + `Ngưỡng bắt là dưới ${F.CATCH.lateral} m và ${F.CATCH.vspeed} m/s.`;
+    p = NG('m.boostMiss', Math.abs(boostResult.lat).toFixed(0), Math.abs(boostResult.vs).toFixed(1))
+      + NG('m.catchLimit', F.CATCH.lateral, F.CATCH.vspeed);
   } else if (shipResult === 'rud') {
-    p = 'Áp suất động nhân góc tấn vượt giới hạn kết cấu. Qua max-Q phải bẻ lái mượt.';
+    p = NG('ov.qAlpha');
   } else {
-    p = `Tầng trên dừng ở <b>${tel.speed.toFixed(0)} m/s</b>, thiếu <b>${Math.max(0, F.TARGET_V - tel.speed).toFixed(0)} m/s</b>.`;
+    p = NG('m.secoShort', tel.speed.toFixed(0), Math.max(0, F.TARGET_V - tel.speed).toFixed(0));
   }
-  if (depN > 0) p = `Thả <b>${depN} vệ tinh Starlink</b> (${(depN * 0.8).toFixed(0)} t) vào quỹ đạo tròn. ` + p;
+  if (depN > 0) p = NG('m.satsDeployed', depN, (depN * 0.8).toFixed(0)) + p;
   $('ovp').innerHTML = p;
 
   /* ---- ghi lai chuyen bay ---- */
@@ -10847,17 +11727,17 @@ function endGame() {
   $('ovdiag').hidden = !diag;
   if (diag) $('ovdiag').textContent = diag;
 
-  $('ovrec').textContent = 'Đang lưu chuyến bay…';
+  $('ovrec').textContent = NG('m.saving');
   recSave({ outcome: o, ascent: asc, fail: diag, dur: Math.round(missionT) })
     .then(r => {
       $('ovrec').textContent = r.ok
-        ? 'Đã lưu — mã chuyến ' + r.id
-        : 'Không lưu được: ' + r.why;
+        ? NG('m.saved', r.id)
+        : NG('m.saveFailN', r.why);
     })
-    .catch(() => { $('ovrec').textContent = 'Không lưu được'; });
+    .catch(() => { $('ovrec').textContent = NG('m.saveFail'); });
 
   const good = sOut !== 'crash' && bOut !== 'crash' && shipOK;
-  setPhase(good ? 'Kết thúc nhiệm vụ' : 'Nhiệm vụ thất bại', good ? '' : 'bad');
+  setPhase(good ? NG('ph.end') : NG('res.failed'), good ? '' : 'bad');
   /* Camera dao dien dang quay canh bat tau: de canh chot cham ray va canh toan
      canh chay het roi moi phu man ket qua. Space de xem ngay. */
   if (camMode === 6 && shr && shipLand) CIN.overAt = performance.now() + (shipLand.outcome === 'crash' ? 4500 : 9500);
@@ -10981,23 +11861,23 @@ async function recSave(summary) {
    phai doi ai do doc kho du lieu ho. */
 const recM = m => Math.abs(m) >= 2000 ? (m / 1000).toFixed(1) + ' km' : Math.abs(m).toFixed(1) + ' m';
 function recDiagnose(o, a) {
-  if (o.burn) return `Cháy thủng ${o.burn === 'lung' ? 'thân sau' : 'tấm chắn nhiệt'} khi tái nhập — ${Math.round(o.peakT)} K. Bay sai thế thì thép trần ăn trọn dòng nhiệt.`;
-  if (o.rud) return `Vỡ thân lúc T+${Math.round(o.rudT)}s — q·α ${Math.round(o.rudQA)} Pa·rad, quá ngưỡng ${F.Q_ALPHA_LIMIT}. Bẻ lái nhẹ tay hơn quanh max-Q.`;
+  if (o.burn) return NG('m.burnThruWhy', NG(o.burn === 'lung' ? 'm.aft' : 'm.tile'), Math.round(o.peakT));
+  if (o.rud) return NG('m.breakWhy', Math.round(o.rudT), Math.round(o.rudQA), F.Q_ALPHA_LIMIT);
   const bits = [];
   if (o.boosterOutcome === 'crash') {
     const lim = o.bTargetDr === 0 ? 10 : 26;
-    if (Math.abs(o.boosterMiss) > lim) bits.push(`Booster lệch ${recM(o.boosterMiss)} (ngưỡng ${lim} m)`);
-    else if (Math.abs(o.boosterVs) > (o.bTargetDr === 0 ? 8 : 11)) bits.push(`Booster chạm ${Math.abs(o.boosterVs).toFixed(1)} m/s — quá nhanh`);
-    else bits.push(`Booster nghiêng ${o.boosterTilt.toFixed(1)}° khi chạm`);
-    if (o.boosterProp !== undefined && o.boosterProp < 3) bits.push('gần cạn nhiên liệu');
+    if (Math.abs(o.boosterMiss) > lim) bits.push(NG('m.boostOff', recM(o.boosterMiss), lim));
+    else if (Math.abs(o.boosterVs) > (o.bTargetDr === 0 ? 8 : 11)) bits.push(NG('m.boostFast', Math.abs(o.boosterVs).toFixed(1)));
+    else bits.push(NG('m.boostTilt', o.boosterTilt.toFixed(1)));
+    if (o.boosterProp !== undefined && o.boosterProp < 3) bits.push(NG('res.wDry'));
   }
   if (o.padDmg > 0) bits.push(
-    `Bệ phóng hư ${o.padDmg}% — tấm thép lên ${o.padPeakT} K`
-    + (o.padDry ? ', cạn nước' : o.padOpenT === null ? ', van không mở' : `, mở van ${o.padOpenT > 0 ? 'trễ ' + o.padOpenT.toFixed(1) + ' s' : 'T' + o.padOpenT.toFixed(1) + ' s'}`)
-    + (o.padFilm ? ', sôi màng' : ''));
-  if (o.engOut > 0) bits.push(`Mảnh từ bệ làm hỏng ${o.engOut} động cơ`);
-  if (o.shipAligned === false) bits.push(`Tàu vào chốt lệch phương ${Math.round(o.shipYaw)}° — cánh gió đập vào tay đũa`);
-  if (o.hingeBurn) bits.push(`Bản lề flap ${o.hingeBurn} đã cháy`);
+    NG('m.padDmgN', o.padDmg, o.padPeakT)
+    + (o.padDry ? NG('m.padDry') : o.padOpenT === null ? NG('m.valveShut') : NG('m.valveAt', o.padOpenT > 0 ? NG('m.late', o.padOpenT.toFixed(1)) : 'T' + o.padOpenT.toFixed(1) + ' s'))
+    + (o.padFilm ? NG('m.filmBoil') : ''));
+  if (o.engOut > 0) bits.push(NG('m.padDebris', o.engOut));
+  if (o.shipAligned === false) bits.push(NG('m.shipYaw', Math.round(o.shipYaw)));
+  if (o.hingeBurn) bits.push(NG('m.hingeGone', o.hingeBurn));
   else if (o.hingeDmg) {
     /* Chay DO cung dang bao. Truoc day chi bao khi mot ban le chay HAN (hingeDmg
        = 1), ma do la truong hop hiem; con 20-80% thi im lang tuyet doi du canh da
@@ -11006,13 +11886,13 @@ function recDiagnose(o, a) {
        bang khi RCS. */
     const TEN = ['FL', 'FR', 'AL', 'AR'];
     const nong = o.hingeDmg.map((v, i) => ({ v, i })).filter(x => x.v > 0.02);
-    if (nong.length) bits.push('Bản lề cháy dở — '
-      + nong.map(x => `${TEN[x.i]} mất ${Math.round(x.v * 85)}% lực`).join(', ')
-      + (o.peakTh ? ` (đỉnh ${o.peakTh} K)` : ''));
+    if (nong.length) bits.push(NG('m.hingeHot')
+      + nong.map(x => NG('m.engLoss', TEN[x.i], Math.round(x.v * 85))).join(', ')
+      + (o.peakTh ? NG('m.peakK', o.peakTh) : ''));
   }
-  if (o.shipResult && o.shipResult !== 'orbit') bits.push('Tàu không vào được quỹ đạo');
-  else if (o.shipOutcome === 'crash') bits.push(`Tàu vỡ khi hạ (${Math.abs(o.shipVs).toFixed(1)} m/s, nghiêng ${o.shipTilt.toFixed(1)}°)`);
-  else if (o.shipOutcome === 'wide') bits.push(`Tàu lệch ${recM(o.shipMiss)} — ngoài vùng đích`);
+  if (o.shipResult && o.shipResult !== 'orbit') bits.push(NG('res.noOrbit'));
+  else if (o.shipOutcome === 'crash') bits.push(NG('m.shipBroke', Math.abs(o.shipVs).toFixed(1), o.shipTilt.toFixed(1)));
+  else if (o.shipOutcome === 'wide') bits.push(NG('m.shipOff', recM(o.shipMiss)));
   if (!bits.length) return null;
   return bits.join('. ') + '.';
 }
@@ -11110,7 +11990,7 @@ const ENV = (() => {
        m.metalness = 0.5; m.roughness = 0.42; m.needsUpdate = true;
      }
    } catch (_) {}
-   if (!daBao) { daBao = 1; try { logLine('Không dựng được bản đồ môi trường — thép về chế độ cũ', 'bad'); } catch (_) {} }
+   if (!daBao) { daBao = 1; try { logLine(NG('m.envFail'), 'bad'); } catch (_) {} }
    console.warn('ENV hong:', e);
  }
 })();
@@ -11150,9 +12030,9 @@ let camAuto = false;
    het, khong thi hinh lat trai phai giua hai canh. */
 const CIN_ORDER = ['BAY', 'TELE', 'LAT', 'CUNG', 'CHAN', 'TAY', 'CHOT', 'TOAN', 'VO'];
 const CIN_TAG = {
-  BAY: ['CAM 1', 'Bám belly flop'], TELE: ['CAM 2', 'Ống tele mặt nước'], LAT: ['CAM 3', 'Lật dựng'],
-  CUNG: ['CAM 4', 'Cung tiếp cận'], CHAN: ['CAM 5', 'Chân tháp'], TAY: ['CAM 6', 'Cánh tay'],
-  CHOT: ['CAM 7', 'Chốt vào ray'], TOAN: ['CAM 8', 'Toàn cảnh'], VO: ['CAM 8', 'Toàn cảnh'] };
+  BAY: ['CAM 1', NG('lg.holdFlop')], TELE: ['CAM 2', NG('cam.tele')], LAT: ['CAM 3', NG('ph.flip')],
+  CUNG: ['CAM 4', NG('cam.arc')], CHAN: ['CAM 5', NG('cam.towerBase')], TAY: ['CAM 6', NG('cam.arm')],
+  CHOT: ['CAM 7', NG('lg.pins')], TOAN: ['CAM 8', NG('cam.wide')], VO: ['CAM 8', NG('cam.wide')] };
 /* Thoi gian LUOT vao canh (s); 0 = CAT. */
 const CIN_BLEND = { BAY: 0, TELE: 0, LAT: 0, CUNG: 2.4, CHAN: 2.6, TAY: 1.8, CHOT: 0, TOAN: 3.5, VO: .6 };
 const CIN_SUN = new THREE.Vector3(-0.55, 0.32, 0.76).normalize();   // cung huong den sun
@@ -11395,13 +12275,13 @@ function watchFps(raw) {
        hinh vai giay len dau mot may von da khong tai noi. */
     try { if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
           sun.shadow.mapSize.set(1024, 1024); } catch (_) {}
-    logLine('Máy không tải nổi — bỏ khử răng cưa, hạ bóng đổ', 'bad');
+    logLine(NG('m.degrade1'), 'bad');
   } else if (fpsCut === 2) {
     FX.bat = false;
-    logLine('Vẫn nặng — tắt quầng sáng và bóng khe', 'bad');
+    logLine(NG('m.degrade2'), 'bad');
   } else {
     prHaDan = true; resize();                // resize() tu goi datTiLe()
-    logLine('Vẫn nặng — hạ độ phân giải', 'bad');
+    logLine(NG('m.degrade3'), 'bad');
   }
 }
 
@@ -11799,6 +12679,7 @@ datSanDuoi();
 function veLaiUI() {
   try {
     setCellLabels(cellMode);
+    if (phaseKey) setPhase(phaseKey, $('phase').className);
     showWx();
     veDichUI();
     setMisUI();
@@ -11942,20 +12823,20 @@ function pitchOf(s, pAbs) {
    thi bon moc dau chum lai mot cuc va chu de len nhau. Vach "dang o day" van
    chay theo thoi gian THAT trong tung doan, nen no khong noi doi. */
 const TL_BOOST = [
-  { k: 'liftoff',   n: 'Rời bệ',        t: 0 },
+  { k: 'liftoff',   n: NG('tl.liftoff'),        t: 0 },
   { k: 'maxq',      n: 'Max-Q',         t: 62 },
-  { k: 'hotstage',  n: 'Hot-stage',     t: 135 },
-  { k: 'sep',       n: 'Tách tầng',     t: 138 },
+  { k: 'hotstage',  n: NG('ph.hot'),     t: 135 },
+  { k: 'sep',       n: NG('ph.sep'),     t: 138 },
   { k: 'boostback', n: 'Boostback',     t: 158 },
-  { k: 'entry',     n: 'Đốt tái nhập',  t: 386 },
-  { k: 'catch',     n: 'Thu booster',   t: 476 },
+  { k: 'entry',     n: NG('tl.entryBurn'),  t: 386 },
+  { k: 'catch',     n: NG('tl.catch'),   t: 476 },
 ];
 const TL_SHIP = [
   { k: 'seco', n: 'SECO',      t: 0 },
-  { k: 'peak', n: 'Đỉnh nhiệt', t: 780 },
-  { k: 'flop', n: 'Chúc ngửa', t: 956 },
-  { k: 'flip', n: 'Lật',       t: 1166 },
-  { k: 'land', n: 'Hạ tàu',    t: 1206 },
+  { k: 'peak', n: NG('tl.peakHeat'), t: 780 },
+  { k: 'flop', n: NG('tl.flop'), t: 956 },
+  { k: 'flip', n: NG('tl.flip'),       t: 1166 },
+  { k: 'land', n: NG('tl.land'),    t: 1206 },
 ];
 const SVGNS = 'http://www.w3.org/2000/svg';
 let tlList = TL_BOOST, tlIdx = -1, tlAt = 0, tlSep = 0, arcBuilt = null, arcEls = [];
@@ -12121,13 +13002,13 @@ function updateDualHUD(tel, bt) {
   $('spd2').hidden = false; $('alt2').hidden = false;
 }
 function clearDualHUD() {
-  $('spdLab').textContent = 'Vận tốc';
-  $('altLab').textContent = 'Độ cao';
+  $('spdLab').textContent = NG('lab.speed2');
+  $('altLab').textContent = NG('lab.alt2');
   $('spd2').hidden = true; $('alt2').hidden = true;
 }
 
 function logMode5() {
-  logLine('Hai khung chỉ có từ lúc tách tầng tới khi booster chạm đất', 'bad');
+  logLine(NG('cam.dualOnly'), 'bad');
 }
 
 function frame(now) {
@@ -12149,8 +13030,8 @@ function frame(now) {
     }
     if (pre <= 3 && !marks.ign) { marks.ign = 1; smokePuff(300); Sfx.thud(70); }
     if (pre <= 0) {
-      phase = 'ASCENT'; setPhase('Đang bay', 'hot');
-      logLine('Liftoff — 33 Raptor', 'hi'); smokePuff(420);
+      phase = 'ASCENT'; setPhase('ph.fly', 'hot');
+      logLine(NG('lg.liftoff'), 'hi'); smokePuff(420);
       Sfx.boom(.55, 1.8); Sfx.beep(1570, .35, .28);
     }
   }
@@ -12254,7 +13135,7 @@ function frame(now) {
         gGhi(t2.axialG, DT);
         if (t2.q > peakQ) peakQ = t2.q;
         if (t2.qAlpha > peakQA) peakQA = t2.qAlpha;
-        if (!marks.m1 && t2.mach >= 1) { marks.m1 = 1; logLine('Vượt âm thanh — Mach 1');
+        if (!marks.m1 && t2.mach >= 1) { marks.m1 = 1; logLine(NG('lg.mach1'));
           /* Nguoi nghe phai dung DUOI DAT moi co no. Camera gan tren than (goc 4
              rat gan, hoac dang bam tau) thi khong: vat the khong tu nghe duoc no
              cua chinh minh. Lay nguong 60 m. */
@@ -12266,8 +13147,8 @@ function frame(now) {
           const atmB = F.atmosphere(t2.alt);
           if (xaB > 60) Sfx.noSieuThanh(xaB, atmB.a, Math.min(1, atmB.p / 101325 * 2.2));
         }
-        if (!marks.mq && t2.q < peakQ * 0.82 && peakQ > 20000) { marks.mq = 1; logLine(`Qua max-Q — ${(peakQ / 1000).toFixed(1)} kPa`, 'hi'); }
-        if (!marks.km && t2.alt >= 100000) { marks.km = 1; logLine('Vượt đường Kármán — 100 km'); }
+        if (!marks.mq && t2.q < peakQ * 0.82 && peakQ > 20000) { marks.mq = 1; logLine(NG('m.pastMaxQ', (peakQ / 1000).toFixed(1)), 'hi'); }
+        if (!marks.km && t2.alt >= 100000) { marks.km = 1; logLine(NG('lg.karman')); }
         for (const e of evs) onShipEvent(e);
       }
       /* BO VUA SINH TRONG CHINH LAN LAP NAY thi DUNG buoc no. MECO duoc phat ra
@@ -12301,8 +13182,8 @@ function frame(now) {
            tha mot ban sao roi tu do: no ra khoi khung hinh trong vai giay. */
         if (bt0 === 'BOOSTBACK' && bo.phase !== 'BOOSTBACK') nhaVanhHot();
         if (auto && bo.phase !== bt0) {
-          const nm = { BOOSTBACK: 'Boostback burn', COAST: 'Bay quán tính', ENTRY: 'Entry burn', FALL: 'Rơi tự do', LANDING: 'Landing burn' }[bo.phase];
-          if (nm) { logLine(nm, 'hi'); setPhase(nm, 'hot'); }
+          const nm = { BOOSTBACK: 'ph.boostback', COAST: 'lg.coast', ENTRY: 'tl.entryBurn', FALL: 'lg.fall', LANDING: 'ph.landBurn' }[bo.phase];
+          if (nm) { logLine(NG(nm), 'hi'); setPhase(nm, 'hot'); }
         }
         if (e) onBoosterEvent(e);
       }
@@ -12314,7 +13195,7 @@ function frame(now) {
            sh.phase = 'FLOP' va 'FLIP' — may trang thai pha se chet han. */
         if (shipManual && shr.phase !== 'ENTRY' && shr.phase !== 'FLOP') {
           shipManual = false; shr.manual = false; $('tT').classList.remove('act');
-          logLine('Vào cú lật — trả lái cho máy', 'hi');
+          logLine(NG('lg.toFlip'), 'hi');
         }
         shr.manual = shipManual;
         if (shipManual) { shr.cmdAoa = shipAoa; shr.cmdBank = shipBank; }
@@ -12325,8 +13206,8 @@ function frame(now) {
           recPhase('S', shr.phase, recClock(), sf.alt, sf.lateral, sf.cross, sf.vspeed, sf.prop / 1000);
         }
         if (auto && shr.phase !== p0) {
-          const nm = { FLOP: 'Belly flop', FLIP: 'LẬT DỰNG — đánh lửa 3 Raptor', LAND: 'Đốt hãm' }[shr.phase];
-          if (nm) { logLine(nm, 'hi'); setPhase(nm, 'hot');
+          const nm = { FLOP: 'tl.flop', FLIP: 'lg.flipIgn', LAND: 'ph.landBurn' }[shr.phase];
+          if (nm) { logLine(NG(nm), 'hi'); setPhase(nm, 'hot');
                     /* Tu belly flop giao cho camera dao dien (6) — tru khi nguoi choi da tu
                        chon goc may trong chuyen ve nay. */
                     if (shr.phase === 'FLOP' && !CIN.user && camMode !== 5) camMode = 6;
@@ -12348,7 +13229,7 @@ function frame(now) {
       if (turbo && subPhase() !== p0) {
         turbo = false; acc = 0;
         $('skip').classList.remove('busy');
-        $('skip').innerHTML = '&#9193; Tua tới sự kiện';
+        $('skip').textContent = NG('btn.skip');
         break;
       }
     }
@@ -12890,14 +13771,14 @@ function frame(now) {
        mang roi hong han (do duoc bang tools/deluge.js). */
     if (dlgAuto && !dlg.on && phase === 'COUNT' && pre <= 5) {
       dlg.on = true; dlg.tOn = -pre;
-      logLine('Xả nước làm mát bệ — T−' + Math.ceil(pre) + ' s', 'hi');
+      logLine(NG('m.delugeStart', Math.ceil(pre)), 'hi');
     }
     /* DONG VAN khi ten lua da len cao: o 200 m dong nhiet chi con 1.7% muc o
        mat be, giu van mo them chi phi nuoc. Khong dong thi bon nuoc can sach
        trong khi chuyen bay con chua toi max-Q. */
     if (dlg.on && phase === 'ASCENT' && tel.alt > 200) {
       dlg.on = false;
-      logLine('Đóng van nước — còn ' + Math.round(dlg.w / F.DEL.W0 * 100) + '%', 'hi');
+      logLine(NG('m.delugeShut', Math.round(dlg.w / F.DEL.W0 * 100)), 'hi');
     }
     const lit = phase === 'ASCENT' && st.stage === 1 && st.alive;
     const thrFrac = lit ? Math.max(0, tel.thrust) / 74.4e6 : 0;
@@ -13051,7 +13932,7 @@ function frame(now) {
   if (!shr && bo && bt.alt < 2200 && !camAuto && !shipCam()) {
     camAuto = true;
     camMode = bTargetDr === 0 ? 1 : 3;
-    logLine(bTargetDr === 0 ? 'Camera bệ phóng' : 'Camera bám booster', 'hi');
+    logLine(bTargetDr === 0 ? NG('cam.pad') : NG('cam.chase'), 'hi');
   }
 
   /* camMode 6 = dao dien: chi co canh khi dang dua tau ve; ngoai do dung goc bam (3). */
@@ -13305,10 +14186,10 @@ function showWind(alt) {
     const fw = dlg.w / F.DEL.W0;
     $('dlgw').textContent = dlg.on
       ? Math.round(fw * 100) + '% — ' + dlg.flow.toFixed(0) + ' m³/s'
-      : Math.round(fw * 100) + '% — van đóng';
+      : NG('m.valveClosed', Math.round(fw * 100));
     $('dlgb').style.width = (fw * 100) + '%';
     const Tc = dlg.T - 273;
-    $('dlgt').textContent = Math.round(Tc) + ' °C' + (dlg.film ? ' — SÔI MÀNG' : '');
+    $('dlgt').textContent = Math.round(Tc) + ' °C' + (dlg.film ? NG('m.filmBoilCap') : '');
     $('dlgt').style.color = dlg.T > F.DEL.T_LIM ? '#FF6B4A' : dlg.film ? '#FFB43A' : '';
     $('dlgtb').style.width = Math.min(100, (dlg.T - 293) / (F.DEL.T_LIM - 293) * 100) + '%';
     $('dlgd').textContent = Math.round(dlg.dmg * 100) + '%';
@@ -13336,8 +14217,8 @@ function gGhi(g, dt) {
   if (g > G_TRAN) gLau += dt;
   if (!doanChet && (gDinh >= G_CHET || gLau >= G_LAU)) {
     doanChet = true;
-    logLine(`QUÁ TẢI VƯỢT NGƯỠNG — đỉnh ${gDinh.toFixed(1)} g, ${gLau.toFixed(0)} s trên ${G_TRAN} g`, 'bad');
-    logLine('Phi hành đoàn không qua khỏi', 'bad');
+    logLine(NG('m.gOver', gDinh.toFixed(1), gLau.toFixed(0), G_TRAN), 'bad');
+    logLine(NG('res.crewLost'), 'bad');
   }
 }
 function doanBuoc(tel, srt) {
@@ -13348,12 +14229,12 @@ function doanBuoc(tel, srt) {
   const pc = conLai / tran * 100;
   while (o2DaBao < 3 && pc <= [50, 25, 10][o2DaBao]) {
     const m = [50, 25, 10][o2DaBao++];
-    logLine(`Dưỡng khí còn ${m}% — ${conLai.toFixed(1)} giờ`, m <= 25 ? 'bad' : 'hi');
+    logLine(NG('m.o2Left', m, conLai.toFixed(1)), m <= 25 ? 'bad' : 'hi');
   }
   if (!doanChet && conLai <= 0) {
     doanChet = true;
-    logLine(`CẠN DƯỠNG KHÍ sau ${(missionT / 3600).toFixed(1)} giờ — ${crewN()} người chỉ đủ ${tran.toFixed(0)} giờ`, 'bad');
-    logLine('Lẽ ra phải phóng trúng cửa sổ', 'bad');
+    logLine(NG('m.o2Out', (missionT / 3600).toFixed(1), crewN(), tran.toFixed(0)), 'bad');
+    logLine(NG('lg.missWin'), 'bad');
   }
 }
 
@@ -13362,7 +14243,7 @@ function updateHUDDock(tel, bt) {
   const sp = Math.hypot(st.vx, st.vy);
   $('spd').innerHTML = Math.round(sp * 3.6).toLocaleString('vi-VN') + '<u>km/h</u>';
   $('alt').innerHTML = ((Math.hypot(st.x, st.y) - F.RE) / 1000).toFixed(1) + '<u>km</u>';
-  $('phlab').textContent = 'Thời gian bay';
+  $('phlab').textContent = NG('lab.met');
   const mm = Math.floor(missionT / 60), ss = Math.floor(missionT % 60);
   $('met').textContent = `T+${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
   $('trackf').style.width = Math.max(0, Math.min(100, (1 - t.range / 2000) * 100)) + '%';
@@ -13390,19 +14271,19 @@ function updateHUDDock(tel, bt) {
      co dau tu 5 cm toi 300 m, vi dung sai la 10 cm ma luc bat dau cach ca tram
      met — tuyen tinh thi cai cham nam li o mep suot. */
   $('catchbar').hidden = false;
-  document.querySelector('#catchbar .lab').textContent = 'Hành lang tiếp cận';
+  document.querySelector('#catchbar .lab').textContent = NG('cam.corridor');
   const L = Math.abs(t.latS);
   const off = Math.sign(t.latS) * Math.min(1, Math.log10(1 + L / .05) / Math.log10(1 + 300 / .05));
   $('catchdot').style.left = (50 + off * 50) + '%';
   $('catchdot').style.background = L <= C.lat ? 'var(--nominal)' : 'var(--flame)';
   $('catchtxt').textContent = (L < 1 ? (L * 100).toFixed(1) + ' cm' : L.toFixed(L < 100 ? 1 : 0) + ' m')
-    + ' · khép ' + t.closing.toFixed(3) + ' m/s';
+    + NG('m.closingAt', t.closing.toFixed(3));
 
   $('attblock').hidden = false;
-  $('eff').textContent = dockManual ? 'LÁI TAY' : 'TỰ ĐỘNG';
+  $('eff').textContent = dockManual ? NG('ph.manual') : NG('ph.auto');
   $('eff').className = dockManual ? 'rcs' : '';
-  $('eff').title = dockManual ? 'W/S tiến lùi · A/D dạt ngang · Q/E xoay · Shift phụt mạnh · Z trả lái'
-                              : 'Bấm W/S/A/D/Q/E để giành lái';
+  $('eff').title = dockManual ? NG('lg.dockKeys')
+                              : NG('lg.takeOver');
   $('rcsv').textContent = Math.round(t.rcsFrac * 100) + '%';
   $('rcsb').style.width = (t.rcsFrac * 100) + '%';
   $('thrv').textContent = '0%'; $('thrb').style.width = '0%';
@@ -13430,10 +14311,10 @@ function updateHUD(tel, bt, srt) {
   $('alt').innerHTML = (alt / 1000).toFixed(1) + '<u>km</u>';
 
   if (phase === 'PRE' || phase === 'COUNT') {
-    $('phlab').textContent = 'Đếm ngược';
+    $('phlab').textContent = NG('ph.count');
     $('met').textContent = 'T−' + String(Math.max(0, Math.ceil(pre))).padStart(2, '0') + ':00';
   } else {
-    $('phlab').textContent = 'Thời gian bay';
+    $('phlab').textContent = NG('lab.met');
     const m = Math.floor(missionT / 60), s = Math.floor(missionT % 60);
     $('met').textContent = `T+${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
@@ -13451,7 +14332,7 @@ function updateHUD(tel, bt, srt) {
     // xa luon hang tram km va con so do vo nghia tren HUD.
     const md = bt.missDr !== undefined ? bt.missDr : bt.lateral;
     cell(1, (Math.abs(md) > 9999 ? (md / 1000).toFixed(1) + '<small>km</small>' : Math.round(md) + '<small>m</small>'));
-    cell(2, (bt.toBurn > 0 ? (bt.toBurn > 9999 ? (bt.toBurn / 1000).toFixed(1) + '<small>km</small>' : Math.round(bt.toBurn) + '<small>m</small>') : 'ĐỐT'));
+    cell(2, (bt.toBurn > 0 ? (bt.toBurn > 9999 ? (bt.toBurn / 1000).toFixed(1) + '<small>km</small>' : Math.round(bt.toBurn) + '<small>m</small>') : NG('m.burnNow')));
     cell(3, Math.round(bt.propFrac * 100) + '<small>%</small>');
     cell(4, bt.engines + '<small>/33</small>');
     cell(5, (bt.q / 1000).toFixed(1) + '<small>kPa</small>');
@@ -13542,7 +14423,7 @@ function updateHUDShip(t) {
   veCan(t);
   $('spd').innerHTML = Math.round(t.speed * 3.6).toLocaleString('vi-VN') + '<u>km/h</u>';
   $('alt').innerHTML = (t.alt / 1000).toFixed(1) + '<u>km</u>';
-  $('phlab').textContent = 'Thời gian về';
+  $('phlab').textContent = NG('lab.ret');
   const m = Math.floor(t.t / 60), sec = Math.floor(t.t % 60);
   $('met').textContent = 'T+' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
   $('trackf').style.width = Math.max(0, Math.min(100, (1 - t.alt / 120000) * 100)) + '%';
@@ -13561,7 +14442,7 @@ function updateHUDShip(t) {
   $('ac').className = 'cell' + ((t.Tl || 0) > 1000 ? ' crit' : (t.Tl || 0) > 700 ? ' warn' : '');
   $('attblock').hidden = false;
   const el = $('eff');
-  el.textContent = t.eff === 'FLAP' ? 'FLAP · xoè ' + Math.round(t.ext * 100) + '%' : t.eff;
+  el.textContent = t.eff === 'FLAP' ? NG('m.flapExt', Math.round(t.ext * 100)) : t.eff;
   el.title = 'flap: ' + t.flap.map(x => Math.round(x * 100)).join(' / ');
   el.className = t.eff === 'RCS' ? 'rcs' : t.eff === 'FLAP' ? 'fin' : t.eff === 'KHONG' ? 'none' : '';
   $('rcsv').textContent = Math.round(t.rcsFrac * 100) + '%';
@@ -13576,7 +14457,7 @@ function updateHUDShip(t) {
   $('p2bar').classList.add('dead'); $('p2note').hidden = false;
   fuelBar('phv', 'phb', t.prop, F.VEH.s2.header);
   $('catchbar').hidden = false;
-  document.querySelector('#catchbar .lab').textContent = 'Căn chỉnh với tháp';
+  document.querySelector('#catchbar .lab').textContent = NG('lab.catch');
   /* Cham = lech NGANG theo truc hai canh tay (mieng tay da quay ve tau nen day
      moi la sai so can can); chu = khoang cach toi thap. */
   const psiT = (t.twPsiB || 0) + (t.twPsiC || 0);
@@ -13585,7 +14466,7 @@ function updateHUDShip(t) {
   $('catchdot').style.left = (50 + off * 50) + '%';
   $('catchdot').style.background = L < F.SHIP_LAND.ontarget ? 'var(--nominal)' : 'var(--flame)';
   $('catchtxt').textContent = (L < 1000 ? Math.round(L) + ' m' : (L / 1000).toFixed(1) + ' km')
-    + (L < 3000 ? ' · lệch ngang ' + Math.abs(sideT).toFixed(Math.abs(sideT) < 10 ? 1 : 0) + ' m' : '');
+    + (L < 3000 ? NG('m.crossOff', Math.abs(sideT).toFixed(Math.abs(sideT) < 10 ? 1 : 0)) : '');
   paintGrid(t.engines, 6);
 }
 

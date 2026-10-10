@@ -33,3 +33,6 @@ echo "cu phap OK (flight / ship3d / dock)"
 # shader la CHUOI doi voi node, nen quen khai bao mot uniform van qua tron tru
 # roi chet luc chay voi "undeclared identifier" va man hinh trang.
 python3 "$(dirname "$0")/shadercheck.py" || exit 1
+
+# Soat ngon ngu: khong con chuoi nguoi choi doc nao nam thang trong ma.
+python3 "$D/tools/i18n-check.py" || exit 1
