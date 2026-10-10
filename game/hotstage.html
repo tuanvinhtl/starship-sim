@@ -156,17 +156,13 @@ body{
 #track s{position:absolute;top:-3px;width:1px;height:8px;background:var(--dim);text-decoration:none}
 
 /* ---------- thanh can chinh bat bang thap ---------- */
-#catchbar{
-  position:absolute;left:50%;transform:translateX(-50%);bottom:176px;
-  width:min(340px,74vw);pointer-events:none;
-}
+#catchbar{width:min(340px,74vw);pointer-events:none}
 #catchbar[hidden]{display:none!important}
 /* Dai BAN LE CANH GIO — chi hien khi tau dang ve. Bon ban le nong len theo DO BE
    cua chinh canh do, va tren 1500 K thi bat dau chay: hingeDmg bo len, canh mat
    toi 85% luc. Truoc day ca qua trinh nay VO HINH — nguoi choi khong thay gi cho
    toi khi mot ban le chay HAN, luc do da xong. */
-#hinge{position:absolute;left:50%;transform:translateX(-50%);bottom:232px;
-  width:min(340px,74vw);pointer-events:none}
+#hinge{width:min(340px,74vw);pointer-events:none}
 #hinge[hidden]{display:none!important}
 #hinge .lab{display:block;text-align:center;margin-bottom:6px}
 #hrow{display:grid;grid-template-columns:repeat(4,1fr);gap:7px}
@@ -179,8 +175,7 @@ body{
 #hrow .hb i.chay{background:#C0392B}
 #hrow .hc u{display:block;font:500 10px/1.3 var(--fm);color:var(--haze);text-decoration:none}
 #hrow .hc u.chay{color:#E8705F}
-#stick{position:absolute;left:50%;transform:translateX(-50%);bottom:296px;
-  width:min(340px,74vw);pointer-events:none}
+#stick{width:min(340px,74vw);pointer-events:none}
 #stick[hidden]{display:none!important}
 #stick .lab{display:block;text-align:center;margin-bottom:6px}
 #stick .sr{display:grid;grid-template-columns:50px 1fr 72px;gap:8px;align-items:center;margin-bottom:5px}
@@ -227,8 +222,22 @@ body{
 #shot b{font-weight:700;color:var(--flame)}
 
 /* ---------- controls ---------- */
+/* ===== VUNG CHONG BANG NGAY TREN THANH SO LIEU =====
+   Bon bang nay (phim tat, can chinh thap, ban le, cay lai) truoc day moi cai
+   tu neo bang mot so px cung: 118 / 176 / 232 / 296. Cac so do dung o ngay
+   truoc ban them CUNG MOC SU KIEN vao #strip — cung cao 97 px nen thanh so
+   lieu vot len 232 px va NUOT GON hai bang duoi cung: hang phim tat nam de
+   len chu cua cung moc, dung nhu anh nguoi choi gui.
+   Gio xep chung thanh MOT COT, va cot do neo theo chieu cao THAT cua #strip
+   (--sanDuoi, do bang ResizeObserver). Bang nao an thi display:none nen no
+   tu rut khoi cot, khong de lai khoang trong. Khong con mot so px cung nao
+   phai chinh tay khi thanh duoi doi chieu cao nua. */
+#botstack{
+  position:absolute;left:0;right:0;bottom:calc(var(--sanDuoi,232px) + 12px);
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  pointer-events:none;
+}
 #keys{
-  position:absolute;left:50%;transform:translateX(-50%);bottom:118px;
   display:flex;gap:16px;font-family:var(--fd);font-size:10px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--dim);white-space:nowrap;
 }
@@ -286,8 +295,10 @@ body{
   #log{height:96px}
   .cell b{font-size:16px}
   #keys{display:none}
+  /* Tren dien thoai hang nut thay cho hang phim tat, va no nam o DAY cot —
+     tuc gan thanh so lieu nhat, dung cho cu cua #keys. */
   #touch{
-    display:flex;position:absolute;left:0;right:0;bottom:104px;
+    display:flex;align-self:stretch;
     padding:0 16px;gap:12px;align-items:center;pointer-events:auto;
   }
   #touch .tbtn{
@@ -423,45 +434,49 @@ body{
     </div>
   </div>
 
-  <div id="hinge" hidden>
-    <span class="lab">Bản lề cánh gió &mdash; cháy từ 1500 K</span>
-    <div id="hrow">
-      <div class="hc"><b>FL</b><div class="hb"><i id="hb0"></i></div><u id="ht0">&mdash;</u></div>
-      <div class="hc"><b>FR</b><div class="hb"><i id="hb1"></i></div><u id="ht1">&mdash;</u></div>
-      <div class="hc"><b>AL</b><div class="hb"><i id="hb2"></i></div><u id="ht2">&mdash;</u></div>
-      <div class="hc"><b>AR</b><div class="hb"><i id="hb3"></i></div><u id="ht3">&mdash;</u></div>
+  <!-- Thu tu TU TREN XUONG trong cot, giu dung thu tu cu cua cac so px:
+       cay lai 296 · ban le 232 · can chinh thap 176 · phim tat 118. -->
+  <div id="botstack">
+    <div id="stick" hidden>
+      <span class="lab">Bạn đang lái &mdash; W/S góc tấn · A/D nghiêng · Z trả lái</span>
+      <div class="sr"><b>GÓC TẤN</b><div class="sl"><i id="sk0"></i><s id="sc0"></s></div><span class="sv" id="sv0">&mdash;</span></div>
+      <div class="sr"><b>NGHIÊNG</b><div class="sl"><i id="sk1"></i><s id="sc1"></s></div><span class="sv" id="sv1">&mdash;</span></div>
     </div>
-  </div>
-  <div id="stick" hidden>
-    <span class="lab">Bạn đang lái &mdash; W/S góc tấn · A/D nghiêng · Z trả lái</span>
-    <div class="sr"><b>GÓC TẤN</b><div class="sl"><i id="sk0"></i><s id="sc0"></s></div><span class="sv" id="sv0">&mdash;</span></div>
-    <div class="sr"><b>NGHIÊNG</b><div class="sl"><i id="sk1"></i><s id="sc1"></s></div><span class="sv" id="sv1">&mdash;</span></div>
-  </div>
-  <div id="catchbar" hidden>
-    <span class="lab">Căn chỉnh với tháp</span>
-    <div id="catchrail"><div id="catchzone"></div><div id="catchdot" style="left:50%"></div></div>
-    <span id="catchtxt">0 m</span>
+    <div id="hinge" hidden>
+      <span class="lab">Bản lề cánh gió &mdash; cháy từ 1500 K</span>
+      <div id="hrow">
+        <div class="hc"><b>FL</b><div class="hb"><i id="hb0"></i></div><u id="ht0">&mdash;</u></div>
+        <div class="hc"><b>FR</b><div class="hb"><i id="hb1"></i></div><u id="ht1">&mdash;</u></div>
+        <div class="hc"><b>AL</b><div class="hb"><i id="hb2"></i></div><u id="ht2">&mdash;</u></div>
+        <div class="hc"><b>AR</b><div class="hb"><i id="hb3"></i></div><u id="ht3">&mdash;</u></div>
+      </div>
+    </div>
+    <div id="catchbar" hidden>
+      <span class="lab">Căn chỉnh với tháp</span>
+      <div id="catchrail"><div id="catchzone"></div><div id="catchdot" style="left:50%"></div></div>
+      <span id="catchtxt">0 m</span>
+    </div>
+    <div id="keys" class="pane">
+      <span><kbd>Space</kbd>Phóng / bỏ qua xếp</span>
+      <span><kbd>W/S</kbd>Ga</span>
+      <span><kbd>A/D</kbd>Bẻ lái</span>
+      <span><kbd>E</kbd>Số động cơ</span>
+      <span><kbd>N</kbd>Xả nước bệ</span>
+      <span><kbd>M</kbd>Tiếng</span>
+      <span><kbd>T</kbd>Tự lái</span>
+      <span><kbd>1-6</kbd>Camera &middot; <kbd>5</kbd> hai khung</span>
+      <span><kbd>R</kbd>Chơi lại</span>
+    </div>
+    <div id="touch">
+      <button class="tbtn" id="tL">&#9664; Bẻ</button>
+      <button class="tbtn" id="tA">Phóng</button>
+      <button class="tbtn" id="tT">Tự lái</button>
+      <button class="tbtn" id="tR">Bẻ &#9654;</button>
+    </div>
   </div>
 
   <div id="shot" hidden><i></i><b></b><span></span></div>
-  <div id="keys" class="pane">
-    <span><kbd>Space</kbd>Phóng / bỏ qua xếp</span>
-    <span><kbd>W/S</kbd>Ga</span>
-    <span><kbd>A/D</kbd>Bẻ lái</span>
-    <span><kbd>E</kbd>Số động cơ</span>
-    <span><kbd>N</kbd>Xả nước bệ</span>
-    <span><kbd>M</kbd>Tiếng</span>
-    <span><kbd>T</kbd>Tự lái</span>
-    <span><kbd>1-6</kbd>Camera &middot; <kbd>5</kbd> hai khung</span>
-    <span><kbd>R</kbd>Chơi lại</span>
-  </div>
 
-  <div id="touch">
-    <button class="tbtn" id="tL">&#9664; Bẻ</button>
-    <button class="tbtn" id="tA">Phóng</button>
-    <button class="tbtn" id="tT">Tự lái</button>
-    <button class="tbtn" id="tR">Bẻ &#9654;</button>
-  </div>
 
   <div id="strip" class="pane">
     <div class="big">
@@ -470,7 +485,13 @@ body{
       <div class="sub2" id="spd2" hidden>0<u>km</u></div>
     </div>
     <div id="clock">
-      <svg id="arc" viewBox="0 0 660 100" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <!-- viewBox cat sat noi dung. Do duoc getBBox() cua ca cung: chu va vong
+           tron chi nam trong y = 27,2 .. 86,4, con vach "dang o day" o diem dau
+           cung voi ra toi y = 88,3. Khung cu "0 0 660 100" co 22 don vi trong
+           tren dinh va 12 duoi day — o be ngang 640 px thi 97 px chieu cao do
+           co 29 px la khoang khong, va chinh 29 px do day thanh so lieu len
+           cao den muc nuot mat hai bang phia tren. -->
+      <svg id="arc" viewBox="0 22 660 70" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
         <path id="arcBase" d="M 26 82 Q 330 10 634 82"/>
         <path id="arcDone" d="M 26 82 Q 330 10 634 82"/>
         <g id="arcMarks"></g>
@@ -11550,6 +11571,16 @@ function resize() {
   FX.size(d.x, d.y, lowFX ? 0 : FX.msaa);
 }
 addEventListener('resize', resize); resize();
+
+/* SAN DUOI cho #botstack: chieu cao THAT cua thanh so lieu. Khong dung
+   addEventListener('resize') khong thoi — #strip con cao thap theo co chu
+   (clamp theo vw) va theo luc webfont nap xong, ca hai deu khong ban ra
+   mot su kien resize nao. ResizeObserver bat dung cai can bat. */
+const datSanDuoi = () =>
+  document.documentElement.style.setProperty('--sanDuoi', $('strip').offsetHeight + 'px');
+if (window.ResizeObserver) new ResizeObserver(datSanDuoi).observe($('strip'));
+else addEventListener('resize', datSanDuoi);
+datSanDuoi();
 
 /* ===================== BANG CHINH (phim O) =====================
    Tao khong nhin duoc man hinh cua nguoi choi, nen doan mo tung con so la moi
