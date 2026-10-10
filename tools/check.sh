@@ -7,17 +7,23 @@ python3 - "$D/game/hotstage.html" <<'PY' > /tmp/_hs_check.js
 import sys
 s = open(sys.argv[1], encoding='utf-8').read()
 a = s.index('<script>', s.index('three.min.js')) + 8
-b = s.rindex('</script>')
+# CAT O LAN DAU TIEN, khong phai lan cuoi. Bo phan tich HTML ket thuc khoi
+# script ngay o chuoi dong-the dau tien trong van ban, du no nam trong chu
+# thich hay trong mot chuoi. Ban cu dung rindex() nen no NOI LAI hai nua va
+# van phan tich tron tru — tuc bo kiem bao OK trong khi trinh duyet chet voi
+# "Invalid or unexpected token". Da dinh that: mot chu thich lo viet chuoi do
+# ra lam trang trang hoan toan ma check.sh khong he keu.
+b = s.index('</' + 'script>', a)
 sys.stdout.write(s[a:b])
 PY
 node --check /tmp/_hs_check.js && echo "cu phap OK (khoi script chinh)"
 python3 "$D/tools/sync-modules.py"
 
-# Kiem cu phap CA BA MO-DUN VAT LY. Khoi `node --check` o tren CHI doc the
-# <script> nam sau three.min.js, con Flight/Ship3D/Dock duoc dinh nghia o the
-# TRUOC do — nen suot thoi gian qua chung khong he duoc kiem cu phap. Da bi
-# dinh mot lan: `(a < b ? x : y) = m` di qua check.sh tron tru roi chet luc
-# require() trong node. sync-modules.py vua ghi ra ba file .js, kiem luon.
+# Kiem cu phap CA BA MO-DUN VAT LY nhu file DOC LAP. Khoi tren kiem ca the
+# script, con day kiem dung thu sync-modules.py vua cat ra — bat duoc cai loai
+# loi chi lo ra khi doan ma do dung mot minh (moc cat lech, khoi UMD khong
+# dong). Da bi dinh mot lan: `(a < b ? x : y) = m` di qua check.sh tron tru
+# roi chet luc require() trong node.
 for m in flight ship3d dock; do
   node --check "$D/game/$m.js" || exit 1
 done

@@ -9,9 +9,13 @@
   --steel:#C8CDD4; --haze:#7C8797; --dim:#4B5563;
   --flame:#FF6B1A; --flame-hot:#FFD199; --cryo:#6FD3E8;
   --nominal:#4ADE80; --caution:#FBBF24; --abort:#F43F5E;
-  --fd:"Saira Condensed",'Arial Narrow',system-ui,sans-serif;
-  --fb:"Saira",system-ui,-apple-system,sans-serif;
-  --fm:"IBM Plex Mono",ui-monospace,'SF Mono',Menlo,monospace;
+  /* Ba font tren deu KHONG co chu Han. Khong co day du phong thi tieng Trung
+     roi ve font mac dinh cua trinh duyet, lech han voi phan con lai. Khong nap
+     webfont CJK: mot bo Noto Sans SC nang vai MB cho mot tro choi 0,8 MB. */
+  --cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC";
+  --fd:"Saira Condensed",'Arial Narrow',var(--cjk),system-ui,sans-serif;
+  --fb:"Saira",var(--cjk),system-ui,-apple-system,sans-serif;
+  --fm:"IBM Plex Mono",ui-monospace,'SF Mono',Menlo,var(--cjk),monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
@@ -58,12 +62,13 @@ body{
 #warp button:first-child{border-left:0}
 #warp button[aria-pressed="true"]{background:var(--flame);color:#140700}
 #warp button:focus-visible{outline:2px solid var(--cryo);outline-offset:-2px}
-#wxSel{
+#wxSel,#langSel{
   font-family:var(--fd);font-weight:600;font-size:11px;letter-spacing:.08em;
   text-transform:uppercase;background:rgba(13,18,25,.9);color:#8FB4CC;
   border:1px solid var(--edge);border-radius:2px;padding:5px 8px;cursor:pointer;
 }
-#wxSel:focus-visible{outline:2px solid var(--cryo);outline-offset:-2px}
+#langSel{color:var(--haze)}
+#wxSel:focus-visible,#langSel:focus-visible{outline:2px solid var(--cryo);outline-offset:-2px}
 #wxRnd{
   background:rgba(13,18,25,.8);border:1px solid var(--edge);border-radius:2px;
   color:var(--steel);font-size:13px;padding:3px 9px;cursor:pointer;line-height:1.4;
@@ -241,6 +246,7 @@ body{
   display:flex;gap:16px;font-family:var(--fd);font-size:10px;letter-spacing:.1em;
   text-transform:uppercase;color:var(--dim);white-space:nowrap;
 }
+#keys i{font-style:normal}
 #keys kbd{
   font-family:var(--fm);font-size:10px;letter-spacing:0;color:var(--haze);
   border:1px solid var(--edge);border-radius:2px;padding:1px 5px;margin-right:4px;background:rgba(13,18,25,.8);
@@ -254,7 +260,12 @@ body{
   pointer-events:auto;z-index:20;
 }
 .ov[hidden]{display:none!important}
-.card{width:min(560px,88vw);text-align:center}
+/* Chieu cao the phu thuoc NGON NGU: do duoc o 1024x768 — tieng Anh 717 px,
+   tieng Viet 693, tieng Trung 670. Tieng Anh dai nhat va chi con 51 px du
+   trong mot cua so 768 px, nen cua so thap hon mot chut la nut "Xep chong"
+   tran ra ngoai ma khong cuon toi duoc (.ov canh giua, the khong co gioi han
+   chieu cao). Cho phep cuon trong the. */
+.card{width:min(560px,88vw);text-align:center;max-height:calc(100vh - 32px);overflow-y:auto}
 .card h1{
   font-family:var(--fd);font-weight:700;font-size:clamp(44px,9vw,84px);
   letter-spacing:.02em;line-height:.88;text-transform:uppercase;text-wrap:balance;
@@ -362,16 +373,17 @@ body{
   <div id="top" class="pane">
     <div id="mission">Flight <span>7</span> &middot; Starbase</div>
     <div id="phase">Pre-launch</div>
-    <div id="warp" role="group" aria-label="Tốc độ mô phỏng">
+    <div id="warp" role="group" data-i18n-aria="aria.warp" aria-label="Simulation speed">
       <button data-w="1" aria-pressed="true">1&times;</button>
       <button data-w="2" aria-pressed="false">2&times;</button>
       <button data-w="5" aria-pressed="false">5&times;</button>
       <button data-w="20" aria-pressed="false">20&times;</button>
     </div>
-    <select id="wxSel" aria-label="Thời tiết"></select>
-    <button id="wxRnd" title="Thời tiết ngẫu nhiên">&#127922;</button>
-    <button id="skip" hidden>&#9193; Tua tới sự kiện</button>
-    <button id="mute" aria-pressed="true">Tiếng</button>
+    <select id="langSel" data-i18n-aria="aria.lang" aria-label="Language"></select>
+    <select id="wxSel" data-i18n-aria="aria.wx" aria-label="Weather"></select>
+    <button id="wxRnd" data-i18n-title="tip.wxRnd" title="Random weather">&#127922;</button>
+    <button id="skip" data-i18n="btn.skip" hidden>&#9193; Skip to event</button>
+    <button id="mute" data-i18n="btn.mute" aria-pressed="true">Sound</button>
   </div>
 
   <div id="left" class="pane">
@@ -381,37 +393,37 @@ body{
       <div id="engcount">33 / 33 lit</div>
     </div>
     <div class="block" id="padblock">
-      <span class="lab">Làm mát bệ &mdash; phím N</span>
-      <div class="rowlab" style="margin-top:6px"><span class="lab">Nước</span><b id="dlgw">100%</b></div>
+      <span class="lab" data-i18n="lab.padCool">Pad cooling &mdash; key N</span>
+      <div class="rowlab" style="margin-top:6px"><span class="lab" data-i18n="lab.water">Water</span><b id="dlgw">100%</b></div>
       <div class="bar rcs"><i id="dlgb"></i></div>
-      <div class="rowlab" style="margin-top:8px"><span class="lab">Tấm thép</span><b id="dlgt">20 °C</b></div>
+      <div class="rowlab" style="margin-top:8px"><span class="lab" data-i18n="lab.steel">Steel plate</span><b id="dlgt">20 °C</b></div>
       <div class="bar wind"><i id="dlgtb"></i></div>
-      <div class="rowlab" style="margin-top:8px"><span class="lab">Hư hại bệ</span><b id="dlgd">0%</b></div>
+      <div class="rowlab" style="margin-top:8px"><span class="lab" data-i18n="lab.padDmg">Pad damage</span><b id="dlgd">0%</b></div>
     </div>
     <div class="block" id="attblock" hidden>
-      <span class="lab">Điều khiển tư thế</span>
+      <span class="lab" data-i18n="lab.att">Attitude control</span>
       <b id="eff">—</b>
-      <div class="rowlab" style="margin-top:10px"><span class="lab">Khí RCS</span><b id="rcsv">100%</b></div>
+      <div class="rowlab" style="margin-top:10px"><span class="lab" data-i18n="lab.rcs">RCS gas</span><b id="rcsv">100%</b></div>
       <div class="bar rcs"><i id="rcsb"></i></div>
     </div>
     <div class="block stack">
       <div>
-        <div class="rowlab"><span class="lab">Gió</span><b id="windv">0 m/s</b></div>
+        <div class="rowlab"><span class="lab" data-i18n="lab.wind">Wind</span><b id="windv">0 m/s</b></div>
       <div class="bar wind"><i id="windb"></i></div>
-      <div class="rowlab" style="margin-top:10px"><span class="lab">Throttle</span><b id="thrv">100%</b></div>
+      <div class="rowlab" style="margin-top:10px"><span class="lab" data-i18n="lab.thr">Throttle</span><b id="thrv">100%</b></div>
         <div class="bar thr"><i id="thrb"></i></div>
       </div>
       <div>
-        <div class="rowlab"><span class="lab">Booster</span><b id="p1v">100%</b></div>
+        <div class="rowlab"><span class="lab" data-i18n="lab.boost">Booster</span><b id="p1v">100%</b></div>
         <div class="bar p1"><i id="p1b"></i></div>
       </div>
       <div>
-        <div class="rowlab"><span class="lab">Ship &mdash; bình chính</span><b id="p2v">1465 t</b></div>
+        <div class="rowlab"><span class="lab" data-i18n="lab.shipMain">Ship &mdash; main tanks</span><b id="p2v">1465 t</b></div>
         <div class="bar p2" id="p2bar"><i id="p2b"></i></div>
-        <div id="p2note" hidden title="Lật bụng là rơi tự do — không trọng lực. Nhiên liệu trong bình chính trôi lửng lơ, không dồn về miệng bơm được, nên còn bao nhiêu cũng vô dụng. Đó đúng là lý do SpaceX phải làm thùng header riêng cho cú đốt hạ cánh.">không dùng được</div>
+        <div id="p2note" hidden data-i18n="txt.p2dead" data-i18n-title="tip.p2dead" title="">unusable</div>
       </div>
       <div>
-        <div class="rowlab"><span class="lab">Header &mdash; hạ cánh</span><b id="phv">35 t</b></div>
+        <div class="rowlab"><span class="lab" data-i18n="lab.header">Header &mdash; landing</span><b id="phv">35 t</b></div>
         <div class="bar hdr"><i id="phb"></i></div>
       </div>
     </div>
@@ -421,15 +433,15 @@ body{
     <div class="block">
       <div id="fd">
         <div class="cell"><span class="lab">Mach</span><b id="mach">0.00</b></div>
-        <div class="cell" id="qc"><span class="lab">Áp suất động</span><b id="q">0<small>kPa</small></b></div>
-        <div class="cell"><span class="lab">Gia tốc</span><b id="gee">0.0<small>g</small></b></div>
-        <div class="cell" id="ac"><span class="lab">Góc tấn</span><b id="aoa">0<small>°</small></b></div>
-        <div class="cell"><span class="lab">Vận tốc đứng</span><b id="vs">0<small>m/s</small></b></div>
-        <div class="cell"><span class="lab">Tầm xa</span><b id="dr">0<small>km</small></b></div>
+        <div class="cell" id="qc"><span class="lab">Dynamic pressure</span><b id="q">0<small>kPa</small></b></div>
+        <div class="cell"><span class="lab">Acceleration</span><b id="gee">0.0<small>g</small></b></div>
+        <div class="cell" id="ac"><span class="lab">Angle of attack</span><b id="aoa">0<small>°</small></b></div>
+        <div class="cell"><span class="lab">Vertical speed</span><b id="vs">0<small>m/s</small></b></div>
+        <div class="cell"><span class="lab">Downrange</span><b id="dr">0<small>km</small></b></div>
       </div>
     </div>
     <div class="block">
-      <span class="lab">Nhật ký chuyến bay</span>
+      <span class="lab" data-i18n="lab.log">Flight log</span>
       <div id="log"></div>
     </div>
   </div>
@@ -438,12 +450,12 @@ body{
        cay lai 296 · ban le 232 · can chinh thap 176 · phim tat 118. -->
   <div id="botstack">
     <div id="stick" hidden>
-      <span class="lab">Bạn đang lái &mdash; W/S góc tấn · A/D nghiêng · Z trả lái</span>
-      <div class="sr"><b>GÓC TẤN</b><div class="sl"><i id="sk0"></i><s id="sc0"></s></div><span class="sv" id="sv0">&mdash;</span></div>
-      <div class="sr"><b>NGHIÊNG</b><div class="sl"><i id="sk1"></i><s id="sc1"></s></div><span class="sv" id="sv1">&mdash;</span></div>
+      <span class="lab" data-i18n="lab.stick">You have control &mdash; W/S pitch &middot; A/D bank &middot; Z release</span>
+      <div class="sr"><b data-i18n="cap.aoa">AOA</b><div class="sl"><i id="sk0"></i><s id="sc0"></s></div><span class="sv" id="sv0">&mdash;</span></div>
+      <div class="sr"><b data-i18n="cap.bank">BANK</b><div class="sl"><i id="sk1"></i><s id="sc1"></s></div><span class="sv" id="sv1">&mdash;</span></div>
     </div>
     <div id="hinge" hidden>
-      <span class="lab">Bản lề cánh gió &mdash; cháy từ 1500 K</span>
+      <span class="lab" data-i18n="lab.hinge">Flap hinges &mdash; burn above 1500 K</span>
       <div id="hrow">
         <div class="hc"><b>FL</b><div class="hb"><i id="hb0"></i></div><u id="ht0">&mdash;</u></div>
         <div class="hc"><b>FR</b><div class="hb"><i id="hb1"></i></div><u id="ht1">&mdash;</u></div>
@@ -452,26 +464,26 @@ body{
       </div>
     </div>
     <div id="catchbar" hidden>
-      <span class="lab">Căn chỉnh với tháp</span>
+      <span class="lab" data-i18n="lab.catch">Tower alignment</span>
       <div id="catchrail"><div id="catchzone"></div><div id="catchdot" style="left:50%"></div></div>
       <span id="catchtxt">0 m</span>
     </div>
     <div id="keys" class="pane">
-      <span><kbd>Space</kbd>Phóng / bỏ qua xếp</span>
-      <span><kbd>W/S</kbd>Ga</span>
-      <span><kbd>A/D</kbd>Bẻ lái</span>
-      <span><kbd>E</kbd>Số động cơ</span>
-      <span><kbd>N</kbd>Xả nước bệ</span>
-      <span><kbd>M</kbd>Tiếng</span>
-      <span><kbd>T</kbd>Tự lái</span>
-      <span><kbd>1-6</kbd>Camera &middot; <kbd>5</kbd> hai khung</span>
-      <span><kbd>R</kbd>Chơi lại</span>
+      <span><kbd>Space</kbd><i data-i18n="key.space">Launch / skip stacking</i></span>
+      <span><kbd>W/S</kbd><i data-i18n="key.ws">Throttle</i></span>
+      <span><kbd>A/D</kbd><i data-i18n="key.ad">Steer</i></span>
+      <span><kbd>E</kbd><i data-i18n="key.e">Engine count</i></span>
+      <span><kbd>N</kbd><i data-i18n="key.n">Pad deluge</i></span>
+      <span><kbd>M</kbd><i data-i18n="key.m">Sound</i></span>
+      <span><kbd>T</kbd><i data-i18n="key.t">Autopilot</i></span>
+      <span><kbd>1-6</kbd><i data-i18n="key.cam">Camera</i> &middot; <kbd>5</kbd><i data-i18n="key.cam2">dual view</i></span>
+      <span><kbd>R</kbd><i data-i18n="key.r">Replay</i></span>
     </div>
     <div id="touch">
-      <button class="tbtn" id="tL">&#9664; Bẻ</button>
-      <button class="tbtn" id="tA">Phóng</button>
-      <button class="tbtn" id="tT">Tự lái</button>
-      <button class="tbtn" id="tR">Bẻ &#9654;</button>
+      <button class="tbtn" id="tL" data-i18n="tch.left">&#9664; Steer</button>
+      <button class="tbtn" id="tA" data-i18n="tch.launch">Launch</button>
+      <button class="tbtn" id="tT" data-i18n="tch.auto">Autopilot</button>
+      <button class="tbtn" id="tR" data-i18n="tch.right">Steer &#9654;</button>
     </div>
   </div>
 
@@ -480,7 +492,7 @@ body{
 
   <div id="strip" class="pane">
     <div class="big">
-      <span class="lab" id="spdLab">Vận tốc</span>
+      <span class="lab" id="spdLab">Speed</span>
       <div class="num" id="spd">0<u>km/h</u></div>
       <div class="sub2" id="spd2" hidden>0<u>km</u></div>
     </div>
@@ -497,10 +509,10 @@ body{
         <g id="arcMarks"></g>
         <line id="arcNow" x1="0" y1="0" x2="0" y2="0"/>
       </svg>
-      <span class="lab" id="phlab">Đếm ngược</span><div class="num" id="met">T&minus;00:00</div>
+      <span class="lab" id="phlab">Countdown</span><div class="num" id="met">T&minus;00:00</div>
     </div>
     <div class="big r">
-      <span class="lab" id="altLab">Độ cao</span>
+      <span class="lab" id="altLab">Altitude</span>
       <div class="num" id="alt">0<u>km</u></div>
       <div class="sub2 r" id="alt2" hidden>0<u>km</u></div>
     </div>
@@ -516,42 +528,39 @@ body{
     <div class="card">
       <h1>Hot <em>Stage</em></h1>
       <div class="sub">Starbase &middot; Super Heavy + Starship</div>
-      <p>5.220 tấn, 33 động cơ Raptor, 71 MN lực đẩy. Đưa tầng trên lên
-      <b>7.800 m/s</b> mà không xé nát thân tàu ở max-Q — bẻ lái mạnh lúc áp suất
-      động cao thì tàu <b>gãy làm đôi</b>.</p>
-      <p>Tách tầng xong, quyền lái chuyển sang booster: boostback, entry burn,
-      rồi hạ đúng vào <b>cánh tay tháp</b> — lệch dưới 10 m, chạm dưới 8 m/s.</p>
+      <p data-i18n-html="intro.p1"></p>
+      <p data-i18n-html="intro.p2"></p>
       <div id="tgts">
-        <div><span class="lab">Đích booster</span><b id="bTgt">Tháp Starbase</b></div>
-        <div><span class="lab">Đích tàu (dọc / ngang)</span><b id="sTgt">0 km / 0 km</b></div>
-        <div><span class="lab">Nhiệm vụ</span><b id="misTgt">Starlink &mdash; thả vệ tinh</b></div>
-        <div id="winRow" hidden><span class="lab">Cửa sổ phóng &mdash; phải đuổi</span><b id="winTgt">&mdash;</b></div>
-        <div id="crewRow" hidden><span class="lab">Dưỡng khí của đoàn</span><b id="crewTgt">&mdash;</b></div>
-        <div><span class="lab">Hàng trong khoang</span><b id="payTgt">40 vệ tinh</b></div>
-        <div class="wide"><span class="lab">Thời tiết &mdash; đổi ở thanh trên cùng</span><b id="wxTgt">Lặng</b></div>
+        <div><span class="lab" data-i18n="lab.bTgt">Booster target</span><b id="bTgt">Tháp Starbase</b></div>
+        <div><span class="lab" data-i18n="lab.sTgt">Ship target (down / cross)</span><b id="sTgt">0 km / 0 km</b></div>
+        <div><span class="lab" data-i18n="lab.mis">Mission</span><b id="misTgt">Starlink &mdash; thả vệ tinh</b></div>
+        <div id="winRow" hidden><span class="lab" data-i18n="lab.win">Launch window &mdash; must chase</span><b id="winTgt">&mdash;</b></div>
+        <div id="crewRow" hidden><span class="lab" data-i18n="lab.crew">Crew oxygen</span><b id="crewTgt">&mdash;</b></div>
+        <div><span class="lab" data-i18n="lab.pay">Payload</span><b id="payTgt">40 vệ tinh</b></div>
+        <div class="wide"><span class="lab" data-i18n="lab.wx">Weather &mdash; change in the top bar</span><b id="wxTgt">Lặng</b></div>
       </div>
-      <button class="go" id="start">Xếp chồng &amp; đếm ngược</button>
-      <button class="go ghost" id="reroll">Đổi điểm hạ</button>
-      <button class="go ghost" id="misBtn">Đổi nhiệm vụ</button>
-      <button class="go ghost" id="winBtn" hidden>Dời giờ phóng +15 phút</button>
-      <button class="go ghost" id="payBtn">Đổi số vệ tinh</button>
+      <button class="go" id="start" data-i18n="btn.start">Stack &amp; count down</button>
+      <button class="go ghost" id="reroll" data-i18n="btn.reroll">Change landing spot</button>
+      <button class="go ghost" id="misBtn" data-i18n="btn.mis">Change mission</button>
+      <button class="go ghost" id="winBtn" data-i18n="btn.win" hidden>Delay launch +15 min</button>
+      <button class="go ghost" id="payBtn">Change satellite count</button>
     </div>
   </div>
 
   <div class="ov" id="over" hidden>
     <div class="card">
-      <h1 id="ovh">Vào quỹ đạo</h1>
+      <h1 id="ovh"></h1>
       <div class="sub" id="ovs"></div>
       <div id="sum">
-        <div><span class="lab">Vận tốc</span><b id="s1">0</b></div>
-        <div><span class="lab">Booster lệch</span><b id="s2">0</b></div>
-        <div><span class="lab">Ship lệch</span><b id="s3">0</b></div>
-        <div><span class="lab">Điểm</span><b id="s4">0</b></div>
+        <div><span class="lab" data-i18n="ov.sumSpeed">Speed</span><b id="s1">0</b></div>
+        <div><span class="lab" data-i18n="ov.sumBoost">Booster miss</span><b id="s2">0</b></div>
+        <div><span class="lab" data-i18n="ov.sumShip">Ship miss</span><b id="s3">0</b></div>
+        <div><span class="lab" data-i18n="ov.sumScore">Score</span><b id="s4">0</b></div>
       </div>
       <p id="ovp"></p>
       <p id="ovdiag" class="diag" hidden></p>
       <div id="ovrec" class="recline">&nbsp;</div>
-      <button class="go" id="again">Phóng lại</button>
+      <button class="go" id="again" data-i18n="btn.again">Launch again</button>
     </div>
   </div>
 </div>
@@ -5116,6 +5125,191 @@ const TRE_TRAN = 10.0;
 const F = Flight, S3 = Ship3D, D = Dock, RE = F.RE, P0 = 101325, DEG = Math.PI / 180;
 const $ = id => document.getElementById(id);
 
+/* ======================= NGON NGU =======================
+   Ba thu tieng, MAC DINH LA TIENG ANH. Bang nam ngay trong khoi script chinh
+   chu khong tach ra mot the script rieng: check.sh cat tu the mo dau tien sau
+   three.min.js cho toi the dong, nen them mot the nua o giua la bo kiem cu
+   phap thanh vo dung.
+
+   VA: KHONG duoc viet chuoi dong-the-script o bat ky dau trong khoi nay, ke ca
+   trong chu thich. Bo phan tich HTML cat khoi script o LAN XUAT HIEN DAU TIEN
+   cua chuoi do, khong quan tam no nam trong chu thich hay trong chuoi. Dinh
+   that ngay o ban dau cua chinh khoi nay: ca trang chet voi mot dong
+   "Invalid or unexpected token" duy nhat.
+
+   Khoa la chuoi ngan co tien to, KHONG phai cau tieng Viet: bang ba thu tieng
+   doc theo hang moi so duoc voi nhau, va sua mot cau tieng Viet thi khong lam
+   mo coi hai ban dich kia.
+
+   Cho noi suy viet la {0} {1}... chu khong phai ${}: chuoi nam trong bang du
+   lieu, khong phai trong ma, nen khong duoc phep la template literal — neu
+   khong thi doi ngon ngu la danh gia lai bieu thuc trong ngu canh sai.
+
+   Thieu khoa thi tut ve tieng Anh, thieu ca o tieng Anh thi HIEN NGUYEN KHOA.
+   Khong tra ve chuoi rong: mot nhan trong tren man hinh la loi khong ai thay,
+   con 'lab.catch' hien ra thi thay ngay. */
+const NGU_DS = [['en', 'English'], ['vi', 'Tiếng Việt'], ['zh', '中文']];
+const NGU = {
+  en: {
+    'tgt.tower': 'Starbase tower', 'tgt.offshore': 'Offshore tower +{0} km',
+    'mis.starlink': 'Starlink \u2014 satellite deploy', 'mis.iss': 'ISS \u2014 crew + cargo',
+    'mis.tnl': 'Orbital refuelling \u2014 depot at {0} km, {1} tanker flights',
+    'mis.tnlN': 'Refuelling \u2014 flight {0}, depot {1} t',
+    'win.val': '{0} h \u00b7 {1} orbits', 'crew.o2': '{0} crew \u00b7 {1} h of oxygen',
+    'pay.crew': '{0} crew \u00b7 {1} t cargo', 'pay.sats': '{0} satellites \u00b7 {1} t',
+    'pay.none': 'No payload', 'pay.tnlCho': 'Tanker \u2014 main tanks, bay empty',
+    'pay.tnlBen': 'Depot \u2014 standard build, bay empty',
+    'aria.warp': 'Simulation speed', 'aria.wx': 'Weather', 'aria.lang': 'Language',
+    'tip.wxRnd': 'Random weather', 'btn.skip': '⏭ Skip to event', 'btn.mute': 'Sound',
+    'lab.padCool': 'Pad cooling — key N', 'lab.water': 'Water', 'lab.steel': 'Steel plate',
+    'lab.padDmg': 'Pad damage', 'lab.att': 'Attitude control', 'lab.rcs': 'RCS gas',
+    'lab.wind': 'Wind', 'lab.thr': 'Throttle', 'lab.boost': 'Booster',
+    'lab.shipMain': 'Ship — main tanks', 'txt.p2dead': 'unusable',
+    'tip.p2dead': 'Belly flop is free fall — no gravity. The propellant in the main tanks floats loose and cannot settle over the pump inlets, so whatever is left is useless. That is exactly why SpaceX built a separate header tank for the landing burn.',
+    'lab.header': 'Header — landing', 'lab.log': 'Flight log',
+    'lab.stick': 'You have control — W/S pitch · A/D bank · Z release',
+    'cap.aoa': 'AOA', 'cap.bank': 'BANK',
+    'lab.hinge': 'Flap hinges — burn above 1500 K', 'lab.catch': 'Tower alignment',
+    'key.space': 'Launch / skip stacking', 'key.ws': 'Throttle', 'key.ad': 'Steer',
+    'key.e': 'Engine count', 'key.n': 'Pad deluge', 'key.m': 'Sound', 'key.t': 'Autopilot',
+    'key.cam': 'Camera', 'key.cam2': 'dual view', 'key.r': 'Replay',
+    'tch.left': '◀ Steer', 'tch.launch': 'Launch', 'tch.auto': 'Autopilot', 'tch.right': 'Steer ▶',
+    'lab.speed': 'Speed', 'lab.alt': 'Altitude', 'lab.count': 'Countdown',
+    'intro.p1': '5,220 tonnes, 33 Raptor engines, 71 MN of thrust. Get the upper stage to <b>7,800 m/s</b> without tearing the vehicle apart at max-Q — steer hard while dynamic pressure is high and the ship <b>breaks in two</b>.',
+    'intro.p2': 'After staging, control passes to the booster: boostback, entry burn, then land straight into the <b>tower arms</b> — under 10 m off, under 8 m/s at contact.',
+    'lab.bTgt': 'Booster target', 'lab.sTgt': 'Ship target (down / cross)', 'lab.mis': 'Mission',
+    'lab.win': 'Launch window — must chase', 'lab.crew': 'Crew oxygen', 'lab.pay': 'Payload',
+    'lab.wx': 'Weather — change in the top bar',
+    'btn.start': 'Stack & count down', 'btn.reroll': 'Change landing spot', 'btn.mis': 'Change mission',
+    'btn.win': 'Delay launch +15 min', 'btn.pay': 'Change satellite count',
+    'btn.payIss': 'Change crew & cargo', 'btn.again': 'Launch again',
+    'ov.sumSpeed': 'Speed', 'ov.sumBoost': 'Booster miss', 'ov.sumShip': 'Ship miss', 'ov.sumScore': 'Score',
+    'fd.mach': 'Mach', 'fd.q': 'Dynamic pressure', 'fd.gee': 'Acceleration', 'fd.aoa': 'Angle of attack',
+    'fd.vs': 'Vertical speed', 'fd.dr': 'Downrange', 'fd.miss': 'Miss vs target',
+    'fd.toBurn': 'To landing burn', 'fd.prop': 'Propellant', 'fd.eng': 'Engines',
+    'fd.lat': 'Downrange error', 'fd.cross': 'Cross-range error',
+    'fd.tileT': 'Tile temperature', 'fd.aftT': 'Aft body temperature',
+    'dk.range': 'Range', 'dk.closing': 'Closing rate', 'dk.lateral': 'Lateral offset',
+    'dk.drift': 'Lateral drift', 'dk.ang': 'Angular offset',
+    'wx.calm': 'Calm', 'wx.breezy': 'Breezy', 'wx.rain': 'Rain', 'wx.snow': 'Snow',
+    'wx.gusty': 'Gusty', 'wx.storm': 'Storm', 'wx.blizzard': 'Blizzard',
+  },
+  vi: {
+    'tgt.tower': 'Tháp Starbase', 'tgt.offshore': 'Tháp ngoài khơi +{0} km',
+    'mis.starlink': 'Starlink \u2014 thả vệ tinh', 'mis.iss': 'Trạm ISS \u2014 người + hàng',
+    'mis.tnl': 'Tiếp nhiên liệu \u2014 bến {0} km, cần {1} chuyến',
+    'mis.tnlN': 'Tiếp nhiên liệu \u2014 chuyến {0}, bến {1} t',
+    'win.val': '{0} giờ \u00b7 {1} vòng', 'crew.o2': '{0} người \u00b7 đủ {1} giờ',
+    'pay.crew': '{0} người \u00b7 {1} t hàng', 'pay.sats': '{0} vệ tinh \u00b7 {1} t',
+    'pay.none': 'Không chở', 'pay.tnlCho': 'Tàu chở \u2014 bồn chính, khoang trống',
+    'pay.tnlBen': 'Bến chứa \u2014 bản chuẩn, khoang trống',
+    'aria.warp': 'Tốc độ mô phỏng', 'aria.wx': 'Thời tiết', 'aria.lang': 'Ngôn ngữ',
+    'tip.wxRnd': 'Thời tiết ngẫu nhiên', 'btn.skip': '⏭ Tua tới sự kiện', 'btn.mute': 'Tiếng',
+    'lab.padCool': 'Làm mát bệ — phím N', 'lab.water': 'Nước', 'lab.steel': 'Tấm thép',
+    'lab.padDmg': 'Hư hại bệ', 'lab.att': 'Điều khiển tư thế', 'lab.rcs': 'Khí RCS',
+    'lab.wind': 'Gió', 'lab.thr': 'Throttle', 'lab.boost': 'Booster',
+    'lab.shipMain': 'Ship — bình chính', 'txt.p2dead': 'không dùng được',
+    'tip.p2dead': 'Lật bụng là rơi tự do — không trọng lực. Nhiên liệu trong bình chính trôi lửng lơ, không dồn về miệng bơm được, nên còn bao nhiêu cũng vô dụng. Đó đúng là lý do SpaceX phải làm thùng header riêng cho cú đốt hạ cánh.',
+    'lab.header': 'Header — hạ cánh', 'lab.log': 'Nhật ký chuyến bay',
+    'lab.stick': 'Bạn đang lái — W/S góc tấn · A/D nghiêng · Z trả lái',
+    'cap.aoa': 'GÓC TẤN', 'cap.bank': 'NGHIÊNG',
+    'lab.hinge': 'Bản lề cánh gió — cháy từ 1500 K', 'lab.catch': 'Căn chỉnh với tháp',
+    'key.space': 'Phóng / bỏ qua xếp', 'key.ws': 'Ga', 'key.ad': 'Bẻ lái',
+    'key.e': 'Số động cơ', 'key.n': 'Xả nước bệ', 'key.m': 'Tiếng', 'key.t': 'Tự lái',
+    'key.cam': 'Camera', 'key.cam2': 'hai khung', 'key.r': 'Chơi lại',
+    'tch.left': '◀ Bẻ', 'tch.launch': 'Phóng', 'tch.auto': 'Tự lái', 'tch.right': 'Bẻ ▶',
+    'lab.speed': 'Vận tốc', 'lab.alt': 'Độ cao', 'lab.count': 'Đếm ngược',
+    'intro.p1': '5.220 tấn, 33 động cơ Raptor, 71 MN lực đẩy. Đưa tầng trên lên <b>7.800 m/s</b> mà không xé nát thân tàu ở max-Q — bẻ lái mạnh lúc áp suất động cao thì tàu <b>gãy làm đôi</b>.',
+    'intro.p2': 'Tách tầng xong, quyền lái chuyển sang booster: boostback, entry burn, rồi hạ đúng vào <b>cánh tay tháp</b> — lệch dưới 10 m, chạm dưới 8 m/s.',
+    'lab.bTgt': 'Đích booster', 'lab.sTgt': 'Đích tàu (dọc / ngang)', 'lab.mis': 'Nhiệm vụ',
+    'lab.win': 'Cửa sổ phóng — phải đuổi', 'lab.crew': 'Dưỡng khí của đoàn', 'lab.pay': 'Hàng trong khoang',
+    'lab.wx': 'Thời tiết — đổi ở thanh trên cùng',
+    'btn.start': 'Xếp chồng & đếm ngược', 'btn.reroll': 'Đổi điểm hạ', 'btn.mis': 'Đổi nhiệm vụ',
+    'btn.win': 'Dời giờ phóng +15 phút', 'btn.pay': 'Đổi số vệ tinh',
+    'btn.payIss': 'Đổi người & hàng', 'btn.again': 'Phóng lại',
+    'ov.sumSpeed': 'Vận tốc', 'ov.sumBoost': 'Booster lệch', 'ov.sumShip': 'Ship lệch', 'ov.sumScore': 'Điểm',
+    'fd.mach': 'Mach', 'fd.q': 'Áp suất động', 'fd.gee': 'Gia tốc', 'fd.aoa': 'Góc tấn',
+    'fd.vs': 'Vận tốc đứng', 'fd.dr': 'Tầm xa', 'fd.miss': 'Lệch so với đích',
+    'fd.toBurn': 'Còn tới đốt hãm', 'fd.prop': 'Nhiên liệu', 'fd.eng': 'Động cơ',
+    'fd.lat': 'Lệch dọc', 'fd.cross': 'Lệch ngang',
+    'fd.tileT': 'Nhiệt tấm chắn', 'fd.aftT': 'Nhiệt thân sau',
+    'dk.range': 'Khoảng cách', 'dk.closing': 'Tốc độ khép', 'dk.lateral': 'Lệch ngang',
+    'dk.drift': 'Trôi ngang', 'dk.ang': 'Lệch góc',
+    'wx.calm': 'Lặng', 'wx.breezy': 'Gió nhẹ', 'wx.rain': 'Mưa', 'wx.snow': 'Tuyết',
+    'wx.gusty': 'Gió giật', 'wx.storm': 'Giông', 'wx.blizzard': 'Bão tuyết',
+  },
+  zh: {
+    'tgt.tower': '星舰基地塔架', 'tgt.offshore': '海上塔架 +{0} km',
+    'mis.starlink': 'Starlink \u2014 释放卫星', 'mis.iss': '国际空间站 \u2014 乘员 + 货物',
+    'mis.tnl': '在轨加注 \u2014 {0} km 燃料库，需 {1} 趟',
+    'mis.tnlN': '在轨加注 \u2014 第 {0} 趟，库存 {1} t',
+    'win.val': '{0} 小时 \u00b7 {1} 圈', 'crew.o2': '{0} 人 \u00b7 可供 {1} 小时',
+    'pay.crew': '{0} 人 \u00b7 {1} t 货物', 'pay.sats': '{0} 颗卫星 \u00b7 {1} t',
+    'pay.none': '不载货', 'pay.tnlCho': '加注飞船 \u2014 主贮箱，货舱空载',
+    'pay.tnlBen': '燃料库 \u2014 标准型，货舱空载',
+    'aria.warp': '模拟速度', 'aria.wx': '天气', 'aria.lang': '语言',
+    'tip.wxRnd': '随机天气', 'btn.skip': '⏭ 跳到下一事件', 'btn.mute': '声音',
+    'lab.padCool': '发射台冷却 — N 键', 'lab.water': '水量', 'lab.steel': '钢板',
+    'lab.padDmg': '发射台损伤', 'lab.att': '姿态控制', 'lab.rcs': 'RCS 气体',
+    'lab.wind': '风', 'lab.thr': '节流', 'lab.boost': '助推器',
+    'lab.shipMain': '飞船 — 主贮箱', 'txt.p2dead': '不可用',
+    'tip.p2dead': '腹部下落就是自由落体 — 没有重力。主贮箱里的推进剂漂浮着，无法沉降到泵入口，所以剩多少都没用。这正是 SpaceX 要为着陆点火单独做一个 header 贮箱的原因。',
+    'lab.header': 'Header 贮箱 — 着陆', 'lab.log': '飞行日志',
+    'lab.stick': '你在操纵 — W/S 迎角 · A/D 滚转 · Z 交还',
+    'cap.aoa': '迎角', 'cap.bank': '滚转',
+    'lab.hinge': '襟翼铰链 — 1500 K 以上烧蚀', 'lab.catch': '塔架对准',
+    'key.space': '发射 / 跳过堆叠', 'key.ws': '油门', 'key.ad': '转向',
+    'key.e': '发动机数', 'key.n': '发射台喷水', 'key.m': '声音', 'key.t': '自动驾驶',
+    'key.cam': '摄像机', 'key.cam2': '双画面', 'key.r': '重玩',
+    'tch.left': '◀ 转向', 'tch.launch': '发射', 'tch.auto': '自动', 'tch.right': '转向 ▶',
+    'lab.speed': '速度', 'lab.alt': '高度', 'lab.count': '倒计时',
+    'intro.p1': '5220 吨，33 台猛禽发动机，71 MN 推力。把上面级送到 <b>7800 m/s</b>，同时别在最大动压下把箭体撕开 — 动压高时猛打方向，飞船会<b>拦腰折断</b>。',
+    'intro.p2': '分离之后，操纵权交给助推器：返场点火、再入点火，然后正正落进<b>塔架机械臂</b> — 偏差 10 m 以内，接触速度 8 m/s 以内。',
+    'lab.bTgt': '助推器目标', 'lab.sTgt': '飞船目标（纵向 / 横向）', 'lab.mis': '任务',
+    'lab.win': '发射窗口 — 需要追赶', 'lab.crew': '乘员供氧', 'lab.pay': '舱内载荷',
+    'lab.wx': '天气 — 在顶栏更改',
+    'btn.start': '堆叠并倒计时', 'btn.reroll': '更换着陆点', 'btn.mis': '更换任务',
+    'btn.win': '推迟发射 +15 分钟', 'btn.pay': '更改卫星数量',
+    'btn.payIss': '更改乘员与货物', 'btn.again': '再次发射',
+    'ov.sumSpeed': '速度', 'ov.sumBoost': '助推器偏差', 'ov.sumShip': '飞船偏差', 'ov.sumScore': '得分',
+    'fd.mach': '马赫', 'fd.q': '动压', 'fd.gee': '加速度', 'fd.aoa': '迎角',
+    'fd.vs': '垂直速度', 'fd.dr': '射程', 'fd.miss': '相对目标偏差',
+    'fd.toBurn': '距着陆点火', 'fd.prop': '推进剂', 'fd.eng': '发动机',
+    'fd.lat': '纵向偏差', 'fd.cross': '横向偏差',
+    'fd.tileT': '隔热瓦温度', 'fd.aftT': '后体温度',
+    'dk.range': '距离', 'dk.closing': '接近速度', 'dk.lateral': '横向偏移',
+    'dk.drift': '横向漂移', 'dk.ang': '角度偏差',
+    'wx.calm': '无风', 'wx.breezy': '微风', 'wx.rain': '雨', 'wx.snow': '雪',
+    'wx.gusty': '阵风', 'wx.storm': '雷暴', 'wx.blizzard': '暴雪',
+  },
+};
+let LANG = 'en';
+function NG(k, ...a) {
+  const b = NGU[LANG];
+  let s = (b && k in b) ? b[k] : (k in NGU.en ? NGU.en[k] : null);
+  if (s == null) return k;
+  return a.length ? s.replace(/\{(\d+)\}/g, (_, i) => (a[i] === undefined ? '' : a[i])) : s;
+}
+/* Ve lai MOI nhan tinh. Cac o do JS dat chu (dich booster, nhiem vu, thoi
+   tiet, ten pha...) KHONG duoc gan data-i18n: gan vao thi doi ngon ngu se
+   ghi de gia tri that bang nhan chung. Chung duoc ve lai bang chinh ham da
+   ve ra chung, goi o cuoi ham nay. */
+function veNgonNgu() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(e => { e.textContent = NG(e.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-html]').forEach(e => { e.innerHTML = NG(e.dataset.i18nHtml); });
+  document.querySelectorAll('[data-i18n-title]').forEach(e => { e.title = NG(e.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(e => { e.setAttribute('aria-label', NG(e.dataset.i18nAria)); });
+  const sel = $('langSel'); if (sel) sel.value = LANG;
+  if (typeof veLaiUI === 'function') veLaiUI();
+}
+function datNgu(l) {
+  LANG = NGU[l] ? l : 'en';
+  try { localStorage.setItem('hotstage.lang', LANG); } catch (_) {}
+  veNgonNgu();
+}
+
+
 const canvas = $('scene');
 const renderer = new THREE.WebGLRenderer({
   canvas, antialias: true, logarithmicDepthBuffer: true, powerPreference: 'high-performance'
@@ -9030,7 +9224,13 @@ function rollTargets() {
   F.setShipTargetDr(sTargetDr);
   const a = sTargetDr / F.RE, c = sTargetCr / F.RE;
   S3.setTarget(S3.vnorm(S3.V(Math.sin(a) * Math.cos(c), Math.cos(a) * Math.cos(c), Math.sin(c))));
-  $('bTgt').textContent = tower ? 'Tháp Starbase' : 'Tháp ngoài khơi +' + (bTargetDr / 1000).toFixed(0) + ' km';
+  veDichUI();
+}
+/* Tach phan VE ra khoi phan BOC. veLaiUI() phai ve lai hai dong dich khi doi
+   ngon ngu, ma goi rollTargets() thi no boc lai diem ha moi — doi ngon ngu
+   khong duoc phep doi de bai. */
+function veDichUI() {
+  $('bTgt').textContent = bTargetDr === 0 ? NG('tgt.tower') : NG('tgt.offshore', (bTargetDr / 1000).toFixed(0));
   $('sTgt').textContent = (sTargetDr >= 0 ? '+' : '') + (sTargetDr / 1000).toFixed(0) + ' km'
     + ' / ' + (sTargetCr >= 0 ? '+' : '') + (sTargetCr / 1000).toFixed(0) + ' km';
 }
@@ -9135,12 +9335,15 @@ function reset() {
   document.querySelectorAll('#warp button').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === '1'));
 }
 
-const LABELS_ASCENT = ['Mach', 'Áp suất động', 'Gia tốc', 'Góc tấn', 'Vận tốc đứng', 'Tầm xa'];
-const LABELS_RETURN = ['Vận tốc đứng', 'Lệch so với đích', 'Còn tới đốt hãm', 'Nhiên liệu', 'Động cơ', 'Áp suất động'];
-const LABELS_SHIP = ['Vận tốc đứng', 'Lệch dọc', 'Lệch ngang', 'Góc tấn', 'Nhiệt tấm chắn', 'Nhiệt thân sau'];
+/* Khoa chu khong phai chu: nhan phai doc lai qua NG() MOI LAN ve, vi nguoi
+   choi doi ngon ngu giua chuyen bay thi mang hang so da chot tu luc nap trang
+   se khong doi theo. */
+const LABELS_ASCENT = ['fd.mach', 'fd.q', 'fd.gee', 'fd.aoa', 'fd.vs', 'fd.dr'];
+const LABELS_RETURN = ['fd.vs', 'fd.miss', 'fd.toBurn', 'fd.prop', 'fd.eng', 'fd.q'];
+const LABELS_SHIP = ['fd.vs', 'fd.lat', 'fd.cross', 'fd.aoa', 'fd.tileT', 'fd.aftT'];
 /* Sau o cho doan cap. Bon o giua chinh la bon nguong bat mem cua chuan IDSS,
    nen chung to xanh khi dat va do khi truot — doc mot cai la biet con thieu gi. */
-const LABELS_DOCK = ['Khoảng cách', 'Tốc độ khép', 'Lệch ngang', 'Trôi ngang', 'Lệch góc', 'Khí RCS'];
+const LABELS_DOCK = ['dk.range', 'dk.closing', 'dk.lateral', 'dk.drift', 'dk.ang', 'lab.rcs'];
 /* MOT THUOC DO DUY NHAT CHO CA CHUYEN: SO TAN.
    Truoc day thanh nhien lieu doi MAU SO giua cac pha, nen cung mot luong nhien lieu hien hai
    con so khac han:
@@ -9157,9 +9360,13 @@ function fuelBar(vId, bId, kg, fullKg) {
   $(bId).style.width = Math.max(0, Math.min(100, kg / fullKg * 100)) + '%';
 }
 
+/* Nho CHE DO dang bat: doi ngon ngu giua chuyen thi veLaiUI() phai ve lai
+   dung bo nhan dang hien, khong phai bo luc phong. */
+let cellMode = 'asc';
 function setCellLabels(mode) {
+  cellMode = mode || 'asc';
   const L = mode === 'dock' ? LABELS_DOCK : mode === 'ship' ? LABELS_SHIP : mode === 'ret' ? LABELS_RETURN : LABELS_ASCENT;
-  document.querySelectorAll('#fd .cell .lab').forEach((e, i) => e.textContent = L[i]);
+  document.querySelectorAll('#fd .cell .lab').forEach((e, i) => e.textContent = NG(L[i]));
   /* Xoa luon MAU cu. Bang so doan cap to ' ok' / ' crit' cho ca bon o giua, nhung
      chi o 1 va o 3 duoc ghi lai moi khung — o 2 va o 4 khong ai xoa. Doi nhan bao
      gio cung la doi pha, nen day la cho dung de tra mau ve goc. */
@@ -9312,17 +9519,17 @@ function setMisUI() {
   const tnl_ = missionType === 'tiepnhienlieu';
   $('misTgt').textContent = tnl_
     ? (TNL && TNL.ben
-        ? `Tiếp nhiên liệu — chuyến ${TNL.nChuyen + 1}, bến ${(TNL.ben.prop2 / 1000).toFixed(0)} t`
-        : `Tiếp nhiên liệu — bến ${(TNL_ALT / 1000).toFixed(0)} km, cần ${TNL_CAN} chuyến`)
-    : iss_ ? 'Trạm ISS — người + hàng' : 'Starlink — thả vệ tinh';
-  $('payBtn').textContent = iss_ ? 'Đổi người & hàng' : 'Đổi số vệ tinh';
+        ? NG('mis.tnlN', TNL.nChuyen + 1, (TNL.ben.prop2 / 1000).toFixed(0))
+        : NG('mis.tnl', (TNL_ALT / 1000).toFixed(0), TNL_CAN))
+    : iss_ ? NG('mis.iss') : NG('mis.starlink');
+  $('payBtn').textContent = NG(iss_ ? 'btn.payIss' : 'btn.pay');
   $('winRow').hidden = !iss_; $('crewRow').hidden = !iss_; $('winBtn').hidden = !iss_;
   if (iss_) {
     const w = duDoanCuaSo();
     const gio = w.wait / 3600, o2 = o2Gio();
-    $('winTgt').innerHTML = `${gio.toFixed(1)} giờ · ${w.orbits.toFixed(1)} vòng`;
+    $('winTgt').innerHTML = NG('win.val', gio.toFixed(1), w.orbits.toFixed(1));
     $('winTgt').style.color = gio > o2 * .8 ? 'var(--abort)' : gio > 8 ? 'var(--caution)' : 'var(--nominal)';
-    $('crewTgt').textContent = `${crewN()} người · đủ ${o2.toFixed(0)} giờ`;
+    $('crewTgt').textContent = NG('crew.o2', crewN(), o2.toFixed(0));
   }
   setPayUI();
 }
@@ -9343,11 +9550,11 @@ $('misBtn').onclick = () => {
 
 function setPayUI() {
   if (missionType === 'iss') {
-    $('payTgt').textContent = `${crewN()} người · ${(cargoKg() / 1000).toFixed(0)} t hàng`;
+    $('payTgt').textContent = NG('pay.crew', crewN(), (cargoKg() / 1000).toFixed(0));
     /* Duong khi tinh bang NGUOI-GIO nen doi so nguoi la doi luon suc ben — phai
        ve o day chu khong chi trong setMisUI, vi nut doi hang goi thang ham nay. */
     const tran = o2Gio(), w = duDoanCuaSo();
-    $('crewTgt').textContent = `${crewN()} người · đủ ${tran.toFixed(0)} giờ`;
+    $('crewTgt').textContent = NG('crew.o2', crewN(), tran.toFixed(0));
     $('crewTgt').style.color = w.wait / 3600 > tran * .8 ? 'var(--abort)'
                              : w.wait / 3600 > tran * .5 ? 'var(--caution)' : 'var(--steel)';
     return;
@@ -9357,13 +9564,11 @@ function setPayUI() {
        trong khoang. Do duoc: cho nhien lieu trong khoang hang la LO RONG —
        moi tan hang lam giam 0,206 t giao duoc, vi no di theo tau suot ca chang
        len VA ca cu dot chuyen quy dao. */
-    $('payTgt').textContent = TNL && TNL.ben
-      ? `Tàu chở — bồn chính, khoang trống`
-      : `Bến chứa — bản chuẩn, khoang trống`;
+    $('payTgt').textContent = NG(TNL && TNL.ben ? 'pay.tnlCho' : 'pay.tnlBen');
     return;
   }
-  $('payTgt').textContent = payloadSats === 0 ? 'Không chở'
-    : `${payloadSats} vệ tinh · ${(payloadSats * 0.8).toFixed(0)} t`;
+  $('payTgt').textContent = payloadSats === 0 ? NG('pay.none')
+    : NG('pay.sats', payloadSats, (payloadSats * 0.8).toFixed(0));
 }
 $('payBtn').onclick = () => {
   if (phase !== 'PRE') return;
@@ -9387,15 +9592,18 @@ $('tA').onclick = () => {
   held['w'] = true; setTimeout(() => held['w'] = false, 260);
 };
 $('tT').onclick = toggleAuto;
+/* Ten thoi tiet duoc DICH O LOP HIEN, khong dich trong flight.js: mo-dun do
+   phai chay duoc bang node cho cac bo cham, khong duoc dinh gi toi ngon ngu.
+   `name` trong do gio chi con la nhan goc de doc ma. */
 F.WX_KEYS.forEach(k => {
   const o = document.createElement('option');
-  o.value = k; o.textContent = F.WEATHER[k].name; $('wxSel').appendChild(o);
+  o.value = k; o.dataset.i18n = 'wx.' + k; o.textContent = NG('wx.' + k); $('wxSel').appendChild(o);
 });
 /* Dong bo o chon + dong chu tren man hinh mo dau voi thoi tiet dang dat. */
 function showWx() {
   const w = F.getWeather(), k = F.WX_KEYS.find(x => F.WEATHER[x] === w) || 'calm';
   if ($('wxSel')) $('wxSel').value = k;
-  if ($('wxTgt')) $('wxTgt').textContent = w.name;
+  if ($('wxTgt')) $('wxTgt').textContent = NG('wx.' + k);
 }
 /* Dem nguoc van la TRUOC khi phong, khong co ly do gi khoa o do. Con o man
    hinh ket thuc thi chon truoc cho luot sau — 'Phong lai' gio giu nguyen
@@ -11581,6 +11789,33 @@ const datSanDuoi = () =>
 if (window.ResizeObserver) new ResizeObserver(datSanDuoi).observe($('strip'));
 else addEventListener('resize', datSanDuoi);
 datSanDuoi();
+
+/* ===== NOI NGON NGU VAO UI =====
+   veNgonNgu() chi ve duoc nhung o co data-i18n. Nhung o do JS ghi chu —
+   dich booster, nhiem vu, hang trong khoang, thoi tiet, nhan sau o so lieu —
+   phai duoc chinh ham da ve ra chung ve lai. Tat ca deu la ham THUAN VE,
+   khong boc lai gi: veDichUI() duoc tach ra khoi rollTargets() dung vi the.
+   Boc trong try: mot nhan dich hong khong duoc phep lam chet ca trang. */
+function veLaiUI() {
+  try {
+    setCellLabels(cellMode);
+    showWx();
+    veDichUI();
+    setMisUI();
+  } catch (e) { console.warn('veLaiUI', e); }
+}
+NGU_DS.forEach(([k, ten]) => {
+  const o = document.createElement('option');
+  o.value = k; o.textContent = ten;        // ten ngon ngu viet BANG CHINH no, khong dich
+  $('langSel').appendChild(o);
+});
+$('langSel').onchange = () => datNgu($('langSel').value);
+/* MAC DINH TIENG ANH, va khong doan theo navigator.language: nguoi dung chot
+   "tieng Anh la mac dinh", doan theo trinh duyet thi may o Viet Nam lai ra
+   tieng Viet. Chi lua chon da luu moi de len mac dinh do. */
+let nguLuu = null;
+try { nguLuu = localStorage.getItem('hotstage.lang'); } catch (_) {}
+datNgu(NGU[nguLuu] ? nguLuu : 'en');
 
 /* ===================== BANG CHINH (phim O) =====================
    Tao khong nhin duoc man hinh cua nguoi choi, nen doan mo tung con so la moi
