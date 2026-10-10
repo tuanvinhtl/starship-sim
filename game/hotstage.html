@@ -9631,12 +9631,28 @@ let tnl = null;                 // trang thai hen gap cua chuyen tau cho dang ba
    mot lop loi moi de sua mot cho khong can sua. */
 function tnlChuyenSau() {
   const giu = TNL;
+  /* GIU CA NHAT KY. reset() xoa `#log` sach tron, nen truoc ban nay nguoi choi
+     mat TOAN BO phan cuoi cua chuyen vua xong chi mot nhip sau khi no hien ra:
+     ben vao vi tri, da giao bao nhieu tan, dong ho bay hoi, VA CA KET QUA HA
+     CANH cua booster lan tau cho — chuyen cho co roi xuong bien thi man hinh
+     giua hai chuyen cung y nguyen nhu khi no ve nguyen lanh. Dem di 14 dong
+     cuoi la du: logLine tu chot o 14 nen giu lai het cung khong phinh ra. */
+  const nk = $('log').innerHTML;
   reset();
   TNL = giu;
+  $('log').innerHTML = nk;
   const t = F.tliNeed(TNL.ben);
-  logLine(`— Chuyến ${TNL.nChuyen}/${TNL_CAN} xong. Bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t, `
-        + `TLI cần ${(t.need / 1000).toFixed(1)} t —`, 'hi');
-  logLine('Bấm Phóng để đưa chuyến tiếp theo lên', 'hi');
+  const bh = (TNL.ben.boiled || 0) / 1000;
+  /* Lan phong 1 la BEN CHUA, khong phai mot chuyen cho. Goi no "Chuyen 0/3
+     xong" la vo nghia — do dung cai nguoi choi doc duoc truoc ban nay. */
+  logLine(TNL.nChuyen === 0
+    ? `— BẾN vào vị trí: ${(TNL.ben.prop2 / 1000).toFixed(1)} t · TLI cần ${(t.need / 1000).toFixed(1)} t —`
+    : `— Chuyến ${TNL.nChuyen}/${TNL_CAN} xong. Bến có ${(TNL.ben.prop2 / 1000).toFixed(1)} t, `
+      + `TLI cần ${(t.need / 1000).toFixed(1)} t —`, 'hi');
+  logLine(`Thiếu ${((t.need - TNL.ben.prop2) / 1000).toFixed(1)} t · bến đã trên quỹ đạo `
+        + `${TNL.ngay.toFixed(1)} ngày, bay hơi mất ${bh.toFixed(1)} t`, bh > 0 ? 'bad' : 'hi');
+  /* Noi dung nut THAT: khong co nut nao ten "Phong" o man hinh mo dau. */
+  logLine('Bấm “Xếp chồng &amp; đếm ngược” để đưa chuyến tiếp theo lên', 'hi');
   setMisUI();
 }
 
@@ -11932,8 +11948,13 @@ function frame(now) {
     /* Doan tiep can dai 84 phut va truoc day la MOT pha con duy nhat, nen nut
        tua khong co gi de dung lai — phai ngoi xem het. Bam nho ra theo TUNG MOC
        thi may tua tu dong dung o moi moc, xem duoc cu dot roi tua tiep. */
+    /* `tnl` phai co mat o day. Khong co no thi subPhase() tra ve 'TNLCHO' suot ca
+       chuyen tau cho, va mot cu tua se chay thang tu doi pha qua chuyen quy dao,
+       qua ca doan tiep can VA cu bat mem, den khi `phase` doi — tuc tua qua dung
+       cai doan dang xem nhat. */
     const subPhase = () => shr ? shr.phase
       : iss ? (iss.phase === 'APPROACH' ? 'AP' + (iss.wp === undefined ? '-' : iss.wp) : iss.phase)
+      : tnl ? (tnl.phase === 'APPROACH' ? 'AP' + (tnl.wp === undefined ? '-' : tnl.wp) : tnl.phase)
       : bo ? bo.phase : phase;
     const p0 = subPhase();
     if (turbo) acc = DT * 4000;
@@ -12997,7 +13018,15 @@ function frame(now) {
             /* Dung o moc ap chot chu khong phai moc cuoi: tu 137 m tro vao la
                doan dang xem nhat — vao hanh lang, cham toc do khep, bat mem.
                Tua qua no thi con gi de xem. */
-            || (iss.phase === 'APPROACH' && iss.wp !== undefined && iss.wp < D.WP.length - 1))));
+            || (iss.phase === 'APPROACH' && iss.wp !== undefined && iss.wp < D.WP.length - 1)))
+       /* HAI PHA TIEP NHIEN LIEU. Chung dai hon ca chuyen ISS — TNLBEN la 45 phut
+          bay len vien diem, TNLCHO la toi 28 gio doi pha — ma truoc day khong co
+          mot nhanh nao o day, nen nut tua bi AN suot ca chien dich. Te hon:
+          startTnlCho() in ra dong "Bam Tua toi su kien neu khong muon cho", tro
+          nguoi choi vao mot cai nut khong he hien ra. */
+       || phase === 'TNLBEN'
+       || (phase === 'TNLCHO' && tnl && (tnl.phase === 'PHASING' || tnl.phase === 'TRANSFER' || tnl.phase === 'DOCKED'
+            || (tnl.phase === 'APPROACH' && tnl.wp !== undefined && tnl.wp < D.WP.length - 1))));
     $('skip').hidden = !canSkip;
   }
 }
