@@ -19,11 +19,13 @@
      endpoint của chính mình trên cùng tên miền — việc đó cần máy chủ. -->
 <script>
 (function () {
-  const MA_DEM = '';                       // ví dụ: 'starship-sim'
+  const MA_DEM = 'tuanvinhtl';             // tuanvinhtl.goatcounter.com
   if (!MA_DEM) return;
   const s = document.createElement('script');
   s.async = true;
-  s.src = '//gc.zgo.at/count.js';
+  /* Pin cung https. URL khong giao thuc ('//...') se theo giao thuc cua
+     trang — do duoc o ban chay thu: trang http thi no di lay qua http. */
+  s.src = 'https://gc.zgo.at/count.js';
   s.setAttribute('data-goatcounter', 'https://' + MA_DEM + '.goatcounter.com/count');
   document.head.appendChild(s);
 })();
