@@ -130,7 +130,42 @@ hiện ra khi có GPU.
 node tools/boosteval.js sweep <nhãn>   # 28 chuyến booster vào tháp
 node tools/shipeval.js  run   <nhãn>   # tàu tái nhập, nhiều thời tiết và seed
 node tools/isseval.js   sweep          # trọn chuyến ISS: đuổi pha, chuyển quỹ đạo, cập
+node tools/fueleval.js                 # chiến dịch tiếp nhiên liệu: quét giờ phóng
 ```
+
+## Đo người chơi
+
+Trang nằm trên GitHub Pages nên **không có log máy chủ**, và tab Insights của repo
+đếm lượt xem trang *repo* trên github.com chứ không đếm site `github.io` — nên
+không có nguồn sẵn nào dùng được. Phải tự gắn.
+
+Ba bước:
+
+1. Đăng ký một site ở <https://www.goatcounter.com> (miễn phí cho mục đích phi
+   thương mại). Lấy mã site — phần trước `.goatcounter.com`.
+2. Điền mã đó vào `MA_DEM` trong `index.html` **và** `game/hotstage.html`. Để
+   trống thì không nạp gì cả, trang chạy y nguyên.
+3. Tạo token ở Settings → API của site đó, rồi:
+
+```bash
+GC_SITE=<mã-site> GC_TOKEN=<token> node tools/playeval.js --ngay 28
+```
+
+Ngoài lượt xem, game gửi về đúng ba sự kiện: `launch/<nhiệm vụ>` mỗi lần phóng,
+`end/<kết cục>` mỗi lần hết chuyến, và `lang/<ngôn ngữ>` một lần mỗi phiên. Lượt
+xem không trả lời được câu hỏi thật — **vào rồi có chơi không** mới là câu hỏi, và
+tỉ lệ `launch ÷ lượt xem` trả lời nó. Lượt xem tăng mà tỉ lệ đó tụt thì không phải
+đang lớn lên, là đang bị ghé qua rồi bỏ đi.
+
+Không dùng Google Analytics vì ba lý do đo được: nó bị chặn bởi gần như mọi danh
+sách chặn quảng cáo (mà người chơi trò này là dân kỹ thuật — tỉ lệ chặn cao), tỉ lệ
+chặn đó **thay đổi theo nguồn traffic** nên đổi kênh quảng bá trông y hệt đổi tăng
+trưởng, và nó đặt cookie nên phải dựng banner xin phép cho khách EU. GoatCounter
+không cookie và có API JSON thật để `playeval.js` đọc thẳng.
+
+Mọi bộ đếm chạy ở trình duyệt đều đếm thiếu, kể cả cái này. Số đọc ra là **cận
+dưới**, và chỉ so sánh được hai kỳ khi nguồn traffic không đổi. Muốn hết thiếu thì
+phải có endpoint của chính mình trên cùng tên miền — việc đó cần máy chủ.
 
 ## Cấu trúc
 

@@ -1,5 +1,30 @@
 <meta charset="utf-8">
 <title>Hot Stage</title>
+
+<!-- ===================== ĐẾM LƯỢT CHƠI =====================
+     Đổi MA_DEM thành mã GoatCounter của mình (phần trước .goatcounter.com).
+     Để trống thì KHÔNG nạp gì cả và trang chạy y nguyên — nên commit được
+     trước khi đăng ký, không làm hỏng gì.
+
+     GoatCounter chứ không phải Google Analytics, vì ba lý do đo được:
+     · GA bị chặn bởi gần như mọi danh sách chặn quảng cáo, mà người chơi của
+       trò này là dân kỹ thuật — tỉ lệ chặn cao. Tệ hơn: tỉ lệ đó THAY ĐỔI
+       theo nguồn traffic, nên đổi kênh quảng bá trông y như đổi tăng trưởng.
+     · không cookie → không phải dựng banner xin phép cho khách EU.
+     · có API JSON thật, nên tools/playeval.js đọc thẳng được.
+     Mọi bộ đếm chạy ở trình duyệt đều đếm thiếu. Muốn hết thiếu thì phải có
+     endpoint của chính mình trên cùng tên miền — việc đó cần máy chủ. -->
+<script>
+(function () {
+  const MA_DEM = '';                       // ví dụ: 'starship-sim'
+  if (!MA_DEM) return;
+  const s = document.createElement('script');
+  s.async = true;
+  s.src = '//gc.zgo.at/count.js';
+  s.setAttribute('data-goatcounter', 'https://' + MA_DEM + '.goatcounter.com/count');
+  document.head.appendChild(s);
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=Saira:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -10505,8 +10530,31 @@ $('wxRnd').onclick = () => {
 };
 $('skip').onclick = () => { turbo = true; $('skip').classList.add('busy'); $('skip').textContent = NG('btn.skipping'); };
 
+/* ===== BA SU KIEN GUI VE BO DEM =====
+   Luot xem khong tra loi duoc cau hoi that. Cau hoi that la: vao roi co CHOI
+   khong, va choi xong co het chuyen khong. Nen gui them dung ba thu:
+     launch/<nhiem vu>   mot lan moi chuyen bay
+     end/<ket cuc>       mot lan moi chuyen bay ket thuc
+     lang/<ngon ngu>     mot lan moi phien
+   Ba cai do cho ra ti le CHOI = launch/luot xem, va ti le XONG = end/launch.
+   Giu dung ba — moi su kien an mot suat trong han 100k/thang cua ban mien
+   phi, va ~2 su kien mot chuyen bay la du de doc duoc duong cong.
+
+   Ten su kien KHONG dich: no la khoa thong ke, khong phai chu cho nguoi doc.
+   Boc trong try va kiem ca `goatcounter`: bi chan quang cao thi doi tuong do
+   khong ton tai, va mot bo dem hong khong duoc phep lam hong luot choi. */
+function dem(duong) {
+  try {
+    if (window.goatcounter && typeof goatcounter.count === 'function')
+      goatcounter.count({ path: duong, event: true });
+  } catch (_) {}
+}
+let demNgu = false;
+
 function launch() {
   if (phase !== 'PRE') return;
+  dem('launch/' + missionType);
+  if (!demNgu) { demNgu = true; dem('lang/' + LANG); }
   Sfx.init();                       // AudioContext chi tao duoc sau thao tac cua nguoi dung
   primeTextures();                  // may/mua cua thoi tiet vua chon: nap ngay, dung de no dot giua chuyen
   $('intro').hidden = true;
@@ -10763,6 +10811,7 @@ function tnlChuyenSau() {
   logLine(NG('m.shortDays', ((t.need - TNL.ben.prop2) / 1000).toFixed(1))
         + NG('m.daysBoil', TNL.ngay.toFixed(1), bh.toFixed(1)), bh > 0 ? 'bad' : 'hi');
   /* Noi dung nut THAT: khong co nut nao ten "Phong" o man hinh mo dau. */
+  dem('end/tnl-leg');     // chang giua cua chien dich khong di qua endGame day du
   logLine(NG('lg.nextFlight'), 'hi');
   setMisUI();
 }
@@ -11641,6 +11690,10 @@ function endGame() {
   const HEAD = (bOut === 'perfect' || bOut === 'caught') && (sOut === 'bullseye' || sOut === 'ontarget')
       ? NG('res.both') : sOut === 'crash' ? NG('res.shipCrash')
       : bOut === 'crash' ? NG('lg.boostLost') : shipOK ? NG('ph.done') : NG('ph.failed');
+  /* Nhan ket cuc lay tu bOut/sOut chu khong tu HEAD: HEAD la chu DA DICH,
+     dung no lam khoa thi moi ngon ngu de ra mot nhom rieng. */
+  dem('end/' + ((bOut === 'perfect' || bOut === 'caught') && (sOut === 'bullseye' || sOut === 'ontarget') ? 'both'
+      : sOut === 'crash' ? 'shipcrash' : bOut === 'crash' ? 'boostlost' : shipOK ? 'orbit' : 'failed'));
   $('ovh').textContent = HEAD;
   $('ovs').textContent = `Booster: ${BN} · Ship: ${SN}`;
   $('s1').textContent = tel.speed.toFixed(0);
